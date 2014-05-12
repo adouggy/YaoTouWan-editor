@@ -1,0 +1,31 @@
+package me.yaotouwan.uicommon;
+
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+
+import java.util.List;
+
+/**
+ * Created by jason on 14-3-31.
+ */
+public class ActionSheet {
+
+    public static void showWithItems(Context ctx, final List<ActionSheetItem> items) {
+        AlertDialog.Builder menuDialog = new AlertDialog.Builder(ctx);
+        String[] titles = new String[items.size()];
+        for (int i=0; i<items.size(); i++) {
+            titles[i] = items.get(i).title;
+        }
+        menuDialog.setItems(titles, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                ActionSheetItem.ActionSheetItemOnClickListener task = items.get(which).itemOnClickListener;
+                if (task != null) {
+                    items.get(which).itemOnClickListener.onClick();
+                }
+            }
+        });
+        menuDialog.show();
+    }
+}

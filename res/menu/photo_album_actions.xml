@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+	<item android:title="@string/insert_media_title_capture"
+	      android:showAsAction="always"
+	      android:icon="@drawable/photo_album_action_btn_camera"
+	      android:onClick="onCameraClick"
+		/>
+</menu>

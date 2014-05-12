@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+	<style name="PopupTheme" parent="android:Theme.Holo.Light.Dialog">
+		<item name="android:windowIsFloating">false</item>
+		<item name="android:windowContentOverlay">@null</item>
+		<item name="android:windowSoftInputMode">stateAlwaysVisible</item>
+		<item name="android:windowActionModeOverlay">true</item>
+		<item name="android:windowIsTranslucent">true</item>
+	</style>
+
+	<style name="PreviewPhotoTheme" parent="@android:style/Theme.Holo.Light">
+		<item name="android:windowActionBarOverlay">true</item>
+		<item name="android:actionBarStyle">@style/PreviewPhotoTheme.ActionBar</item>
+		<item name="android:actionMenuTextColor">@color/white</item>
+		<item name="android:homeAsUpIndicator">@drawable/post_action_bar_icon_back</item>
+	</style>
+
+	<style name="PreviewPhotoTheme.ActionBar" parent="@android:style/Widget.Holo.Light.ActionBar">
+		<item name="android:background">@color/action_bar_background_transparent</item>
+		<item name="android:titleTextStyle">@style/PostTheme.ActionBar.Text</item>
+	</style>
+
+	<style name="PostTheme" parent="@android:style/Theme.Holo.Light">
+		<item name="android:actionBarStyle">@style/PostTheme.ActionBar</item>
+		<item name="android:actionMenuTextColor">@color/white</item>
+		<item name="android:homeAsUpIndicator">@drawable/post_action_bar_icon_back</item>
+	</style>
+
+	<style name="PostTheme.ActionBar" parent="@android:style/Widget.Holo.Light.ActionBar">
+		<item name="android:background">@color/action_bar_background</item>
+		<item name="android:titleTextStyle">@style/PostTheme.ActionBar.Text</item>
+	</style>
+
+	<style name="PostTheme.ActionBar.Text" parent="@android:style/TextAppearance">
+		<item name="android:textColor">@color/white</item>
+	</style>
+</resources>

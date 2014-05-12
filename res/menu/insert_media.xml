@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+	<item android:id="@+id/insert_media_menu_item_select_image_from_gallery"
+	      android:title="@string/insert_media_title_select_image_from_gallery"
+	      />
+	<item android:id="@+id/insert_media_menu_item_capture"
+	      android:title="@string/insert_media_title_capture"
+			/>
+	<item android:id="@+id/insert_media_menu_item_select_video_recorded"
+	      android:title="@string/insert_media_title_select_video_recorded"
+			/>
+	<item android:id="@+id/insert_media_menu_item_record_video"
+	      android:title="@string/insert_media_title_record_video"
+			/>
+	<item android:id="@+id/insert_media_menu_item_record_screen"
+	      android:title="@string/insert_media_title_record_screen"
+			/>
+</menu>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:id="@id/root_layout"
+              android:background="#ccc"
+		>
+	<LinearLayout
+			android:id="@+id/post_editor_dialog_image_wrapper"
+			android:orientation="vertical"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:background="@color/white"
+			android:layout_marginLeft="10dp"
+			android:layout_marginRight="10dp"
+			>
+		<View android:layout_width="match_parent"
+		      android:layout_height="10dp"
+		      android:background="#ccc"
+				/>
+		<ImageView
+				android:id="@+id/post_editor_dialog_preview"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:scaleType="fitCenter"
+		        android:contentDescription="@string/post_editor_preview_desc"
+				/>
+
+		<EditText
+				android:id="@+id/post_editor_dialog_text"
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+				android:hint="@string/post_section_hint"
+				android:gravity="top"
+		        android:background="#f5f5f5"
+		        android:padding="10dp"
+				>
+			<requestFocus />
+		</EditText>
+		<View android:layout_width="match_parent"
+		      android:layout_height="10dp"
+		      android:background="#ccc"
+				/>
+	</LinearLayout>
+
+</ScrollView>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="#FFF"
+		>
+
+	<TextView
+			android:id="@+id/state_label"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="@string/rotate_device_to_change_video_orientation"
+			android:background="#0000"
+			android:layout_gravity="center"
+			android:layout_centerHorizontal="true"
+	        android:textSize="18sp"
+	        android:layout_marginTop="5dp"
+	        android:textColor="#F33"
+			/>
+
+	<RelativeLayout
+			android:orientation="vertical"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_centerInParent="true"
+			>
+		<ImageView
+				android:id="@+id/nexus_image"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:src="@drawable/nexus_one"
+				android:background="@color/clear"
+				/>
+		<ImageView
+				android:id="@+id/record_screen_up_button"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:src="@drawable/screen_orientation_up"
+				android:background="@color/clear"
+				android:layout_centerInParent="true"
+				/>
+	</RelativeLayout>
+
+	<Button
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="@string/video_encoder_show_touches_option_title_off"
+			android:layout_alignParentLeft="true"
+			android:layout_alignParentBottom="true"
+			android:layout_margin="5dp"
+			android:onClick="showTouchesOptionOnClick"
+			android:background="@color/clear"
+			android:textColor="@color/button_default"
+			/>
+
+	<ImageButton
+			android:id="@+id/record_screen_start_btn"
+			android:layout_width="80dp"
+			android:layout_height="80dp"
+			android:background="#0000"
+			android:src="@drawable/btn_start_record"
+			android:layout_gravity="center"
+			android:scaleType="fitXY"
+			android:layout_margin="5dp"
+			android:onClick="startRecordButtonClicked"
+			android:layout_centerHorizontal="true"
+			android:layout_alignParentBottom="true"
+			/>
+
+	<Button
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+	        android:text="@string/video_encoder_quality_option_title_default"
+	        android:layout_alignParentRight="true"
+	        android:layout_alignParentBottom="true"
+	        android:layout_margin="5dp"
+	        android:onClick="videoQualityOptionOnClick"
+	        android:background="@color/clear"
+	        android:textColor="@color/button_default"
+			/>
+</RelativeLayout>

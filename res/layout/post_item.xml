@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<me.yaotouwan.post.PostItemLayout
+		xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:background="@color/white"
+              android:id="@+id/post_item_root_layout"
+              android:tag="1024"
+		>
+	<LinearLayout
+			android:id="@+id/post_item_content_group"
+			android:orientation="vertical"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:background="@color/white"
+			android:paddingLeft="10dp"
+			android:paddingRight="10dp"
+			>
+		<RelativeLayout android:id="@+id/post_item_preview"
+		                android:layout_width="match_parent"
+		                android:layout_height="wrap_content"
+		                android:background="@color/clear"
+				>
+			<!--这里的预览图-->
+			<me.yaotouwan.post.PreviewImageButton
+					android:id="@+id/post_item_image"
+					android:layout_width="match_parent"
+					android:layout_height="200dp"
+					android:background="@color/clear"
+					android:scaleType="centerCrop"
+					android:visibility="gone"
+					android:layout_marginTop="10dp"
+					android:enabled="false"
+					/>
+			<!--视频播放的按钮，放在正中间-->
+			<me.yaotouwan.post.PreviewImageButton
+					android:id="@+id/post_item_video_play_btn"
+					android:layout_width="match_parent"
+					android:layout_height="match_parent"
+					android:layout_centerVertical="true"
+					android:visibility="gone"
+					android:background="@color/clear"
+					android:src="@drawable/btn_play_video"
+					android:enabled="false"
+					/>
+		</RelativeLayout>
+
+		<me.yaotouwan.post.TextEditor
+				android:id="@+id/post_item_text"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:textColor="@color/black"
+				android:gravity="top"
+				android:background="@color/white"
+				android:paddingTop="10dp"
+				android:paddingBottom="15dp"
+				android:paddingLeft="10dp"
+				android:paddingRight="10dp"
+				android:enabled="false"
+				android:inputType="textMultiLine"
+				android:isScrollContainer="true"
+				/>
+	</LinearLayout>
+
+	<ImageView
+			android:id="@id/drag_handle"
+			android:background="@color/clear"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:scaleType="fitXY"
+			android:contentDescription="@string/post_drag_section"
+			/>
+</me.yaotouwan.post.PostItemLayout>

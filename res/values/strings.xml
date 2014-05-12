@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">摇头玩</string>
+	<string name="post_item_insert_image">插图</string>
+	<string name="post_append_section_btn">添加段落</string>
+	<string name="confirm">确定</string>
+	<string name="cancel">取消</string>
+	<string name="back">返回</string>
+	<string name="finish">完成</string>
+	<string name="insert_media_title_select_image_from_gallery">从相册选取图片</string>
+	<string name="insert_media_title_capture">拍照</string>
+	<string name="insert_media_title_select_video_recorded">选取视频</string>
+	<string name="insert_media_title_record_video">录制视频</string>
+	<string name="insert_media_title_record_screen">游戏录屏</string>
+	<string name="delete">删除</string>
+	<string name="confirm_delete">确认删除</string>
+	<string name="sdcard">SD卡</string>
+	<string name="in_app">应用内</string>
+	<string name="post_title_hint">输入标题</string>
+	<string name="post_section_hint">输入正文</string>
+	<string name="post_image_desc_hint">为图片添加说明</string>
+	<string name="post_video_desc_hint">为视频添加说明</string>
+	<string name="post_select_section_type_title">选择段落类型</string>
+	<string name="post_select_section_type_title_text">文字段落</string>
+	<string name="post_select_section_type_title_select_photo">选取图片</string>
+	<string name="post_select_section_type_title_take_photo">拍摄拍照</string>
+	<string name="post_select_section_type_title_record_game">录制游戏</string>
+	<string name="post_select_section_type_title_select_video">选取视频</string>
+	<string name="post_select_section_type_title_record_video">拍摄视频</string>
+	<string name="post_editor_giveup_change">放弃修改</string>
+	<string name="post_not_save_draft">放弃修改</string>
+	<string name="post_save_draft">保存草稿</string>
+	<string name="post_title">发文章</string>
+	<string name="post_drag_section">拖拽以调整段落顺序</string>
+	<string name="post_remove_section">点击以删除段落</string>
+	<string name="post_edit_section_btn">编辑段落</string>
+	<string name="post_item_edit_menu_delete">删除</string>
+	<string name="post_item_edit_menu_bold">粗体</string>
+	<string name="post_item_edit_menu_italy">斜体</string>
+	<string name="post_item_edit_menu_edit">编辑</string>
+	<string name="post_item_delete_row">删除段落</string>
+
+	<string name="start_recording">开始录制游戏</string>
+	<string name="stop_recording">结束录制游戏</string>
+
+	<string name="start_playing">播放</string>
+	<string name="pause_playing">暂停</string>
+	<string name="stop_playing">停止</string>
+	<string name="cut_video">剪切</string>
+	<string name="root_permission_needed">此功能需要root权限</string>
+	<string name="low_memory_alert_for_recording_screen">内存不足，无法使用录制游戏功能</string>
+	<string name="record_screen_will_enter_background_alert">摇头玩即将进入后台</string>
+	<string name="never_alert_again">不再提示</string>
+	<string name="ok">确定</string>
+	<string name="record_screen_auto_stopped_alert">录制已自动完成</string>
+	<string name="rotate_device_to_change_video_orientation">旋转设备来调整录制视频方向</string>
+	<string name="select_game_title">选择准备录制的游戏</string>
+	<string name="select_game_other_btn">其他游戏</string>
+	<string name="cut_video_action_cut">修剪</string>
+	<string name="cut_video_giveup">放弃编辑的视频</string>
+
+	<string name="main_action_bar_title">摇头玩</string>
+
+	<string name="confirm_photo_retake">重拍</string>
+	<string name="confirm_photo_reselect">重选</string>
+	<string name="confirm_photo_edit">编辑</string>
+	<string name="confirm_photo_confirm">确定</string>
+	<string name="select_game_waiting_tip">正在载入已安装游戏，请稍后…</string>
+	<string name="video_encoder_quality_option">画质</string>
+	<string name="video_encoder_quality_option_title_default">画质(中等)</string>
+	<string name="video_encoder_show_touches_option_title_off">收拾跟踪(已关闭)</string>
+	<string name="video_encoder_show_touches_option_title_on">收拾跟踪(已开启)</string>
+	<string name="video_encoder_quality_option_high">高清</string>
+	<string name="video_encoder_quality_option_title_high">画质(高清)</string>
+	<string name="video_encoder_quality_option_middle">中等</string>
+	<string name="video_encoder_quality_option_title_middle">画质(中等)</string>
+	<string name="video_encoder_quality_option_low">流畅</string>
+	<string name="video_encoder_quality_option_title_low">画质(流畅)</string>
+
+	<string name="post_action_append_section">添加段落</string>
+	<string name="post_action_edit_sections">编辑段落</string>
+	<string name="post_action_next">完成</string>
+	<string name="post_editor_preview_desc">预览</string>
+	<string name="post_editor_action_done">完成</string>
+	<string name="post_editor_action_save">保存</string>
+
+	<string name="photo_album_title">照片</string>
+	<string name="select_photo_title">选照片</string>
+	<string name="select_photo_giveup">放弃选择</string>
+	<string name="video_album_title">视频</string>
+	<string name="select_video_title">选视频</string>
+	<string name="please_wait">请稍后…</string>
+
+
+	<string name="action_settings">Settings</string>
+	<string name="title">Screen Recorder</string>
+	<string name="start_button">Start</string>
+	<string name="stop_button">Stop</string>
+	<string name="publish_button">Publish</string>
+	<string name="cut_button">Cut Video</string>
+
+	<string name="video_player">Video Player</string>
+	<string name="stop">Stop</string>
+	<string name="pause">Pause</string>
+	<string name="play">Play</string>
+	<string name="status">Status</string>
+	<string name="empty_message">00:00</string>
+</resources>

@@ -1,0 +1,1103 @@
+package me.yaotouwan.post;
+
+import android.app.ActivityManager;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.*;
+import android.media.ThumbnailUtils;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.MediaStore;
+import android.support.v4.content.LocalBroadcastManager;
+import android.text.*;
+import android.text.format.DateFormat;
+import android.text.method.LinkMovementMethod;
+import android.text.style.*;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.widget.*;
+import com.actionbarsherlock.view.MenuItem;
+import com.mobeta.android.dslv.DragSortController;
+import com.mobeta.android.dslv.DragSortListView;
+import com.mobeta.android.dslv.SimpleDragSortCursorAdapter;
+import me.yaotouwan.R;
+import me.yaotouwan.screenrecorder.EditVideoActivity;
+import me.yaotouwan.screenrecorder.SelectGameActivity;
+import me.yaotouwan.uicommon.ActionSheet;
+import me.yaotouwan.uicommon.ActionSheetItem;
+import me.yaotouwan.util.AppPackageHelper;
+import me.yaotouwan.util.YTWHelper;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Created by jason on 14-3-18.
+ */
+public class PostActivity extends BaseActivity {
+
+    private static final int INTENT_REQUEST_CODE_SELECT_PHOTO = 1;
+    private static final int INTENT_REQUEST_CODE_SELECT_VODEO = 2;
+    private static final int INTENT_REQUEST_CODE_RECORD_SCREEN = 3;
+    private static final int INTENT_REQUEST_CODE_CUT_VIDEO = 4;
+
+    private static final int MAX_IMAGE_WIDTH_FOR_UPLOAD = 1280;
+    private static final long MAX_IMAGE_FILE_SIZE = 5 * 1000 * 1000;
+
+    DragSortListView postItemsListView;
+    PostListViewDataSource adapter;
+
+    Uri croppedVideoUri;
+
+    EditText titleEditor;
+    ViewGroup toolbar;
+    View editPopMenu;
+
+    boolean finishButtonClicked; // 为防止键盘显示判断错误导致的点击无效
+
+    List<AppPackageHelper.Game> gamesInstalled;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        setContentView(R.layout.post);
+        setupActionBar(R.string.post_title);
+        menuResId = R.menu.post_actions;
+
+        toolbar = (ViewGroup) findViewById(R.id.post_toolbar);
+
+        postItemsListView = (DragSortListView) findViewById(R.id.post_items);
+        ((DragSortController)postItemsListView.mFloatViewManager).dragModeShadowImage
+                = R.drawable.post_item_drag_mode_bg;
+
+        View titleContent = getLayoutInflater().inflate(R.layout.post_title, null);
+        postItemsListView.addHeaderView(titleContent);
+        View footer = getLayoutInflater().inflate(R.layout.post_footer, null);
+        postItemsListView.addFooterView(footer);
+
+        titleEditor = (EditText) findViewById(R.id.post_title);
+
+        adapter = new PostListViewDataSource();
+        Uri draftUri = getIntent().getData();
+        if (draftUri != null) {
+            draftFile = new File(draftUri.getPath());
+        }
+        loadDraft();
+
+        postItemsListView.setAdapter(adapter);
+        postItemsListView.setDragSortListener(adapter);
+        postItemsListView.setOnScrollListener(adapter);
+
+        listenKeyboard();
+
+        preloadGameList();
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            onBackPressed();
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (adapter.editingTextRow >= 0) {
+            adapter.editingTextRow = -1;
+            adapter.notifyDataSetChanged();
+        } else if (adapter.hasData()) {
+            List<ActionSheetItem> items = new ArrayList<ActionSheetItem>();
+            items.add(new ActionSheetItem(getString(R.string.post_not_save_draft),
+                    new ActionSheetItem.ActionSheetItemOnClickListener() {
+                        @Override
+                        public void onClick() {
+                            finish();
+                        }
+                    }));
+            items.add(new ActionSheetItem(getString(R.string.post_save_draft),
+                    new ActionSheetItem.ActionSheetItemOnClickListener() {
+                        @Override
+                        public void onClick() {
+                            finish();
+                        }
+                    }));
+            ActionSheet.showWithItems(this, items);
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    protected void onKeyboardHide() {
+        super.onKeyboardHide();
+
+        if (adapter.editingTextRow >= 0) {
+            adapter.editingTextRow = -1;
+        }
+        showView(toolbar);
+
+        if (finishButtonClicked) {
+            onFinishClick(null);
+        } else {
+            saveDraft();
+        }
+    }
+
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (resultCode == RESULT_OK) {
+            if (requestCode == INTENT_REQUEST_CODE_SELECT_PHOTO) {
+                if (data != null) {
+                    selectedPhoto(data);
+                }
+            } else if (requestCode == INTENT_REQUEST_CODE_SELECT_VODEO) {
+                if (data != null) {
+                    receiveSelectedVideo(data);
+                }
+            } else if (requestCode == INTENT_REQUEST_CODE_RECORD_SCREEN) {
+                if (data != null) {
+                    receiveRecordedScreen(data);
+                }
+            } else if (requestCode == INTENT_REQUEST_CODE_CUT_VIDEO) {
+                if (data != null) {
+                    receiveRecordedScreen(data);
+                }
+            }
+        }
+    }
+
+    JSONObject draft;
+    File draftFile;
+    void saveDraft() {
+        if (adapter == null) return;
+        try {
+            if (draft == null)
+                draft = new JSONObject();
+
+            assert titleEditor != null && titleEditor.getText() != null;
+            String title = titleEditor.getText().toString();
+            draft.put("title", title);
+
+            JSONArray sections = new JSONArray();
+
+            for (int i=0; i<adapter.getCount(); i++) {
+                JSONObject section = new JSONObject();
+
+                String text = adapter.getText(i);
+                if (text != null) {
+                    section.put("text", text);
+                }
+
+                String previewImagePath = adapter.getPreviewImagePath(i);
+                if (previewImagePath != null) {
+                    section.put("preview_image_path", previewImagePath);
+                }
+
+                String imagePath = adapter.getImagePath(i);
+                if (imagePath != null) {
+                    section.put("image_path", imagePath);
+                }
+
+                String videoPath = adapter.getVideoPath(i);
+                if (videoPath != null) {
+                    section.put("video_path", videoPath);
+                }
+
+                Integer textStyle = adapter.getTextStyle(i);
+                if (textStyle != null && textStyle != 0) {
+                    section.put("text_style", textStyle);
+                }
+
+                sections.put(section);
+            }
+
+            draft.put("sections", sections);
+
+            if (draftFile == null) {
+                String fn = "post_" + DateFormat.format("yyyyMMdd_hhmmss", new Date()).toString() + ".json";
+                draftFile = new File(YTWHelper.dataRootDirectory(0), fn);
+            }
+
+            YTWHelper.writeTextContentToFile(draft.toString(), draftFile);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
+    void loadDraft() {
+        if (draftFile == null) return;
+        try {
+            String JSON = YTWHelper.readTextContent(draftFile.getAbsolutePath());
+            draft = new JSONObject(JSON);
+            if (draft.has("title")) {
+                String title = draft.getString("title");
+                titleEditor.setText(title);
+            }
+            adapter.removeAll();
+            JSONArray sections = draft.getJSONArray("sections");
+            for (int i=0; i<sections.length(); i++) {
+                adapter.appendRow();
+                JSONObject section = (JSONObject) sections.get(i);
+                if (section.has("image_path")) {
+                    String imagePath = section.getString("image_path");
+                    adapter.updateImage(i, imagePath);
+                }
+                if (section.has("video_path")) {
+                    String videoPath = section.getString("video_path");
+                    adapter.updateVideo(i, videoPath);
+                }
+                if (section.has("text")) {
+                    String text = section.getString("text");
+                    adapter.updateText(i, text);
+                }
+                if (section.has("text_style")) {
+                    int textStyle = section.getInt("text_style");
+                    adapter.updateTextStyle(i, textStyle);
+                }
+            }
+            adapter.notifyDataSetChanged();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static String readPostContent(Uri postJSONFileUri, boolean localPreview) {
+        try {
+            String JSON = YTWHelper.readTextContent(postJSONFileUri);
+            JSONObject post = new JSONObject(JSON);
+            String title = "";
+            if (post.has("title"))
+                title = post.getString("title");
+
+            JSONObject urlMap = new JSONObject();
+            if (post.has("url_map")) {
+                urlMap = post.getJSONObject("url_map");
+            }
+            JSONArray sections = post.getJSONArray("sections");
+            StringBuilder sb = new StringBuilder(title + "\n");
+            for (int i=0; i<sections.length(); i++) {
+                sb.append("<p>");
+                JSONObject section = (JSONObject) sections.get(i);
+                boolean hasMedia = false;
+                if (section.has("image_path")) {
+                    String imagePath = section.getString("image_path");
+                    String imagePathHash = YTWHelper.md5(imagePath);
+                    if (!localPreview && urlMap.has(imagePathHash)) {
+                        imagePath = urlMap.getString(imagePathHash);
+                    }
+                    sb.append("<img src=\"" + imagePath + "\" />");
+                    hasMedia = true;
+                }
+                if (section.has("video_path")) {
+                    String videoPath = section.getString("video_path");
+                    String videoPathHash = YTWHelper.md5(videoPath);
+                    if (!localPreview && urlMap.has(videoPathHash)) {
+                        videoPath = urlMap.getString(videoPathHash);
+                    }
+                    sb.append("<video src=\"" + videoPath + "\" />");
+                    hasMedia = true;
+                }
+                if (section.has("text")) {
+                    String text = section.getString("text");
+                    int textStyle = 0;
+                    if (section.has("text_style")) {
+                        textStyle = section.getInt("text_style");
+                    }
+                    if (!hasMedia && textStyle == 0) {
+                        sb.append(text);
+                    } else if (textStyle == 1) {
+                        sb.append("<h>" + text + "</h>");
+                    } else if (textStyle == 2) {
+                        sb.append("<b>" + text + "</b>");
+                    } else if (textStyle == 3) {
+                        sb.append("<i>" + text + "</i>");
+                    } else if (textStyle == 4) {
+                        sb.append("<blockquote>" + text + "</blockquote>");
+                    }
+                }
+                sb.append("</p>");
+                return sb.toString();
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    // 确实收到图片准备显示了
+    void selectedPhoto(Intent data) {
+        int count = data.getIntExtra("selected_photo_count", 0);
+        for (int i=0; i<count; i++) {
+            String path = data.getStringExtra("selected_photo_" + i);
+            Bitmap srcBitmap = YTWHelper.decodeBitmapFromPath(path, MAX_IMAGE_WIDTH_FOR_UPLOAD);
+            if (srcBitmap != null) {
+                String imagePathForUpload = saveImage(srcBitmap);
+                long jpgFileSize = new File(imagePathForUpload).length();
+                if (jpgFileSize > MAX_IMAGE_FILE_SIZE) {
+                    srcBitmap = YTWHelper.decodeBitmapFromPath(path,
+                            (int) (MAX_IMAGE_WIDTH_FOR_UPLOAD * MAX_IMAGE_WIDTH_FOR_UPLOAD / jpgFileSize * 0.9));
+                    if (srcBitmap != null) {
+                        imagePathForUpload = saveImage(srcBitmap);
+                        jpgFileSize = new File(imagePathForUpload).length();
+                        if (jpgFileSize > MAX_IMAGE_FILE_SIZE) {
+                            Toast.makeText(this, "图片太大，无法使用", 1000);
+                            continue;
+                        }
+                    }
+                }
+                if (canAppend()) {
+                    append();
+                }
+                adapter.updateImage(adapter.getCount() - 1, imagePathForUpload);
+            }
+        }
+        adapter.notifyDataSetChanged();
+    }
+
+    void receiveSelectedVideo(Intent data) {
+        int count = data.getIntExtra("selected_video_count", 0);
+        for (int i=0; i<count; i++) {
+            String videoPath = data.getStringExtra("selected_video_" + i);
+            if (canAppend()) {
+                append();
+            }
+            adapter.updateVideo(adapter.getCount() - 1, videoPath);
+        }
+        adapter.notifyDataSetChanged();
+    }
+
+    void receiveRecordedScreen(Intent data) {
+        if (data != null && data.getData() != null) {
+            croppedVideoUri = data.getData();
+            logd(croppedVideoUri.toString());
+
+            Bitmap bitmap = ThumbnailUtils.createVideoThumbnail(croppedVideoUri.getPath(),
+                    MediaStore.Video.Thumbnails.FULL_SCREEN_KIND);
+            if (bitmap == null) {
+                Toast.makeText(this, "视频解析失败", 1000);
+                return;
+            }
+            String videoPath = croppedVideoUri.getPath();
+
+            if (canAppend()) {
+                append();
+            }
+            adapter.updateVideo(adapter.getCount() - 1, videoPath);
+            adapter.notifyDataSetChanged();
+        }
+    }
+
+    public void onFinishClick(MenuItem menuItem) {
+        if (!finishButtonClicked && isSoftKeyboardShown) {
+            hideSoftKeyboard();
+            finishButtonClicked = true;
+            return;
+        }
+        finishButtonClicked = false;
+
+        saveDraft();
+        uploadMedia();
+    }
+
+    private void uploadMedia() {
+        if (isUploadingMedia()) {
+            Intent intent = new Intent("post_media_updated");
+            intent.setData(Uri.parse(draftFile.getAbsolutePath()));
+            LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        } else {
+            Intent intent = new Intent(this, UploadPostMediaService.class);
+            intent.setData(Uri.parse(draftFile.getAbsolutePath()));
+            startService(intent);
+        }
+    }
+
+    private boolean isUploadingMedia() {
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (UploadPostMediaService.class.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    String saveImage(Bitmap srcBitmap) {
+        String dstPath = YTWHelper.prepareFilePathForImageSave();
+        OutputStream os = null;
+        try {
+            os = new BufferedOutputStream(new FileOutputStream(dstPath));
+            if (srcBitmap.compress(Bitmap.CompressFormat.JPEG, 92, os)) {
+                return dstPath;
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } finally {
+            if (os != null) {
+                try {
+                    os.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+
+        if (intent != null) {
+            if (intent.getBooleanExtra("crop_video_finish", false)) {
+                receiveRecordedScreen(intent);
+            }
+        }
+    }
+
+    String[] getColumnNames() {
+        return new String[]{"_id", "text", "preview_image_path", "image_path", "video_path", "text_style"};
+    }
+
+    public void onAppendTextClick(View view) {
+        hideSoftKeyboard();
+
+        if (!canAppend()) return ;
+
+        append();
+    }
+
+    boolean canAppend() {
+//        return true;
+        if (adapter.getCount() <= 0)
+            return true;
+        return adapter.hasDataAtRow(adapter.getCount() - 1);
+    }
+
+    void append() {
+        adapter.appendRow();
+        adapter.notifyDataSetChanged();
+        postItemsListView.setSelection(adapter.getCount() - 1);
+    }
+
+    public void onAppendPhotoClick(View view) {
+        Intent intent = new Intent(this, PhotoAlbum.class);
+        startActivityForResult(intent, INTENT_REQUEST_CODE_SELECT_PHOTO);
+    }
+
+    public void onAppendVideoClick(View view) {
+        List<ActionSheetItem> items = new ArrayList<ActionSheetItem>();
+        items.add(new ActionSheetItem(getString(R.string.post_select_section_type_title_record_game),
+                new ActionSheetItem.ActionSheetItemOnClickListener() {
+                    @Override
+                    public void onClick() {
+                        SelectGameActivity.preLoadGames = gamesInstalled;
+                        Intent intent = new Intent(PostActivity.this, SelectGameActivity.class);
+                        startActivityForResult(intent, INTENT_REQUEST_CODE_RECORD_SCREEN);
+                    }
+                }));
+        items.add(new ActionSheetItem(getString(R.string.post_select_section_type_title_select_video),
+                new ActionSheetItem.ActionSheetItemOnClickListener() {
+                    @Override
+                    public void onClick() {
+                        Intent intent = new Intent(PostActivity.this, PhotoAlbum.class);
+                        intent.putExtra("video", true);
+                        startActivityForResult(intent, INTENT_REQUEST_CODE_SELECT_VODEO);
+                    }
+                }
+        ));
+        ActionSheet.showWithItems(this, items);
+    }
+
+    void preloadGameList() {
+        new AppPackageHelper().getPackages(this, new AppPackageHelper.AppPackageHelperDelegate() {
+            @Override
+            public void onComplete(List<AppPackageHelper.Game> games) {
+                gamesInstalled = games;
+            }
+        });
+    }
+
+    private class PostListViewDataSource extends SimpleDragSortCursorAdapter implements AbsListView.OnScrollListener, TextWatcher {
+
+        PostCursor cursor;
+        static final int id_col_idx = 0;
+        static final int text_col_idx = 1;
+        static final int preview_image_path_col_idx = 2;
+        static final int image_path_col_idx = 3;
+        static final int video_path_col_idx = 4;
+        static final int text_style_col_idx = 5;
+
+        static final int TEXT_STYLE_HEAD = 1;
+        static final int TEXT_STYLE_BOLD = 2;
+        static final int TEXT_STYLE_ITALIC = 3;
+        static final int TEXT_STYLE_QUOTE = 4;
+
+        boolean editModeLastTime;
+        boolean animateToShow;
+        int draggingRow;
+        int editingTextRow = -1;
+
+        View editTargetView;
+
+        boolean deleting;
+
+        public PostListViewDataSource() {
+            super(PostActivity.this, R.layout.post_item, null,
+                    getColumnNames(),
+                    new int[] {R.id.post_item_text, R.id.post_item_image}, 0);
+
+            cursor = new PostCursor(getColumnNames());
+            appendRow();
+            changeCursor(cursor);
+        }
+
+        void insertRow(int pos) {
+            cursor.insertRow(pos, null, null, null, null, 0);
+        }
+
+        // 如果最后一行内容为空，则添加失败并返回false
+        boolean appendRow() {
+            cursor.addRow(0, null, null, null, null, 0);
+            return true;
+        }
+
+        void updateImage(int pos, String imagePath) {
+            cursor.updateRowAtColumn(pos, image_path_col_idx, imagePath);
+        }
+
+        void updateText(int pos, String text) {
+            cursor.updateRowAtColumn(pos, text_col_idx, text);
+        }
+
+        void updateVideo(int pos, String videoPath) {
+            cursor.updateRowAtColumn(pos, video_path_col_idx, videoPath);
+        }
+
+        void updateTextStyle(int pos, int style) {
+            cursor.updateRowAtColumn(pos, text_style_col_idx, style);
+        }
+
+        boolean toggleTextStyle(int pos, int style) {
+            Integer oldStyle = (Integer) cursor.getValue(pos, text_style_col_idx);
+            if (oldStyle == style) {
+                cursor.updateRowAtColumn(pos, text_style_col_idx, 0);
+                return false;
+            } else {
+                cursor.updateRowAtColumn(pos, text_style_col_idx, style);
+                return true;
+            }
+        }
+
+        void applyStyle(EditText editor, String text, int style) {
+            if (text == null) {
+                editor.setText(text);
+                return;
+            }
+
+            SpannableString styledText = new SpannableString(text);
+
+            styledText.setSpan(new TypefaceSpan("serif"), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            if (style == TEXT_STYLE_HEAD) {
+                styledText.setSpan(new RelativeSizeSpan(1.6f), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else if (style == TEXT_STYLE_BOLD) {
+                styledText.setSpan(new StyleSpan(Typeface.BOLD), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                styledText.setSpan(new TypefaceSpan("monospace"), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else if (style == TEXT_STYLE_ITALIC) {
+                styledText.setSpan(new StyleSpan(Typeface.ITALIC), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                styledText.setSpan(new TypefaceSpan("monospace"), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else if (style == TEXT_STYLE_QUOTE) {
+                styledText.setSpan(new QuoteSpan(Color.GRAY), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+
+            editor.setText(styledText);
+            editor.setMovementMethod(LinkMovementMethod.getInstance());
+//            editor.getPaint().setFakeBoldText(true);
+        }
+
+        void removeRow(int pos) {
+            cursor.removeRow(pos);
+        }
+
+        void removeAll() {
+            while (cursor.getCount() > 0) {
+                cursor.removeRow(0);
+            }
+        }
+
+        boolean hasData() {
+            for (int i=0; i<cursor.getCount(); i++) {
+                if (hasDataAtRow(i)) return true;
+            }
+            return false;
+        }
+
+        boolean hasDataAtRow(int row) {
+            if (!cursor.isNull(row, text_col_idx)) return true;
+            if (!cursor.isNull(row, preview_image_path_col_idx)) return true;
+            if (!cursor.isNull(row, image_path_col_idx)) return true;
+            if (!cursor.isNull(row, video_path_col_idx)) return true;
+            return false;
+        }
+
+        @Override
+        public void notifyDataSetChanged() {
+            animateToShow = (postItemsListView.editMode != editModeLastTime);
+            editModeLastTime = postItemsListView.editMode;
+            saveDraft();
+            super.notifyDataSetChanged();
+        }
+
+        int typeOfRow(int row) {
+            if (cursor.getValue(row, video_path_col_idx) != null) return 3;
+            if (cursor.getValue(row, image_path_col_idx) != null) return 2;
+            return 1;
+        }
+
+        String getText(int row) {
+            return (String) cursor.getValue(row, text_col_idx);
+        }
+
+        String getPreviewImagePath(int row) {
+            return (String) cursor.getValue(row, preview_image_path_col_idx);
+        }
+
+        String getImagePath(int row) {
+            return (String) cursor.getValue(row, image_path_col_idx);
+        }
+
+        String getVideoPath(int row) {
+            return (String) cursor.getValue(row, video_path_col_idx);
+        }
+
+        Integer getTextStyle(int row) {
+            return (Integer) cursor.getValue(row, text_style_col_idx);
+        }
+
+        @Override
+        public void bindView(final View rowView, Context context, Cursor cursor) {
+            final me.yaotouwan.post.TextEditor textEditor = (me.yaotouwan.post.TextEditor) rowView.findViewById(R.id.post_item_text);
+
+            final int position = cursor.getPosition();
+
+            final String text = cursor.getString(text_col_idx);
+
+            final View dragHandle = rowView.findViewById(R.id.drag_handle);
+            showView(dragHandle);
+
+            final String imagePath = cursor.getString(image_path_col_idx);
+            final String videoPath = cursor.getString(video_path_col_idx);
+
+            ImageButton playBtn = (ImageButton) rowView.findViewById(R.id.post_item_video_play_btn);
+            playBtn.setEnabled(false);
+
+            final CachedImageButton previewImageView = (CachedImageButton) rowView.findViewById(R.id.post_item_image);
+            previewImageView.setEnabled(false);
+
+            ViewGroup previewGroup = (ViewGroup) rowView.findViewById(R.id.post_item_preview);
+
+            if (postItemsListView.editingPosition == position) {
+                textEditor.setBackgroundDrawable(new EditModeBGDrawable(PostActivity.this, 0));
+            } else {
+                textEditor.setBackgroundColor(Color.WHITE);
+            }
+
+            if (imagePath != null) {
+                previewImageView.setImageWithPath(imagePath,
+                        postItemsListView.getWidth(), scrolling, 0);
+            } else if (videoPath != null) {
+                previewImageView.setImageWithVideoPath(videoPath,
+                        MediaStore.Video.Thumbnails.FULL_SCREEN_KIND, scrolling, 0);
+            }
+
+            if (imagePath != null) {
+                previewGroup.setVisibility(View.VISIBLE);
+                previewImageView.setVisibility(View.VISIBLE);
+                playBtn.setVisibility(View.GONE);
+            } else if (videoPath != null) {
+                previewGroup.setVisibility(View.VISIBLE);
+                previewImageView.setVisibility(View.VISIBLE);
+                playBtn.setVisibility(View.VISIBLE);
+            } else {
+                previewGroup.setVisibility(View.GONE);
+            }
+
+            int minLines = 0;
+            int hint = 0;
+            if (imagePath != null) {
+                minLines = 1;
+                hint = R.string.post_image_desc_hint;
+            } else if (videoPath != null) {
+                minLines = 1;
+                hint = R.string.post_video_desc_hint;
+            } else {
+                if (getCount() == 1) {
+                    minLines = 5;
+                } else {
+                    minLines = 2;
+                }
+                hint = R.string.post_section_hint;
+            }
+            textEditor.setMinLines(minLines);
+            textEditor.setHint(hint);
+
+            if (editingTextRow == position) {
+                hideView(dragHandle);
+                textEditor.setFocuable(true);
+                textEditor.setEnabled(true);
+                textEditor.requestFocus();
+                if (!isSoftKeyboardShown) {
+                    showSoftKeyboard(true);
+                }
+            } else if (editingTextRow >= 0) {
+                showView(dragHandle);
+                textEditor.removeTextChangedListener(this);
+                textEditor.setFocuable(false);
+            } else {
+                showView(dragHandle);
+                textEditor.setEnabled(false);
+                textEditor.clearFocus();
+                textEditor.removeTextChangedListener(this);
+            }
+
+            textEditor.removeTextChangedListener(adapter);
+            Integer style = (Integer) this.cursor.getValue(position, text_style_col_idx);
+            applyStyle(textEditor, text, style);
+            if (editingTextRow == position) {
+                textEditor.addTextChangedListener(adapter);
+            }
+
+            if (editingTextRow == position) {
+                if (text != null && text.length() > 0)
+                    textEditor.setSelection(text.length());
+                else
+                    textEditor.setSelection(0);
+            }
+
+            textEditor.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (textEditor.getMeasuredHeight() > 0
+                            && dragHandle.getVisibility() != View.GONE) {
+                        setViewHeight(dragHandle, textEditor.getMeasuredHeight());
+                    }
+                }
+            });
+        }
+
+        @Override
+        public void startDrag(int position) {
+            if (postItemsListView.editingPosition >= 0) {
+                for (int i=0; i<postItemsListView.getChildCount(); i++) {
+                    View rowView = postItemsListView.getChildAt(i);
+                    if (rowView != null) {
+                        View textEditor = rowView.findViewById(R.id.post_item_text);
+                        if (textEditor != null) {
+                            textEditor.setBackgroundColor(Color.WHITE);
+                        }
+                    }
+                }
+                if (editPopMenu != null && editPopMenu.getParent() != null) {
+                    WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+                    wm.removeView(editPopMenu);
+                }
+                postItemsListView.editingPosition = -1;
+                postItemsListView.editMode = false;
+                editTargetView = null;
+            }
+
+            draggingRow = position;
+
+            hideView(R.id.post_toolbar_button_append_text);
+            hideView(R.id.post_toolbar_button_append_image);
+            hideView(R.id.post_toolbar_button_append_video);
+            showView(R.id.post_toolbar_button_delete);
+        }
+
+        @Override
+        public void dragMove(int x, int y) {
+            int[] loc = new int[2];
+            findViewById(R.id.post_toolbar_button_delete).getLocationInWindow(loc);
+            int deleteButtonY = loc[1];
+            if (getActionBar() != null) {
+                deleteButtonY -= getActionBar().getHeight() + dpToPx(20);
+            }
+            deleting = y > deleteButtonY;
+            postItemsListView.pauseSort = deleting;
+            ImageButton imageButton = (ImageButton) findViewById(R.id.post_toolbar_button_delete);
+            if (deleting) {
+                imageButton.setImageResource(R.drawable.post_tool_bar_icon_delete_active);
+            } else {
+                imageButton.setImageResource(R.drawable.post_tool_bar_icon_delete);
+            }
+        }
+
+        @Override
+        public void drop(int from, int to) {
+            showView(R.id.post_toolbar_button_append_text);
+            showView(R.id.post_toolbar_button_append_image);
+            showView(R.id.post_toolbar_button_append_video);
+            hideView(R.id.post_toolbar_button_delete);
+            if (deleting) {
+                YTWHelper.confirm(PostActivity.this, getString(R.string.post_item_delete_row), new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        removeRow(draggingRow);
+                        draggingRow = -1;
+                        deleting = false;
+                        postItemsListView.pauseSort = false;
+                        notifyDataSetChanged();
+                    }
+                });
+            } else {
+                adapter.cursor.move(from, to);
+                adapter.notifyDataSetChanged();
+                draggingRow = -1;
+            }
+        }
+
+        @Override
+        public void click(final int position, View targetView) {
+            if (editingTextRow >= 0) {
+                hideSoftKeyboard();
+                return;
+            }
+            if (targetView != null && targetView.getId() == R.id.post_item_preview) { // click on image
+                String imagePath = getImagePath(position);
+                String videoPath = getVideoPath(position);
+                if (imagePath != null || videoPath != null) {
+                    postItemsListView.editMode = false;
+                    postItemsListView.editingPosition = -1;
+                    editTargetView = null;
+                    notifyDataSetChanged();
+                }
+                if (imagePath != null) {
+                    ImageView imageView = (ImageView) targetView.findViewById(R.id.post_item_image);
+                    PreviewImageActivity.placeHolder = imageView.getDrawable();
+                    pushActivity(PreviewImageActivity.class, Uri.parse(imagePath));
+                } else if (videoPath != null) {
+                    pushActivity(EditVideoActivity.class, Uri.parse(videoPath));
+                }
+            } else if (targetView == null) {
+                int pos = position + postItemsListView.getHeaderViewsCount() - postItemsListView.getFirstVisiblePosition();
+                View rowView = postItemsListView.getChildAt(pos);
+                if (rowView == null) return;
+                targetView = rowView.findViewById(R.id.post_item_text);
+            } else if (postItemsListView.editingPosition == position) {
+                postItemsListView.editingPosition = -1;
+                postItemsListView.editMode = false;
+                editTargetView = null;
+                if (editPopMenu != null && editPopMenu.getParent() != null) {
+                    WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+                    wm.removeView(editPopMenu);
+                }
+            } else {
+                postItemsListView.makeFloatViewForEditRow(position);
+
+                WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+                WindowManager.LayoutParams wlp = new WindowManager.LayoutParams();
+                wlp.gravity = Gravity.TOP;
+                wlp.width = dpToPx(230);
+                wlp.height = dpToPx(65);
+                wlp.format = PixelFormat.RGBA_8888;
+                wlp.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+
+                int[] loc = new int[2];
+                targetView.getLocationInWindow(loc);
+                wlp.y = loc[1] - dpToPx(80);
+
+                if (editPopMenu == null) {
+                    editPopMenu = getLayoutInflater().inflate(R.layout.post_item_edit_pop_menu, null);
+                } else if (editPopMenu.getParent() != null) {
+                    wm.removeView(editPopMenu);
+                }
+                wm.addView(editPopMenu, wlp);
+
+                final View editBtn = (View) editPopMenu.findViewById(R.id.edit_btn).getParent();
+                final View headBtn = (View) editPopMenu.findViewById(R.id.head_btn).getParent();
+                final View boldBtn = (View) editPopMenu.findViewById(R.id.bold_btn).getParent();
+                final View italicBtn = (View) editPopMenu.findViewById(R.id.italic_btn).getParent();
+                final View quoteBtn = (View) editPopMenu.findViewById(R.id.quote_btn).getParent();
+                assert editBtn != null;
+                assert headBtn != null;
+                assert boldBtn != null;
+                assert italicBtn != null;
+                assert quoteBtn != null;
+
+                Integer style = (Integer) cursor.getValue(position, text_style_col_idx);
+                headBtn.setSelected(style == TEXT_STYLE_HEAD);
+                boldBtn.setSelected(style == TEXT_STYLE_BOLD);
+                italicBtn.setSelected(style == TEXT_STYLE_ITALIC);
+                quoteBtn.setSelected(style == TEXT_STYLE_QUOTE);
+
+                View.OnClickListener listener = new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        if (v == editBtn) {
+                            doEditTextOnPosition(position);
+                        } else {
+                            headBtn.setSelected(false);
+                            boldBtn.setSelected(false);
+                            italicBtn.setSelected(false);
+                            quoteBtn.setSelected(false);
+                            if (v == headBtn) {
+                                v.setSelected(toggleTextStyle(position, TEXT_STYLE_HEAD));
+                            } else if (v == boldBtn) {
+                                v.setSelected(toggleTextStyle(position, TEXT_STYLE_BOLD));
+                            } else if (v == italicBtn) {
+                                v.setSelected(toggleTextStyle(position, TEXT_STYLE_ITALIC));
+                            } else if (v == quoteBtn) {
+                                v.setSelected(toggleTextStyle(position, TEXT_STYLE_QUOTE));
+                            }
+                            postItemsListView.editingPosition = -1;
+                            postItemsListView.editMode = false;
+                            editTargetView = null;
+                            if (editPopMenu != null && editPopMenu.getParent() != null) {
+                                WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+                                wm.removeView(editPopMenu);
+                            }
+                            notifyDataSetChanged();
+                        }
+                    }
+                };
+
+                editBtn.setOnClickListener(listener);
+                headBtn.setOnClickListener(listener);
+                boldBtn.setOnClickListener(listener);
+                italicBtn.setOnClickListener(listener);
+                quoteBtn.setOnClickListener(listener);
+
+                postItemsListView.editingPosition = position;
+                postItemsListView.editMode = true;
+
+                editTargetView = targetView;
+            }
+            notifyDataSetChanged();
+        }
+
+
+        @Override
+        public void doubleClick(final int position, View targetView) {
+            if (targetView != null && targetView.getId() == R.id.post_item_preview) { // double click on image
+                String imagePath = getImagePath(position);
+                String videoPath = getVideoPath(position);
+                if (imagePath != null) {
+                    ImageView imageView = (ImageView) targetView.findViewById(R.id.post_item_image);
+                    PreviewImageActivity.placeHolder = imageView.getDrawable();
+                    pushActivity(PreviewImageActivity.class, Uri.parse(imagePath));
+                } if (videoPath != null) {
+                    pushActivity(EditVideoActivity.class, Uri.parse(videoPath));
+                }
+            } else { // double click on text
+                doEditTextOnPosition(position);
+            }
+        }
+
+        void doEditTextOnPosition(int position) {
+            if (editTargetView != null) {
+                editTargetView.setBackgroundColor(Color.WHITE);
+                editTargetView = null;
+            }
+            if (postItemsListView.editMode) {
+                postItemsListView.editingPosition = -1;
+                postItemsListView.editMode = false;
+            }
+            if (editPopMenu != null && editPopMenu.getParent() != null) {
+                WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+                wm.removeView(editPopMenu);
+            }
+            editingTextRow = position;
+            View rowView = postItemsListView.getItemViewAtRow(position);
+            hideView(rowView.findViewById(R.id.drag_handle));
+            rowView.findViewById(R.id.post_item_text).setEnabled(true);
+            rowView.findViewById(R.id.post_item_text).requestFocus();
+            hideView(toolbar);
+            showSoftKeyboard(true);
+        }
+
+        boolean scrolling;
+
+        @Override
+        public void onScrollStateChanged(AbsListView view, int scrollState) {
+            scrolling = scrollState != SCROLL_STATE_IDLE;
+
+            if (editPopMenu == null || editTargetView == null || postItemsListView.editingPosition < 0) return;
+
+            WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+            if (editPopMenu.getParent() != null)
+                wm.removeView(editPopMenu);
+
+            if (scrollState == SCROLL_STATE_IDLE) {
+                // 不在列表中
+                if (postItemsListView.getFirstVisiblePosition() - postItemsListView.getHeaderViewsCount() > postItemsListView.editingPosition) {
+                    return;
+                }
+                if (postItemsListView.getLastVisiblePosition() - postItemsListView.getHeaderViewsCount() < postItemsListView.editingPosition) {
+                    return;
+                }
+
+                View item = postItemsListView.getChildAt(postItemsListView.editingPosition + postItemsListView.getHeaderViewsCount() - postItemsListView.getFirstVisiblePosition());
+                editTargetView = item.findViewById(R.id.post_item_text);
+
+                WindowManager.LayoutParams params = (WindowManager.LayoutParams) editPopMenu.getLayoutParams();
+                assert params != null;
+                int[] loc = new int[2];
+                editTargetView.getLocationInWindow(loc);
+
+                int listViewLoc = getActionBar().getHeight();
+
+                if (loc[1] + editTargetView.getHeight() < listViewLoc + dpToPx(80) + dpToPx(30)) {
+                    return;
+                }
+
+                params.y = loc[1] - dpToPx(80);
+
+                if (params.y < listViewLoc) {
+                    params.y = listViewLoc;
+                }
+
+                if (params.y > wm.getDefaultDisplay().getHeight() - findViewById(R.id.post_toolbar).getHeight() - dpToPx(30)) {
+                    return;
+                }
+
+                wm.addView(editPopMenu, params);
+            }
+        }
+
+        @Override
+        public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+
+        }
+
+        @Override
+        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+        }
+
+        @Override
+        public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+        }
+
+        @Override
+        public void afterTextChanged(Editable s) {
+            if (editingTextRow >= 0)
+                updateText(editingTextRow, s.toString());
+        }
+    }
+}

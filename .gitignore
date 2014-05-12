@@ -1,0 +1,7 @@
+.idea/
+gen/
+out/
+bin/
+libs/armeabi/
+obj/
+*.scpt

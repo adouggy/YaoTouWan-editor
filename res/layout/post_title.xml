@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+	<View android:layout_width="match_parent"
+	      android:layout_height="20dp"
+	      android:background="@color/post_background_default"
+			/>
+	<View android:layout_width="match_parent"
+	      android:layout_height="1dp"
+	      android:background="@color/post_seperator_default"
+			/>
+	<LinearLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:background="@color/white"
+			android:padding="15dp"
+			>
+		<EditText
+				android:id="@+id/post_title"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:textColor="@color/black"
+				android:singleLine="true"
+				android:hint="@string/post_title_hint"
+				/>
+	</LinearLayout>
+	<View android:layout_width="match_parent"
+	      android:layout_height="2dp"
+	      android:background="@color/post_seperator_default"
+			/>
+	<View android:layout_width="match_parent"
+	      android:layout_height="20dp"
+	      android:background="@color/post_background_default"
+			/>
+	<View android:layout_width="match_parent"
+	      android:layout_height="1dp"
+	      android:background="@color/post_seperator_default"
+			/>
+	<View android:layout_width="match_parent"
+	      android:layout_height="2dp"
+	      android:background="@color/post_background_default"
+			/>
+</LinearLayout>

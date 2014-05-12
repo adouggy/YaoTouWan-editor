@@ -1,0 +1,47 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:orientation="vertical"
+    android:id="@id/root_layout"
+	>
+
+	<RelativeLayout
+			android:id="@+id/preview_group"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:layout_centerInParent="true"
+			>
+		<SurfaceView
+				android:id="@+id/surfaceView"
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+				/>
+		<ImageView
+				android:id="@+id/preview_image_view"
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+				/>
+		<ImageButton
+				android:id="@+id/preview_video_play_btn"
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+				android:layout_alignParentRight="true"
+				android:layout_alignParentTop="true"
+				android:src="@drawable/btn_play_video"
+				android:visibility="gone"
+				android:background="@color/play_video_button_background"
+				android:onClick="onClickPlayButton"
+				/>
+	</RelativeLayout>
+
+	<me.yaotouwan.post.CutVideoSelector
+			android:id="@+id/cut_video_selector"
+			android:orientation="horizontal"
+			android:layout_width="match_parent"
+			android:layout_height="50dp"
+			android:layout_margin="10dp"
+			android:background="@color/white"
+			android:layout_alignParentBottom="true"
+			/>
+</RelativeLayout>

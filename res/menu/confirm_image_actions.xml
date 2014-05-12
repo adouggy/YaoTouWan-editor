@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+	<item android:id="@+id/confirm_image_action_edit"
+	      android:title="@string/confirm_photo_edit"
+	      android:showAsAction="always"
+	      android:onClick="onClickEdit"
+			/>
+	<item android:id="@+id/confirm_image_action_confirm"
+	      android:title="@string/confirm_photo_confirm"
+	      android:icon="@drawable/post_action_bar_icon_done"
+	      android:showAsAction="always"
+	      android:onClick="onClickConfirm"
+			/>
+</menu>
