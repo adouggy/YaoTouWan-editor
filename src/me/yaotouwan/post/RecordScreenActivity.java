@@ -55,7 +55,7 @@ public class RecordScreenActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.record_screen);
 
-        getActionBar().hide();
+        hideActionBar();
 
         sm = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
         packageName = getIntent().getStringExtra("package_name");
@@ -96,18 +96,18 @@ public class RecordScreenActivity extends BaseActivity {
         try {
             int showTouchesBeforeStartRecording = Settings.System.getInt(getContentResolver(), "touch_exploration_enabled");
             YTWHelper.saveProperty(this, "touch_exploration_enabled_before_start_recording", showTouchesBeforeStartRecording > 0);
-            if (showTouches)
-                YTWHelper.runRootCommand("su -c settings put system show_touches 1");
         } catch (Settings.SettingNotFoundException e) {
-            e.printStackTrace();
+//            e.printStackTrace();
         }
+        if (showTouches)
+            YTWHelper.runRootCommand("su -c settings put system show_touches 1");
 
         videoPath = YTWHelper.prepareFilePathForVideoSave();
         startRecordingService();
     }
 
     void startRecordingService() {
-        Intent recordIntent = new Intent(RecordScreenActivity.this, SRecorderService.class);
+        Intent recordIntent = new Intent(this, SRecorderService.class);
         recordIntent.setData(Uri.parse(videoPath));
         recordIntent.putExtra("video_orientation", orientation);
         recordIntent.putExtra("video_quality", videoQuality);
@@ -122,7 +122,7 @@ public class RecordScreenActivity extends BaseActivity {
         tryStartGameCount = 0;
         if (YTWHelper.hasBuildinScreenRecorder()) {
             timerHandler = new Handler();
-            Runnable task = new Runnable() {
+            timerHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     if (tryStartGameCount > 100) {
@@ -137,9 +137,7 @@ public class RecordScreenActivity extends BaseActivity {
                         timerHandler.postDelayed(this, 100);
                     }
                 }
-            };
-
-            timerHandler.postDelayed(task, 300);
+            }, 300);
         } else {
             doStartGame();
         }
@@ -150,22 +148,20 @@ public class RecordScreenActivity extends BaseActivity {
             moveTaskToBack(true);
         } else {
             timerHandler = new Handler();
-            Runnable task = new Runnable() {
+            timerHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     Intent gameIntent = getPackageManager().getLaunchIntentForPackage(packageName);
                     startActivity(gameIntent);
                 }
-            };
-
-            timerHandler.postDelayed(task, 300);
+            }, 300);
         }
     }
 
     void stopRecording(final boolean editVideoAfterStopped) {
 
         timerHandler = new Handler();
-        Runnable task = new Runnable() {
+        timerHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 Intent recordIntent = new Intent(RecordScreenActivity.this, SRecorderService.class);
@@ -175,15 +171,13 @@ public class RecordScreenActivity extends BaseActivity {
                     editVideo();
                 }
             }
-        };
-
-        timerHandler.postDelayed(task, 300);
+        }, 300);
     }
 
     void editVideo() {
         retryEditCount = 0;
         timerHandler = new Handler();
-        Runnable task = new Runnable() {
+        timerHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 if (retryEditCount > 100) {
@@ -207,13 +201,11 @@ public class RecordScreenActivity extends BaseActivity {
                     }
                 }
             }
-        };
-
-        timerHandler.postDelayed(task, 300);
+        }, 300);
     }
 
     void doEditVideo() {
-        Intent intent = new Intent(RecordScreenActivity.this, EditVideoActivity.class);
+        Intent intent = new Intent(this, EditVideoActivity.class);
         intent.setData(Uri.parse(videoPath));
         startActivityForResult(intent, INTENT_REQUEST_CODE_CUT_VIDEO);
     }
@@ -233,12 +225,14 @@ public class RecordScreenActivity extends BaseActivity {
         if (requestCode == INTENT_REQUEST_CODE_CUT_VIDEO) {
             if (resultCode == RESULT_OK) {
                 if (!data.getData().getPath().equals(videoPath)) {
+                    // 产生了一个新的文件，于是把旧文件删除
                     new File(videoPath).delete();
                 }
                 Intent intent = new Intent();
                 intent.setData(data.getData());
                 setResult(RESULT_OK, intent);
             } else {
+                new File(videoPath).delete();
                 setResult(RESULT_CANCELED);
             }
             finish();

@@ -23,6 +23,7 @@ import android.view.animation.TranslateAnimation;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
+import android.widget.Toast;
 import com.actionbarsherlock.view.MenuItem;
 import me.yaotouwan.R;
 import me.yaotouwan.post.BaseActivity;
@@ -146,7 +147,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
     public void onPause() {
         super.onPause();
 
-        if (mPlayer.isPlaying()) {
+        if (mPlayer != null && mPlayer.isPlaying()) {
             pause();
         }
     }
@@ -349,7 +350,10 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         protected Boolean doInBackground(Integer... args) {
             String srcfpath = videoPath.substring(0, videoPath.length()-4);
             String srcAfPath = videoPath.substring(0, videoPath.length()-4)+"-a.mp4";
-            mergeVideo(srcfpath, srcAfPath, videoPath);
+            if (new File(srcAfPath).exists())
+                mergeVideo(srcfpath, srcAfPath, videoPath);
+            else
+                return false;
             // remove old fragment files
             return true;
         }
@@ -357,8 +361,10 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         protected void onPostExecute(Boolean result) {
             mDialog.dismiss();
 
-            if (new File(videoPath).exists()) {
+            if (result && new File(videoPath).exists()) {
                 prepareVideoPlayer();
+            } else {
+                Toast.makeText(EditVideoActivity.this, "合并文件失败", 1000);
             }
         }
     }

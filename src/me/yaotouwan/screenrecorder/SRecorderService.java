@@ -104,7 +104,6 @@ public class SRecorderService extends Service {
                             break;
                         }
                     } catch (NumberFormatException e) {
-                        continue;
                     }
                 }
             }
@@ -137,7 +136,7 @@ public class SRecorderService extends Service {
         }
 	}
 
-    void doInitAudioRecorder(final boolean recordVideo) {
+    boolean doInitAudioRecorder(final boolean recordVideo) {
         if (recordVideo) {
             int sampleRate = 44100 / 2;
             int channelConfig = AudioFormat.CHANNEL_IN_MONO;
@@ -148,7 +147,7 @@ public class SRecorderService extends Service {
                     sampleRate, channelConfig, audioFormat, mAudioBufferSize);
 
             if (mAudioRecord == null)
-                return;
+                return false;
 
             audioBuffer = new byte[mAudioBufferSize];
             mAudioRecord.setPositionNotificationPeriod(mAudioBufferSampleSize);
@@ -162,20 +161,22 @@ public class SRecorderService extends Service {
                 }
             });
         } else {
-            mMediaRecorder = new MediaRecorder();
-            mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            mMediaRecorder.setAudioSamplingRate(44100/2);
-            mMediaRecorder.setAudioChannels(1);
-            mMediaRecorder.setOutputFile(videoPath.substring(0, videoPath.length()-4) + "-a.,");
             try {
+                mMediaRecorder = new MediaRecorder();
+                mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+                mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+                mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+                mMediaRecorder.setAudioSamplingRate(44100/2);
+                mMediaRecorder.setAudioChannels(1);
+                mMediaRecorder.setOutputFile(videoPath.substring(0, videoPath.length()-4) + "-a.mp4");
                 mMediaRecorder.prepare();
             } catch (Exception e){
                 e.printStackTrace();
-                return;
+                mMediaRecorder = null;
+                return false;
             }
         }
+        return true;
     }
 
     void doStartAudioRecorder(final boolean recordVideo) {
@@ -205,19 +206,19 @@ public class SRecorderService extends Service {
 
             public void run() {
                 try {
-                    doInitAudioRecorder(recordVideo);
-
-                    if (recordVideo) {
-                        initRecorder(YTWHelper.correctFilePath(videoPath),
-                                videoEncoderParameterRotate);
-                        doStartAudioRecorder(recordVideo);
-                    } else {
-                        for (int i=0; i<100; i++) {
-                            if (YTWHelper.isBuildinScreenRecorderRunning()) {
-                                doStartAudioRecorder(recordVideo);
-                                break;
-                            } else {
-                                Thread.sleep(100);
+                    if (doInitAudioRecorder(recordVideo)) {
+                        if (recordVideo) {
+                            initRecorder(YTWHelper.correctFilePath(videoPath),
+                                    videoEncoderParameterRotate);
+                            doStartAudioRecorder(recordVideo);
+                        } else {
+                            for (int i=0; i<100; i++) {
+                                if (YTWHelper.isBuildinScreenRecorderRunning()) {
+                                    doStartAudioRecorder(recordVideo);
+                                    break;
+                                } else {
+                                    Thread.sleep(100);
+                                }
                             }
                         }
                     }
@@ -234,18 +235,17 @@ public class SRecorderService extends Service {
         if (pid > 0) {
             stopBuildinRecorder();
             if (mMediaRecorder != null)
-                mMediaRecorder.stop();
+                try {
+                    mMediaRecorder.stop();
+                } catch (IllegalStateException e) {
+                    e.printStackTrace();
+                }
         } else {
             inRecordMode = false;
             stopRecording();
         }
     }
-    
-	@Override
-	public void onCreate() {
-		super.onCreate();
-	}
-    
+
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
         videoPath = intent.getData().getPath();

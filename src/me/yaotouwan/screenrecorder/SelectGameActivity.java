@@ -32,6 +32,7 @@ public class SelectGameActivity extends BaseActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.select_game);
+        setupActionBar(R.string.select_game_title);
 
         if (preLoadGames != null) {
             gamesInstalled = preLoadGames;
@@ -40,7 +41,7 @@ public class SelectGameActivity extends BaseActivity {
         } else {
             mProgressDialog = new ProgressDialog(this);
             mProgressDialog.setMessage(getString(R.string.select_game_waiting_tip));
-            mProgressDialog.setCancelable(false);
+            mProgressDialog.setCancelable(true);
             mProgressDialog.show();
 
             new AppPackageHelper().getPackages(this, new AppPackageHelper.AppPackageHelperDelegate() {
@@ -91,11 +92,14 @@ public class SelectGameActivity extends BaseActivity {
             return 0;
         }
 
+        private LayoutInflater inflater;
+
         @Override
         public View getView(final int position, View convertView, ViewGroup parent) {
-            LayoutInflater inflater = (LayoutInflater) mContext
-                    .getSystemService(LAYOUT_INFLATER_SERVICE);
+            if (inflater == null)
+                inflater = (LayoutInflater) mContext.getSystemService(LAYOUT_INFLATER_SERVICE);
             View rowView = inflater.inflate(R.layout.select_game_item, parent, false);
+            assert rowView != null;
 
             ImageButton icon = (ImageButton) rowView.findViewById(R.id.game_icon);
             AppPackageHelper.Game game = getItem(position);
@@ -112,8 +116,6 @@ public class SelectGameActivity extends BaseActivity {
 
             TextView nameView = (TextView) rowView.findViewById(R.id.game_name);
             nameView.setText(game.appname);
-
-            logd(game.appname);
 
             return rowView;
         }

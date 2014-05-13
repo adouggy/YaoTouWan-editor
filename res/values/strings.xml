@@ -54,7 +54,7 @@
 	<string name="ok">确定</string>
 	<string name="record_screen_auto_stopped_alert">录制已自动完成</string>
 	<string name="rotate_device_to_change_video_orientation">旋转设备来调整录制视频方向</string>
-	<string name="select_game_title">选择准备录制的游戏</string>
+	<string name="select_game_title">选择游戏</string>
 	<string name="select_game_other_btn">其他游戏</string>
 	<string name="cut_video_action_cut">修剪</string>
 	<string name="cut_video_giveup">放弃编辑的视频</string>
@@ -68,8 +68,8 @@
 	<string name="select_game_waiting_tip">正在载入已安装游戏，请稍后…</string>
 	<string name="video_encoder_quality_option">画质</string>
 	<string name="video_encoder_quality_option_title_default">画质(中等)</string>
-	<string name="video_encoder_show_touches_option_title_off">收拾跟踪(已关闭)</string>
-	<string name="video_encoder_show_touches_option_title_on">收拾跟踪(已开启)</string>
+	<string name="video_encoder_show_touches_option_title_off">手势跟踪(已关闭)</string>
+	<string name="video_encoder_show_touches_option_title_on">手势跟踪(已开启)</string>
 	<string name="video_encoder_quality_option_high">高清</string>
 	<string name="video_encoder_quality_option_title_high">画质(高清)</string>
 	<string name="video_encoder_quality_option_middle">中等</string>

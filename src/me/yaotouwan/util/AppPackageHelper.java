@@ -11,6 +11,7 @@ import ch.boye.httpclientandroidlib.client.ClientProtocolException;
 import ch.boye.httpclientandroidlib.client.HttpClient;
 import ch.boye.httpclientandroidlib.client.methods.HttpPost;
 import ch.boye.httpclientandroidlib.entity.StringEntity;
+import ch.boye.httpclientandroidlib.util.EntityUtils;
 import me.yaotouwan.post.HttpClientUtil;
 import ch.boye.httpclientandroidlib.entity.BasicHttpEntity;
 import org.json.JSONArray;
@@ -32,8 +33,6 @@ public class AppPackageHelper {
     public class Game {
         public String appname = "";
         public String pname = "";
-        public String versionName = "";
-        public int versionCode = 0;
         public Drawable icon;
     }
 
@@ -66,6 +65,9 @@ public class AppPackageHelper {
                     if (p.applicationInfo.packageName.startsWith("android")) {
                         continue;
                     }
+                    if (p.applicationInfo.packageName.startsWith("com.android")) {
+                        continue;
+                    }
                     pkgs.add(p.applicationInfo.packageName);
                 }
                 if (pkgs.size() == 0) return null;
@@ -79,33 +81,31 @@ public class AppPackageHelper {
 
                 HttpClient httpclient = HttpClientUtil.createInstance();
                 HttpPost httpPost = new HttpPost(URL_GAME_LIST_BY_PACKAGE);
-                httpPost.setHeader("Accept", "application/json");
                 httpPost.setHeader("Content-Type", "application/json");
                 try {
                     StringEntity entity = new StringEntity(apps.toString());
                     httpPost.setEntity(entity);
                     HttpResponse response = httpclient.execute(httpPost);
                     if (response != null) {
-                        InputStream is = response.getEntity().getContent();
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                        StringBuilder sb = new StringBuilder();
-                        while (reader.ready()) {
-                            String line = reader.readLine().trim();
-                            sb.append(line);
-                        }
+                        String responseContent = EntityUtils.toString(response.getEntity());
                         List<Game> games = new ArrayList<Game>();
-                        JSONArray jsonArray = new JSONArray(sb.toString());
+                        JSONArray jsonArray = new JSONArray(responseContent);
                         for (int i = 0; i < jsonArray.length(); i++) {
                             JSONObject jobj = jsonArray.getJSONObject(i);
-                            String title = jobj.getString("title");
+                            String url = jobj.getString("url");
+                            // todo 需要用包名判断
+                            String packName = url.substring("http://www.appchina.com/app/".length(), url.length()-1);
 
                             for (PackageInfo pack : packs) {
+                                if (pack.applicationInfo == null) continue;
+                                if (pack.applicationInfo.loadLabel(packageManager) == null) continue;
                                 String appname = pack.applicationInfo.loadLabel(packageManager).toString();
-                                if (title.equals(appname)) {
+                                String localPackName = pack.applicationInfo.packageName;
+                                if (packName.equals(localPackName)) {
                                     Game game = new Game();
-                                    game.appname = title;
+                                    game.appname = appname;
                                     game.icon = pack.applicationInfo.loadIcon(packageManager);
-                                    game.pname = pack.applicationInfo.packageName;
+                                    game.pname = localPackName;
                                     games.add(game);
                                     break;
                                 }

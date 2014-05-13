@@ -64,7 +64,6 @@
 		</LinearLayout>
 	</LinearLayout>
 
-	<!-- 多段落的时候才显示 -->
 	<com.mobeta.android.dslv.DragSortListView
 			xmlns:dslv="http://schemas.android.com/apk/res-auto"
 			android:id="@+id/post_items"

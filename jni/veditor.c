@@ -315,7 +315,7 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
     src_filename = (*env)->GetStringUTFChars(env, filename_jni, NULL);
 
     av_register_all();
-    
+
     int err;
     if ((err = avformat_open_input(&fmt_ctx, src_filename, NULL, NULL)) < 0) {
         LOGE("Could not open source file %s, error: %s", src_filename, av_err2str(err));
@@ -341,14 +341,16 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
     AVDictionary *metadata = video_stream->metadata;
     if (metadata) {
         AVDictionaryEntry *item = av_dict_get(metadata, "rotate", NULL, 0);
-        char *value = item->value;
-        if (value) {
-            if (strcmp(value, "90") == 0) {
-                rotate = 90;
-            } else if (strcmp(value, "180") == 0) {
-                rotate = 180;
-            } else if (strcmp(value, "270") == 0) {
-                rotate = 270;
+        if (item) {
+            char *value = item->value;
+            if (value) {
+                if (strcmp(value, "90") == 0) {
+                    rotate = 90;
+                } else if (strcmp(value, "180") == 0) {
+                    rotate = 180;
+                } else if (strcmp(value, "270") == 0) {
+                    rotate = 270;
+                }
             }
         }
     }
@@ -396,7 +398,7 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Could not allocate raw video buffer, error: %s", av_err2str(video_dst_bufsize_large));
         return NULL;
     }
-    
+
     if (api_mode == API_MODE_OLD)
         frame = avcodec_alloc_frame();
     else
@@ -406,7 +408,7 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Could not allocate frame");
         return NULL;
     }
-    
+
     av_init_packet(&pkt);
     pkt.data = NULL;
     pkt.size = 0;

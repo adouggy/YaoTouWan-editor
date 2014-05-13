@@ -1,59 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
               android:orientation="vertical"
               android:layout_width="match_parent"
               android:layout_height="match_parent"
-              android:background="#FFF"
+              android:background="@color/white"
+              android:id="@+id/root_layout"
 		>
-
 	<TextView
 			android:id="@+id/state_label"
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
 			android:text="@string/rotate_device_to_change_video_orientation"
-			android:background="#0000"
-			android:layout_gravity="center"
-			android:layout_centerHorizontal="true"
-	        android:textSize="18sp"
-	        android:layout_marginTop="5dp"
-	        android:textColor="#F33"
+			android:background="@null"
+			android:textSize="18sp"
+			android:layout_marginTop="5dp"
+			android:textColor="#F33"
+	        android:layout_gravity="center"
 			/>
-
 	<RelativeLayout
-			android:orientation="vertical"
-			android:layout_width="wrap_content"
-			android:layout_height="wrap_content"
-			android:layout_centerInParent="true"
+			android:orientation="horizontal"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
 			>
-		<ImageView
-				android:id="@+id/nexus_image"
+		<LinearLayout
+				android:id="@+id/record_screen_start_btn_group"
 				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:src="@drawable/nexus_one_land"
-				android:background="@color/clear"
-				/>
-		<ImageView
-				android:id="@+id/record_screen_up_button"
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:src="@drawable/screen_orientation_up"
-				android:background="@color/clear"
-				android:layout_centerInParent="true"
-				/>
+				android:layout_height="match_parent"
+		        android:layout_alignParentRight="true"
+				>
+			<ImageButton
+					android:id="@+id/record_screen_start_btn"
+					android:layout_width="80dp"
+					android:layout_height="80dp"
+					android:background="@null"
+					android:src="@drawable/btn_start_record"
+					android:scaleType="fitXY"
+					android:layout_margin="5dp"
+					android:onClick="startRecordButtonClicked"
+					android:layout_gravity="center"
+					/>
+		</LinearLayout>
+		<RelativeLayout
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+		        android:layout_alignParentLeft="true"
+		        android:layout_toStartOf="@id/record_screen_start_btn_group"
+				>
+			<ImageView
+					android:id="@+id/nexus_image"
+					android:layout_width="match_parent"
+					android:layout_height="match_parent"
+					android:src="@drawable/nexus_one_land"
+					android:background="@null"
+					/>
+			<ImageView
+					android:id="@+id/record_screen_up_button"
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
+					android:src="@drawable/screen_orientation_up"
+					android:background="@null"
+					android:layout_centerInParent="true"
+					/>
+		</RelativeLayout>
 	</RelativeLayout>
-
-	<ImageButton
-			android:id="@+id/record_screen_start_btn"
-			android:layout_width="80dp"
-			android:layout_height="80dp"
-			android:background="#0000"
-			android:src="@drawable/btn_start_record"
-			android:layout_gravity="center"
-			android:scaleType="fitXY"
-			android:layout_margin="5dp"
-			android:onClick="startRecordButtonClicked"
-			android:layout_centerVertical="true"
-			android:layout_alignParentRight="true"
-			/>
-</RelativeLayout>
+</LinearLayout>
