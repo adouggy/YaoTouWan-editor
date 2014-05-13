@@ -2,6 +2,7 @@ package me.yaotouwan.post;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.graphics.*;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -118,10 +119,16 @@ public class SelectPhoto extends BaseActivity {
     class DataSource extends BaseAdapter {
 
         LayoutInflater inflater;
+        int countInRow;
+
+        DataSource() {
+            inflater = getLayoutInflater();
+            checkCountInRow();
+        }
 
         @Override
         public int getCount() {
-            return (photos.size() + 2) / 3;
+            return (photos.size() + countInRow - 1) / countInRow;
         }
 
         @Override
@@ -129,6 +136,22 @@ public class SelectPhoto extends BaseActivity {
             if (position >= photos.size())
                 return null;
             return photos.get(position);
+        }
+
+        @Override
+        public void notifyDataSetChanged() {
+            checkCountInRow();
+            super.notifyDataSetChanged();
+        }
+
+        private void checkCountInRow() {
+            int orientation = getScreenOrientation();
+            if (orientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    || orientation == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT) {
+                countInRow = 3;
+            } else {
+                countInRow = 4;
+            }
         }
 
         @Override
@@ -140,7 +163,7 @@ public class SelectPhoto extends BaseActivity {
             final CachedImageButton previewImageButton = (CachedImageButton) group.findViewById(R.id.photo_preview);
             final ImageView checkbox = (ImageView) group.findViewById(R.id.check_box);
 
-            int width = (getRootViewGroup().getWidth() - dpToPx(2)) / 3;
+            int width = (getRootViewGroup().getWidth() - dpToPx(2)) / countInRow;
             setViewSize(group, width, width);
 
             String path = getItem(pos);
@@ -181,21 +204,26 @@ public class SelectPhoto extends BaseActivity {
 
         @Override
         public View getView(final int position, View convertView, ViewGroup parent) {
-            if (inflater == null) {
-                inflater = getLayoutInflater();
-            }
-
             View rowView = convertView != null ? convertView : inflater.inflate(R.layout.select_photo_item, null);
             assert rowView != null;
 
-            ViewGroup leftGroup = (ViewGroup) rowView.findViewById(R.id.photo_left);
-            setupPhoto(leftGroup, position * 3);
+            ViewGroup group = (ViewGroup) rowView.findViewById(R.id.photo1);
+            setupPhoto(group, position * countInRow);
 
-            ViewGroup centerGroup = (ViewGroup) rowView.findViewById(R.id.photo_center);
-            setupPhoto(centerGroup, position * 3 + 1);
+            group = (ViewGroup) rowView.findViewById(R.id.photo2);
+            setupPhoto(group, position * countInRow + 1);
 
-            ViewGroup rightGroup = (ViewGroup) rowView.findViewById(R.id.photo_right);
-            setupPhoto(rightGroup, position * 3 + 2);
+            group = (ViewGroup) rowView.findViewById(R.id.photo3);
+            setupPhoto(group, position * countInRow + 2);
+
+            group = (ViewGroup) rowView.findViewById(R.id.photo4);
+            if (countInRow == 4) {
+                showView(group);
+                setupPhoto(group, position * countInRow + 3);
+            } else {
+                hideView(group);
+            }
+
 
             return rowView;
         }
@@ -228,5 +256,11 @@ public class SelectPhoto extends BaseActivity {
         } else {
             super.onBackPressed();
         }
+    }
+
+    @Override
+    protected void onViewSizeChanged() {
+        dataSource.notifyDataSetChanged();
+        super.onViewSizeChanged();
     }
 }

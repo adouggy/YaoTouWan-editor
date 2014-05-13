@@ -3,7 +3,7 @@ package me.yaotouwan.post;
 import android.app.ProgressDialog;
 import android.content.ContentValues;
 import android.content.Intent;
-import android.media.ThumbnailUtils;
+import android.content.pm.ActivityInfo;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -13,7 +13,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TextView;
 import com.actionbarsherlock.view.MenuItem;
@@ -31,7 +30,6 @@ public class PhotoAlbum extends BaseActivity {
 
     DataSource dataSource;
     ListView listView;
-    String screenShotspath;
     boolean isVideo;
     ProgressDialog dialog;
 
@@ -227,10 +225,10 @@ public class PhotoAlbum extends BaseActivity {
                         album = new Album();
                     }
                     album.count ++;
-                    album.photoPathList.add(file.getAbsolutePath());
-                    if (album.lastPhotoPath == null
-                            || file.lastModified() > new File(album.lastPhotoPath).lastModified()) {
-                        album.lastPhotoPath = file.getAbsolutePath();
+                    album.mediaPathList.add(file.getAbsolutePath());
+                    if (album.lastMediaPath == null
+                            || file.lastModified() > new File(album.lastMediaPath).lastModified()) {
+                        album.lastMediaPath = file.getAbsolutePath();
                     }
                 }
             }
@@ -242,9 +240,9 @@ public class PhotoAlbum extends BaseActivity {
         String name;
         String path;
         int count;
-        String lastPhotoPath;
-        List<String> photoPathList = new ArrayList<String>();
-        String photoPathListFilePath;
+        String lastMediaPath;
+        List<String> mediaPathList = new ArrayList<String>();
+        String mediaPathListFilePath; // 临时存储媒体文件列表的文本文件
 
         void savePhotoList() {
             File cacheDir = getCacheDir();
@@ -252,12 +250,12 @@ public class PhotoAlbum extends BaseActivity {
             try {
                 File photoPathListFile = new File(cacheDir, YTWHelper.md5(path));
                 writer = new BufferedWriter(new FileWriter(photoPathListFile));
-                for (String path : photoPathList) {
+                for (String path : mediaPathList) {
                     writer.write(path + "\n");
                 }
                 writer.flush();
-                photoPathListFilePath = photoPathListFile.getAbsolutePath();
-                photoPathList = null;
+                mediaPathListFilePath = photoPathListFile.getAbsolutePath();
+                mediaPathList = null;
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
@@ -276,15 +274,33 @@ public class PhotoAlbum extends BaseActivity {
 
         List<Album> albums;
         LayoutInflater inflater;
+        int countInRow;
 
         DataSource(List<Album> albums) {
             this.albums = albums;
             inflater = getLayoutInflater();
+            checkCountInRow();
+        }
+
+        @Override
+        public void notifyDataSetChanged() {
+            checkCountInRow();
+            super.notifyDataSetChanged();
+        }
+
+        private void checkCountInRow() {
+            int orientation = getScreenOrientation();
+            if (orientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    || orientation == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT) {
+                countInRow = 2;
+            } else {
+                countInRow = 3;
+            }
         }
 
         @Override
         public int getCount() {
-            return (albums.size() + 1) / 2;
+            return (albums.size() + countInRow - 1) / countInRow;
         }
 
         @Override
@@ -305,23 +321,23 @@ public class PhotoAlbum extends BaseActivity {
                 return;
             }
             showView(group);
-            int width = getRootViewGroup().getWidth() / 2 - dpToPx(1);
+            int width = getRootViewGroup().getWidth() / countInRow - dpToPx(1);
             setViewSize(group, width, width);
-            ImageButton previewImageButton = (ImageButton) group.findViewById(R.id.album_preview);
+            CachedImageButton previewImageButton = (CachedImageButton) group.findViewById(R.id.album_preview);
             TextView titleLabel = (TextView) group.findViewById(R.id.album_title);
             TextView countLabel = (TextView) group.findViewById(R.id.album_count);
             if (isVideo)
-                previewImageButton.setImageBitmap(ThumbnailUtils.createVideoThumbnail(album.lastPhotoPath,
-                        MediaStore.Video.Thumbnails.FULL_SCREEN_KIND));
+                previewImageButton.setImageWithVideoPath(album.lastMediaPath,
+                        MediaStore.Video.Thumbnails.FULL_SCREEN_KIND, false, 0);
             else
-                previewImageButton.setImageBitmap(YTWHelper.decodeBitmapFromPath(album.lastPhotoPath, width));
+                previewImageButton.setImageWithPath(album.lastMediaPath, width, false, 0);
             titleLabel.setText(album.name);
             countLabel.setText(album.count + (isVideo ? "个" : "张"));
             previewImageButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     Intent intent = new Intent(PhotoAlbum.this, SelectPhoto.class);
-                    intent.setData(Uri.parse(album.photoPathListFilePath));
+                    intent.setData(Uri.parse(album.mediaPathListFilePath));
                     intent.putExtra("photo_count", album.count);
                     intent.putExtra("video", isVideo);
                     startActivityForResult(intent, INTENT_REQUEST_CODE_SELECT_PHOTO);
@@ -331,15 +347,30 @@ public class PhotoAlbum extends BaseActivity {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            View rowView = convertView != null ? convertView : inflater.inflate(R.layout.photo_album_item, null);
+            View rowView = convertView != null ? convertView :
+                    inflater.inflate(R.layout.photo_album_item, null);
 
-            final Album albumLeft = getItem(position * 2);
+            final Album albumLeft = getItem(position * countInRow);
             ViewGroup leftAlbumGroup = (ViewGroup) rowView.findViewById(R.id.album_left);
             setupAlbum(leftAlbumGroup, albumLeft);
 
-            final Album albumRight = getItem(position * 2 + 1);
-            ViewGroup rightAlbumGroup = (ViewGroup) rowView.findViewById(R.id.album_right);
-            setupAlbum(rightAlbumGroup, albumRight);
+            if (countInRow == 2) {
+                ViewGroup albumGroup = (ViewGroup) rowView.findViewById(R.id.album_center);
+                hideView(albumGroup);
+
+                final Album albumRight = getItem(position * countInRow + 1);
+                albumGroup = (ViewGroup) rowView.findViewById(R.id.album_right);
+                setupAlbum(albumGroup, albumRight);
+            } else if (countInRow == 3) {
+                final Album albumCenter = getItem(position * countInRow + 1);
+                ViewGroup albumGroup = (ViewGroup) rowView.findViewById(R.id.album_center);
+                setupAlbum(albumGroup, albumCenter);
+                showView(albumGroup);
+
+                final Album albumRight = getItem(position * countInRow + 2);
+                albumGroup = (ViewGroup) rowView.findViewById(R.id.album_right);
+                setupAlbum(albumGroup, albumRight);
+            }
 
             return rowView;
         }
@@ -385,10 +416,6 @@ public class PhotoAlbum extends BaseActivity {
         }
     }
 
-    void recordVideo() {
-
-    }
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -415,5 +442,11 @@ public class PhotoAlbum extends BaseActivity {
                 finish();
             }
         }
+    }
+
+    @Override
+    protected void onViewSizeChanged() {
+        dataSource.notifyDataSetChanged();
+        super.onViewSizeChanged();
     }
 }

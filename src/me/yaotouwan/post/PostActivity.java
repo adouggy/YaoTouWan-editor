@@ -208,8 +208,6 @@ public class PostActivity extends BaseActivity {
             } else if (requestCode == INTENT_REQUEST_CODE_RECORD_SCREEN) {
                 if (data != null && data.getData() != null) {
                     croppedVideoUri = data.getData();
-                    logd(croppedVideoUri.toString());
-
                     if (canAppend()) {
                         append();
                     }
@@ -220,12 +218,10 @@ public class PostActivity extends BaseActivity {
             } else if (requestCode == INTENT_REQUEST_CODE_CUT_VIDEO) {
                 if (data != null && data.getData() != null) {
                     croppedVideoUri = data.getData();
-                    logd(croppedVideoUri.toString());
-
                     String videoPath = croppedVideoUri.getPath();
                     adapter.updateVideo(editVideoAtPosition, videoPath);
-                    editVideoAtPosition = -1;
                     adapter.notifyDataSetChanged();
+                    editVideoAtPosition = -1;
                 }
             }
         }

@@ -6,6 +6,7 @@
           android:background="@null"
           android:paddingBottom="2dp"
 		>
+	<!-- left -->
 	<RelativeLayout
 			android:id="@+id/album_left"
 			android:layout_width="wrap_content"
@@ -13,7 +14,7 @@
 	        android:layout_alignParentLeft="true"
 	        android:background="@null"
 			>
-		<ImageButton
+		<me.yaotouwan.post.CachedImageButton
 				android:id="@+id/album_preview"
 				android:layout_width="match_parent"
 				android:layout_height="match_parent"
@@ -45,6 +46,47 @@
 					/>
 		</RelativeLayout>
 	</RelativeLayout>
+	<!-- center -->
+	<RelativeLayout
+			android:id="@+id/album_center"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_centerHorizontal="true"
+			android:background="@null"
+			>
+		<me.yaotouwan.post.CachedImageButton
+				android:id="@id/album_preview"
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+				android:scaleType="centerCrop"
+				android:background="@null"
+				/>
+		<RelativeLayout
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:padding="10dp"
+				android:background="@color/photo_album_item_title_bg"
+				android:layout_alignParentBottom="true"
+				>
+			<TextView
+					android:id="@id/album_title"
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
+					android:layout_alignParentLeft="true"
+					android:textColor="@color/white"
+					android:background="@null"
+					/>
+			<TextView
+					android:id="@id/album_count"
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
+					android:layout_alignParentRight="true"
+					android:textColor="@color/white"
+					android:background="@null"
+					/>
+		</RelativeLayout>
+	</RelativeLayout>
+	<!--right-->
 	<RelativeLayout
 			android:id="@+id/album_right"
 			android:layout_width="wrap_content"
@@ -52,7 +94,7 @@
 			android:layout_alignParentRight="true"
 			android:background="@null"
 			>
-		<ImageButton
+		<me.yaotouwan.post.CachedImageButton
 				android:id="@id/album_preview"
 				android:layout_width="match_parent"
 				android:layout_height="match_parent"
