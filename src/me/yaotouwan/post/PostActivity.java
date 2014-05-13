@@ -64,6 +64,8 @@ public class PostActivity extends BaseActivity {
     ViewGroup toolbar;
     View editPopMenu;
 
+    int editVideoAtPosition = -1;
+
     boolean finishButtonClicked; // 为防止键盘显示判断错误导致的点击无效
 
     List<AppPackageHelper.Game> gamesInstalled;
@@ -164,19 +166,66 @@ public class PostActivity extends BaseActivity {
         if (resultCode == RESULT_OK) {
             if (requestCode == INTENT_REQUEST_CODE_SELECT_PHOTO) {
                 if (data != null) {
-                    selectedPhoto(data);
+                    int count = data.getIntExtra("selected_photo_count", 0);
+                    for (int i=0; i<count; i++) {
+                        String path = data.getStringExtra("selected_photo_" + i);
+                        Bitmap srcBitmap = YTWHelper.decodeBitmapFromPath(path, MAX_IMAGE_WIDTH_FOR_UPLOAD);
+                        if (srcBitmap != null) {
+                            String imagePathForUpload = saveImage(srcBitmap);
+                            long jpgFileSize = new File(imagePathForUpload).length();
+                            if (jpgFileSize > MAX_IMAGE_FILE_SIZE) {
+                                srcBitmap = YTWHelper.decodeBitmapFromPath(path,
+                                        (int) (MAX_IMAGE_WIDTH_FOR_UPLOAD * MAX_IMAGE_WIDTH_FOR_UPLOAD / jpgFileSize * 0.9));
+                                if (srcBitmap != null) {
+                                    imagePathForUpload = saveImage(srcBitmap);
+                                    jpgFileSize = new File(imagePathForUpload).length();
+                                    if (jpgFileSize > MAX_IMAGE_FILE_SIZE) {
+                                        Toast.makeText(this, "图片太大，无法使用", Toast.LENGTH_LONG);
+                                        continue;
+                                    }
+                                }
+                            }
+                            if (canAppend()) {
+                                append();
+                            }
+                            adapter.updateImage(adapter.getCount() - 1, imagePathForUpload);
+                        }
+                    }
+                    adapter.notifyDataSetChanged();
                 }
             } else if (requestCode == INTENT_REQUEST_CODE_SELECT_VODEO) {
                 if (data != null) {
-                    receiveSelectedVideo(data);
+                    int count = data.getIntExtra("selected_video_count", 0);
+                    for (int i=0; i<count; i++) {
+                        String videoPath = data.getStringExtra("selected_video_" + i);
+                        if (canAppend()) {
+                            append();
+                        }
+                        adapter.updateVideo(adapter.getCount() - 1, videoPath);
+                    }
+                    adapter.notifyDataSetChanged();
                 }
             } else if (requestCode == INTENT_REQUEST_CODE_RECORD_SCREEN) {
-                if (data != null) {
-                    receiveRecordedScreen(data);
+                if (data != null && data.getData() != null) {
+                    croppedVideoUri = data.getData();
+                    logd(croppedVideoUri.toString());
+
+                    if (canAppend()) {
+                        append();
+                    }
+                    String videoPath = croppedVideoUri.getPath();
+                    adapter.updateVideo(adapter.getCount() - 1, videoPath);
+                    adapter.notifyDataSetChanged();
                 }
             } else if (requestCode == INTENT_REQUEST_CODE_CUT_VIDEO) {
-                if (data != null) {
-                    receiveRecordedScreen(data);
+                if (data != null && data.getData() != null) {
+                    croppedVideoUri = data.getData();
+                    logd(croppedVideoUri.toString());
+
+                    String videoPath = croppedVideoUri.getPath();
+                    adapter.updateVideo(editVideoAtPosition, videoPath);
+                    editVideoAtPosition = -1;
+                    adapter.notifyDataSetChanged();
                 }
             }
         }
@@ -340,69 +389,6 @@ public class PostActivity extends BaseActivity {
         return null;
     }
 
-    // 确实收到图片准备显示了
-    void selectedPhoto(Intent data) {
-        int count = data.getIntExtra("selected_photo_count", 0);
-        for (int i=0; i<count; i++) {
-            String path = data.getStringExtra("selected_photo_" + i);
-            Bitmap srcBitmap = YTWHelper.decodeBitmapFromPath(path, MAX_IMAGE_WIDTH_FOR_UPLOAD);
-            if (srcBitmap != null) {
-                String imagePathForUpload = saveImage(srcBitmap);
-                long jpgFileSize = new File(imagePathForUpload).length();
-                if (jpgFileSize > MAX_IMAGE_FILE_SIZE) {
-                    srcBitmap = YTWHelper.decodeBitmapFromPath(path,
-                            (int) (MAX_IMAGE_WIDTH_FOR_UPLOAD * MAX_IMAGE_WIDTH_FOR_UPLOAD / jpgFileSize * 0.9));
-                    if (srcBitmap != null) {
-                        imagePathForUpload = saveImage(srcBitmap);
-                        jpgFileSize = new File(imagePathForUpload).length();
-                        if (jpgFileSize > MAX_IMAGE_FILE_SIZE) {
-                            Toast.makeText(this, "图片太大，无法使用", 1000);
-                            continue;
-                        }
-                    }
-                }
-                if (canAppend()) {
-                    append();
-                }
-                adapter.updateImage(adapter.getCount() - 1, imagePathForUpload);
-            }
-        }
-        adapter.notifyDataSetChanged();
-    }
-
-    void receiveSelectedVideo(Intent data) {
-        int count = data.getIntExtra("selected_video_count", 0);
-        for (int i=0; i<count; i++) {
-            String videoPath = data.getStringExtra("selected_video_" + i);
-            if (canAppend()) {
-                append();
-            }
-            adapter.updateVideo(adapter.getCount() - 1, videoPath);
-        }
-        adapter.notifyDataSetChanged();
-    }
-
-    void receiveRecordedScreen(Intent data) {
-        if (data != null && data.getData() != null) {
-            croppedVideoUri = data.getData();
-            logd(croppedVideoUri.toString());
-
-            Bitmap bitmap = ThumbnailUtils.createVideoThumbnail(croppedVideoUri.getPath(),
-                    MediaStore.Video.Thumbnails.FULL_SCREEN_KIND);
-            if (bitmap == null) {
-                Toast.makeText(this, "视频解析失败", 1000);
-                return;
-            }
-            String videoPath = croppedVideoUri.getPath();
-
-            if (canAppend()) {
-                append();
-            }
-            adapter.updateVideo(adapter.getCount() - 1, videoPath);
-            adapter.notifyDataSetChanged();
-        }
-    }
-
     public void onFinishClick(MenuItem menuItem) {
         if (!finishButtonClicked && isSoftKeyboardShown) {
             hideSoftKeyboard();
@@ -465,7 +451,7 @@ public class PostActivity extends BaseActivity {
 
         if (intent != null) {
             if (intent.getBooleanExtra("crop_video_finish", false)) {
-                receiveRecordedScreen(intent);
+//                receiveRecordedScreen(intent);
             }
         }
     }
@@ -891,7 +877,9 @@ public class PostActivity extends BaseActivity {
                     PreviewImageActivity.placeHolder = imageView.getDrawable();
                     pushActivity(PreviewImageActivity.class, Uri.parse(imagePath));
                 } else if (videoPath != null) {
-                    pushActivity(EditVideoActivity.class, Uri.parse(videoPath));
+                    editVideoAtPosition = position;
+                    startActivityForResult(new Intent(PostActivity.this, EditVideoActivity.class)
+                            .setData(Uri.parse(videoPath)), INTENT_REQUEST_CODE_CUT_VIDEO);
                 }
             } else if (targetView == null) {
                 int pos = position + postItemsListView.getHeaderViewsCount() - postItemsListView.getFirstVisiblePosition();
@@ -1052,6 +1040,7 @@ public class PostActivity extends BaseActivity {
                 }
 
                 View item = postItemsListView.getChildAt(postItemsListView.editingPosition + postItemsListView.getHeaderViewsCount() - postItemsListView.getFirstVisiblePosition());
+                if (item == null) return;
                 editTargetView = item.findViewById(R.id.post_item_text);
 
                 WindowManager.LayoutParams params = (WindowManager.LayoutParams) editPopMenu.getLayoutParams();
@@ -1059,7 +1048,7 @@ public class PostActivity extends BaseActivity {
                 int[] loc = new int[2];
                 editTargetView.getLocationInWindow(loc);
 
-                int listViewLoc = getActionBar().getHeight();
+                int listViewLoc = getActionBar() == null ? 0 : getActionBar().getHeight();
 
                 if (loc[1] + editTargetView.getHeight() < listViewLoc + dpToPx(80) + dpToPx(30)) {
                     return;

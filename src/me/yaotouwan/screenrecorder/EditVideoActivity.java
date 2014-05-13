@@ -14,6 +14,7 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -43,7 +44,6 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
 //    private VideoStream player;
     private MediaPlayer mPlayer;
     private RelativeLayout previewGroup;
-    private SurfaceView surface;
     private SurfaceHolder sHolder;
     private CutVideoSelector selector;
     private int videoWidth;
@@ -55,7 +55,6 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
     private ImageButton playButton;
     private ProgressDialog mDialog;
     String videoPath;
-    boolean didLayout;
     boolean isShouldReplay;
 
     boolean isPlayerPrepared;
@@ -91,7 +90,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         }
 
         previewGroup = (RelativeLayout) findViewById(R.id.preview_group);
-        surface = (SurfaceView) findViewById(R.id.surfaceView);
+        SurfaceView surface = (SurfaceView) findViewById(R.id.surfaceView);
         previewImageView = (ImageView) findViewById(R.id.preview_image_view);
         playButton = (ImageButton) findViewById(R.id.preview_video_play_btn);
         selector = (CutVideoSelector) findViewById(R.id.cut_video_selector);
@@ -199,6 +198,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
     void play() {
         if (isShouldReplay) {
             mPlayer.seekTo((int) (selector.startProgress() * mPlayer.getDuration()));
+            isShouldReplay = false;
         }
         mPlayer.start();
         toggleActionBar();
@@ -236,27 +236,25 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         colorAnimation.setDuration(defaultAnimationDuration);
         colorAnimation.start();
 
-        if (updateProgressTimer == null) {
-            updateProgressTimer = new Timer();
-            updateProgressTimer.scheduleAtFixedRate(new TimerTask() {
-                @Override
-                public void run() {
-                    if (mPlayer != null && mPlayer.isPlaying()) {
-                        final double progress = mPlayer.getCurrentPosition() * 1.0 / mPlayer.getDuration();
-                        selector.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                selector.setProgress(progress);
-                            }
-                        });
-
-                        if (progress > selector.endProgress()) {
-                            pause();
+        updateProgressTimer = new Timer();
+        updateProgressTimer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                if (mPlayer != null && mPlayer.isPlaying()) {
+                    final double progress = mPlayer.getCurrentPosition() * 1.0 / mPlayer.getDuration();
+                    selector.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            selector.setProgress(progress);
                         }
+                    });
+
+                    if (progress > selector.endProgress()) {
+                        pause();
                     }
                 }
-            }, 0, 200);
-        }
+            }
+        }, 0, 200);
     }
 
     void pause() {
@@ -266,7 +264,12 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         if (updateProgressTimer != null) {
             updateProgressTimer.cancel();
         }
-        updateUIForPlayerPaused();
+        new Handler(getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                updateUIForPlayerPaused();
+            }
+        });
     }
 
     void updateUIForPlayerPaused() {
@@ -339,6 +342,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             mDialog.dismiss();
             Intent intent = new Intent();
             intent.setData(Uri.parse(dstfpath));
+            intent.putExtra("origin_video_path", videoPath);
             setResult(RESULT_OK, intent);
             finish();
         }
@@ -364,7 +368,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             if (result && new File(videoPath).exists()) {
                 prepareVideoPlayer();
             } else {
-                Toast.makeText(EditVideoActivity.this, "合并文件失败", 1000);
+                Toast.makeText(EditVideoActivity.this, "合并文件失败", Toast.LENGTH_LONG);
             }
         }
     }
@@ -548,6 +552,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             }
         }
     }
+
 
     void updateUIForSelectorValueChanged() {
         MenuItem menuItem = actionsMenu.findItem(R.id.post_action_finish);
