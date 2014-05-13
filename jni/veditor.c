@@ -315,28 +315,33 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
     src_filename = (*env)->GetStringUTFChars(env, filename_jni, NULL);
 
     av_register_all();
+    LOGI("1");
 
     int err;
     if ((err = avformat_open_input(&fmt_ctx, src_filename, NULL, NULL)) < 0) {
         LOGE("Could not open source file %s, error: %s", src_filename, av_err2str(err));
         return NULL;
     }
+    LOGI("2");
 
     if ((err = avformat_find_stream_info(fmt_ctx, NULL)) < 0) {
         LOGE("Could not find stream information, error: %s", av_err2str(err));
         return NULL;
     }
+    LOGI("3");
 
     if ((err = open_codec_context(&video_stream_idx, fmt_ctx, AVMEDIA_TYPE_VIDEO)) < 0) {
         LOGE("Could not open codec context, error: %s", av_err2str(err));
         return NULL;
     }
+    LOGI("4");
 
     video_stream = fmt_ctx->streams[video_stream_idx];
     if (!video_stream) {
         LOGE("Could not find audio or video stream in the input, aborting");
         return NULL;
     }
+    LOGI("5");
     int rotate = 0;
     AVDictionary *metadata = video_stream->metadata;
     if (metadata) {
@@ -354,6 +359,7 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
             }
         }
     }
+    LOGI("6");
 
     video_dec_ctx = video_stream->codec;
 
@@ -367,6 +373,7 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Cannot initialize the conversion context");
         return NULL;
     }
+    LOGI("7");
 
     int width_large = video_dec_ctx->width;
     int height_large = video_dec_ctx->height;
@@ -380,6 +387,7 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Cannot initialize the conversion context");
         return NULL;
     }
+    LOGI("8");
 
     video_dst_bufsize_small = av_image_alloc(video_dst_data_small, 
                                     video_dst_linesize_small,
@@ -389,6 +397,7 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Could not allocate raw video buffer, error: %s", av_err2str(video_dst_bufsize_small));
         return NULL;
     }
+    LOGI("9");
 
     video_dst_bufsize_large = av_image_alloc(video_dst_data_large, 
                                     video_dst_linesize_large,
@@ -398,6 +407,7 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Could not allocate raw video buffer, error: %s", av_err2str(video_dst_bufsize_large));
         return NULL;
     }
+    LOGI("10");
 
     if (api_mode == API_MODE_OLD)
         frame = avcodec_alloc_frame();
@@ -408,6 +418,7 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Could not allocate frame");
         return NULL;
     }
+    LOGI("11");
 
     av_init_packet(&pkt);
     pkt.data = NULL;

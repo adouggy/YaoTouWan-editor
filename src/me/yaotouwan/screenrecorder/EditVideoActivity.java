@@ -139,6 +139,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         }
         if (updateProgressTimer != null) {
             updateProgressTimer.cancel();
+            updateProgressTimer = null;
         }
     }
 
@@ -182,6 +183,11 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         mDialog.setMessage(getString(R.string.please_wait));
         mDialog.setCancelable(false);
         mDialog.show();
+
+        if (mPlayer != null && mPlayer.isPlaying()) {
+            mPlayer.stop();
+            mPlayer = null;
+        }
 
         new CutVideoTask().execute();
     }
@@ -263,6 +269,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         }
         if (updateProgressTimer != null) {
             updateProgressTimer.cancel();
+            updateProgressTimer = null;
         }
         new Handler(getMainLooper()).post(new Runnable() {
             @Override
@@ -314,12 +321,13 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         if (selector.startProgress() == 0 && selector.endProgress() == 1) {
             Intent intent = new Intent(this, PostActivity.class);
             intent.setData(Uri.parse(videoPath));
-            intent.putExtra("crop_video_finish", true);
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+//            intent.putExtra("crop_video_finish", true);
+//            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+//            intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
             setResult(RESULT_OK, intent);
+            finish();
 
-            startActivity(intent);
+//            startActivity(intent);
         } else {
             cutVideo();
         }
@@ -405,6 +413,9 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             // start to read video infomation
             logd("start to read video infomation");
             int[] info = prepareDecoder(videoPath);
+            if (info == null) {
+                return false;
+            }
             rotate = info[3];
             if (rotate == 0 || rotate == 180) {
                 isVideoRotated = false;
@@ -485,71 +496,73 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         }
 
         @Override
-        protected void onPostExecute(Boolean aBoolean) {
-            super.onPostExecute(aBoolean);
+        protected void onPostExecute(Boolean succ) {
+            super.onPostExecute(succ);
 
-            logd("Complete read video info");
-            mPlayer = new MediaPlayer();
-            try {
-                mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-                mPlayer.setDataSource(videoPath);
-                mPlayer.setDisplay(sHolder);
-                mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                    @Override
-                    public void onPrepared(MediaPlayer mp) {
-                        isPlayerPrepared = true;
-                    }
-                });
-                mPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                    @Override
-                    public void onCompletion(MediaPlayer mp) {
-                        updateUIForPlayerPaused();
-                    }
-                });
-                mPlayer.prepareAsync();
+            if (succ) {
+                logd("Complete read video info");
+                mPlayer = new MediaPlayer();
+                try {
+                    mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+                    mPlayer.setDataSource(videoPath);
+                    mPlayer.setDisplay(sHolder);
+                    mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                        @Override
+                        public void onPrepared(MediaPlayer mp) {
+                            isPlayerPrepared = true;
+                        }
+                    });
+                    mPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                        @Override
+                        public void onCompletion(MediaPlayer mp) {
+                            updateUIForPlayerPaused();
+                        }
+                    });
+                    mPlayer.prepareAsync();
 
-                selector.onValueChangedListener =
-                        new CutVideoSelector.OnValueChangedListener() {
-                            @Override
-                            public void onChangePreviewProgress(final double previewProgress) {
-                                if (mPlayer.isPlaying()) {
-                                    pause();
+                    selector.onValueChangedListener =
+                            new CutVideoSelector.OnValueChangedListener() {
+                                @Override
+                                public void onChangePreviewProgress(final double previewProgress) {
+                                    if (mPlayer.isPlaying()) {
+                                        pause();
+                                    }
+                                    hideView(previewImageView);
+                                    hideView(playButton);
+                                    mPlayer.seekTo((int) (previewProgress * videoDuration));
+                                    isShouldReplay = false;
                                 }
-                                hideView(previewImageView);
-                                hideView(playButton);
-                                mPlayer.seekTo((int) (previewProgress * videoDuration));
-                                isShouldReplay = false;
-                            }
 
-                            @Override
-                            public void onStopChangingPreviewProgress() {
-                                showView(playButton);
-                                isShouldReplay = false;
-                            }
+                                @Override
+                                public void onStopChangingPreviewProgress() {
+                                    showView(playButton);
+                                    isShouldReplay = false;
+                                }
 
-                            @Override
-                            public void onStopChangingStartProgress() {
-                                showView(playButton);
-                                isShouldReplay = false;
-                                updateUIForSelectorValueChanged();
-                            }
+                                @Override
+                                public void onStopChangingStartProgress() {
+                                    showView(playButton);
+                                    isShouldReplay = false;
+                                    updateUIForSelectorValueChanged();
+                                }
 
-                            @Override
-                            public void onStopChangingEndProgress() {
-                                showView(playButton);
-                                isShouldReplay = true;
-                                updateUIForSelectorValueChanged();
-                            }
-                        };
+                                @Override
+                                public void onStopChangingEndProgress() {
+                                    showView(playButton);
+                                    isShouldReplay = true;
+                                    updateUIForSelectorValueChanged();
+                                }
+                            };
 
-                selector.minInterval = 1000.0 / videoDuration;
+                    selector.minInterval = 1000.0 / videoDuration;
 
-                mDialog.dismiss();
-                showView(playButton);
+                    showView(playButton);
 
-            } catch (IOException e) {
-                e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
+            mDialog.dismiss();
         }
     }
 

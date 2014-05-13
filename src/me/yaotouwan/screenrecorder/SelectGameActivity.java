@@ -26,6 +26,8 @@ public class SelectGameActivity extends BaseActivity {
 
     ProgressDialog mProgressDialog;
 
+    private final static int INTENT_REQUEST_CODE_RECORD_SCREEN = 1;
+
     public static List<AppPackageHelper.Game> preLoadGames;
     List<AppPackageHelper.Game> gamesInstalled;
 
@@ -110,7 +112,7 @@ public class SelectGameActivity extends BaseActivity {
                     Intent intent = new Intent(SelectGameActivity.this, RecordScreenActivity.class);
                     String pname = getItem(position).pname;
                     intent.putExtra("package_name", pname);
-                    startActivity(intent);
+                    startActivityForResult(intent, INTENT_REQUEST_CODE_RECORD_SCREEN);
                 }
             });
 
@@ -123,6 +125,16 @@ public class SelectGameActivity extends BaseActivity {
     }
 
     public void selectOther(View view) {
-        pushActivity(RecordScreenActivity.class);
+        startActivityForResult(new Intent(this, RecordScreenActivity.class), INTENT_REQUEST_CODE_RECORD_SCREEN);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == INTENT_REQUEST_CODE_RECORD_SCREEN) {
+            setResult(RESULT_OK, data);
+            finish();
+        }
     }
 }

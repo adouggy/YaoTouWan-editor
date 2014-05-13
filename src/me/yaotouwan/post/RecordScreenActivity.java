@@ -1,6 +1,7 @@
 package me.yaotouwan.post;
 
 import android.app.ActivityManager;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -9,6 +10,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
@@ -37,7 +39,6 @@ import java.util.List;
 public class RecordScreenActivity extends BaseActivity {
 
     Handler timerHandler;
-    int retryEditCount;
     String videoPath;
     int tryStartGameCount;
 
@@ -158,56 +159,66 @@ public class RecordScreenActivity extends BaseActivity {
         }
     }
 
-    void stopRecording(final boolean editVideoAfterStopped) {
-
+    void stopRecording() {
         timerHandler = new Handler();
         timerHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 Intent recordIntent = new Intent(RecordScreenActivity.this, SRecorderService.class);
                 stopService(recordIntent);
-
-                if (editVideoAfterStopped) {
-                    editVideo();
-                }
             }
         }, 300);
     }
 
     void editVideo() {
-        retryEditCount = 0;
-        timerHandler = new Handler();
-        timerHandler.postDelayed(new Runnable() {
+        new AsyncTask<Integer, Integer, Boolean>() {
+
+            ProgressDialog mProgressDialog;
+
             @Override
-            public void run() {
-                if (retryEditCount > 100) {
-                    return;
-                }
-                if (YTWHelper.hasBuildinScreenRecorder()) {
-                    if (!YTWHelper.isBuildinScreenRecorderRunning()) {
-                        retryEditCount = 0;
-                        doEditVideo();
-                    } else {
-                        retryEditCount ++;
-                        timerHandler.postDelayed(this, 100);
-                    }
-                } else {
-                    if (!isRecordingServiceRunning()) {
-                        retryEditCount = 0;
-                        doEditVideo();
-                    } else {
-                        retryEditCount ++;
-                        timerHandler.postDelayed(this, 100);
-                    }
-                }
+            protected void onPreExecute() {
+                mProgressDialog = new ProgressDialog(RecordScreenActivity.this);
+                mProgressDialog.setMessage(getString(R.string.please_wait));
+                mProgressDialog.setCancelable(true);
+                mProgressDialog.show();
+                super.onPreExecute();
             }
-        }, 300);
+
+            @Override
+            protected Boolean doInBackground(Integer... params) {
+                for (int i=0; i<100; i++) {
+                    if (YTWHelper.hasBuildinScreenRecorder()) {
+                        if (!YTWHelper.isBuildinScreenRecorderRunning()) {
+                            return true;
+                        }
+                    } else {
+                        if (!isRecordingServiceRunning()) {
+                            try {
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            protected void onPostExecute(Boolean succ) {
+                mProgressDialog.dismiss();
+                if (succ) {
+                    doEditVideo();
+                }
+                super.onPostExecute(succ);
+            }
+        }.execute();
     }
 
     void doEditVideo() {
-        Intent intent = new Intent(this, EditVideoActivity.class);
-        intent.setData(Uri.parse(videoPath));
-        startActivityForResult(intent, INTENT_REQUEST_CODE_CUT_VIDEO);
+        startActivityForResult(new Intent(this, EditVideoActivity.class)
+                .setData(Uri.parse(videoPath)), INTENT_REQUEST_CODE_CUT_VIDEO);
     }
 
     private boolean isRecordingServiceRunning() {
@@ -224,7 +235,8 @@ public class RecordScreenActivity extends BaseActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == INTENT_REQUEST_CODE_CUT_VIDEO) {
             if (resultCode == RESULT_OK) {
-                if (!data.getData().getPath().equals(videoPath)) {
+                if (videoPath != null
+                        && !data.getData().getPath().equals(videoPath)) {
                     // 产生了一个新的文件，于是把旧文件删除
                     new File(videoPath).delete();
                 }
@@ -232,7 +244,8 @@ public class RecordScreenActivity extends BaseActivity {
                 intent.setData(data.getData());
                 setResult(RESULT_OK, intent);
             } else {
-                new File(videoPath).delete();
+                if (videoPath != null)
+                    new File(videoPath).delete();
                 setResult(RESULT_CANCELED);
             }
             finish();
@@ -278,7 +291,7 @@ public class RecordScreenActivity extends BaseActivity {
     protected void onRestart() {
         super.onRestart();
 
-        boolean alerted = YTWHelper.alertWithNeverAgain(this,
+        YTWHelper.alertWithNeverAgain(this,
                 "record_screen_auto_stopped_alert",
                 getString(R.string.record_screen_auto_stopped_alert),
                 new DialogInterface.OnClickListener() {
@@ -291,7 +304,7 @@ public class RecordScreenActivity extends BaseActivity {
         boolean showTouchesBeforeStartRecording = YTWHelper.getBooleanProperty(this, "touch_exploration_enabled_before_start_recording");
         if (!showTouchesBeforeStartRecording && showTouches)
             YTWHelper.runRootCommand("su -c settings put system show_touches 0");
-        stopRecording(!alerted);
+        stopRecording();
     }
 
     @Override
