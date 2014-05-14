@@ -5,6 +5,7 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Point;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -50,6 +51,8 @@ public class RecordScreenActivity extends BaseActivity {
 
     int videoQuality; // low: -1, middle: 0 (default), high: 1
     boolean showTouches;
+
+    int recordedVideoOrientation;
 
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -114,6 +117,7 @@ public class RecordScreenActivity extends BaseActivity {
         recordIntent.putExtra("video_quality", videoQuality);
         recordIntent.putExtra("screen_width", getWindowManager().getDefaultDisplay().getWidth());
         recordIntent.putExtra("screen_height", getWindowManager().getDefaultDisplay().getHeight());
+        recordedVideoOrientation = orientation;
         startService(recordIntent);
 
         startGame();
@@ -256,8 +260,8 @@ public class RecordScreenActivity extends BaseActivity {
                 intent.putExtra("game_name", gameName);
                 if (!intent.hasExtra("video_width")) {
                     int width = SRecorderService.getVideoWidthByQuality(videoQuality);
-                    int height = width * getWindowManager().getDefaultDisplay().getHeight() / getWindowManager().getDefaultDisplay().getWidth();
-                    if (orientation % 2 == 0) {
+                    int height = width * getWindowSize().y / getWindowSize().x;
+                    if (recordedVideoOrientation % 2 == 0) {
                         intent.putExtra("video_width", height);
                         intent.putExtra("video_height", width);
                     } else {

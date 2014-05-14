@@ -85,7 +85,8 @@ public class PostActivity extends BaseActivity {
         }
 
         toolbar = (ViewGroup) findViewById(R.id.post_toolbar);
-        hideView(toolbar);
+        if (readonly)
+            hideView(toolbar);
 
         postItemsListView = (DragSortListView) findViewById(R.id.post_items);
         ((DragSortController)postItemsListView.mFloatViewManager).dragModeShadowImage
@@ -142,8 +143,10 @@ public class PostActivity extends BaseActivity {
 
     @Override
     public void onBackPressed() {
-        if (readonly)
+        if (readonly) {
+            finish();
             return;
+        }
         if (adapter.editingTextRow >= 0) {
             adapter.editingTextRow = -1;
             adapter.notifyDataSetChanged();
@@ -191,7 +194,8 @@ public class PostActivity extends BaseActivity {
         if (adapter.editingTextRow >= 0) {
             adapter.editingTextRow = -1;
         }
-        showView(toolbar);
+        if (!readonly)
+            showView(toolbar);
 
         if (finishButtonClicked) {
             onFinishClick(null);
@@ -280,6 +284,7 @@ public class PostActivity extends BaseActivity {
     JSONObject draft;
     File draftFile;
     void saveDraft() {
+        if (readonly) return;
         if (adapter == null) return;
         try {
             if (draftFile != null) {
@@ -364,7 +369,7 @@ public class PostActivity extends BaseActivity {
                 adapter.appendRow();
                 JSONObject section = (JSONObject) sections.get(i);
                 int width = 0, height = 0;
-                if (section.has("width") && section.has("height")) {
+                if (section.has("media_width") && section.has("media_height")) {
                     width = section.getInt("media_width");
                     height = section.getInt("media_height");
                 }
@@ -594,15 +599,11 @@ public class PostActivity extends BaseActivity {
         public PostListViewDataSource() {
             super(PostActivity.this, R.layout.post_item, null,
                     getColumnNames(),
-                    new int[] {R.id.post_item_text, R.id.post_item_image}, 0);
+                    new int[]{R.id.post_item_text, R.id.post_item_image}, 0);
 
             cursor = new PostCursor(getColumnNames());
             appendRow();
             changeCursor(cursor);
-        }
-
-        void insertRow(int pos) {
-            cursor.insertRow(pos, null, null, null, 0, null, 0, 0);
         }
 
         // 如果最后一行内容为空，则添加失败并返回false
@@ -707,12 +708,6 @@ public class PostActivity extends BaseActivity {
             super.notifyDataSetChanged();
         }
 
-        int typeOfRow(int row) {
-            if (cursor.getValue(row, video_path_col_idx) != null) return 3;
-            if (cursor.getValue(row, image_path_col_idx) != null) return 2;
-            return 1;
-        }
-
         String getText(int row) {
             return (String) cursor.getValue(row, text_col_idx);
         }
@@ -747,6 +742,7 @@ public class PostActivity extends BaseActivity {
             textEditor.setEnabled(!readonly);
 
             final int position = cursor.getPosition();
+            logd("position " + position);
 
             final String text = cursor.getString(text_col_idx);
 
@@ -773,9 +769,21 @@ public class PostActivity extends BaseActivity {
             if (imagePath != null) {
                 previewImageView.setImageWithPath(imagePath,
                         postItemsListView.getWidth(), scrolling, 0);
+                if (readonly) {
+                    Point imgSize = getMediaSize(position);
+                    if (imgSize != null)
+                        setViewHeight(previewImageView,
+                                postItemsListView.getWidth() * imgSize.y / imgSize.x);
+                }
             } else if (videoPath != null) {
                 previewImageView.setImageWithVideoPath(videoPath,
                         MediaStore.Video.Thumbnails.FULL_SCREEN_KIND, scrolling, 0);
+                if (readonly) {
+                    Point imgSize = getMediaSize(position);
+                    if (imgSize != null)
+                        setViewHeight(previewImageView,
+                                postItemsListView.getWidth() * imgSize.y / imgSize.x);
+                }
             }
 
             if (imagePath != null) {
@@ -826,6 +834,9 @@ public class PostActivity extends BaseActivity {
                 textEditor.setEnabled(false);
                 textEditor.clearFocus();
                 textEditor.removeTextChangedListener(this);
+            }
+            if (readonly && previewImageView.getVisibility() == View.GONE) {
+                hideView(dragHandle);
             }
 
             textEditor.removeTextChangedListener(adapter);
@@ -945,7 +956,8 @@ public class PostActivity extends BaseActivity {
                 } else if (videoPath != null) {
                     editVideoAtPosition = position;
                     startActivityForResult(new Intent(PostActivity.this, EditVideoActivity.class)
-                            .setData(Uri.parse(videoPath)), INTENT_REQUEST_CODE_CUT_VIDEO);
+                            .setData(Uri.parse(videoPath)).putExtra("readonly", readonly),
+                            INTENT_REQUEST_CODE_CUT_VIDEO);
                 }
             } else if (targetView == null) {
                 int pos = position + postItemsListView.getHeaderViewsCount() - postItemsListView.getFirstVisiblePosition();
@@ -1059,7 +1071,8 @@ public class PostActivity extends BaseActivity {
                     PreviewImageActivity.placeHolder = imageView.getDrawable();
                     pushActivity(PreviewImageActivity.class, Uri.parse(imagePath));
                 } if (videoPath != null) {
-                    pushActivity(EditVideoActivity.class, Uri.parse(videoPath));
+                    startActivity(new Intent(PostActivity.this, EditVideoActivity.class)
+                            .setData(Uri.parse(videoPath)).putExtra("readonly", readonly));
                 }
             } else { // double click on text
                 doEditTextOnPosition(position);

@@ -3,6 +3,7 @@ package me.yaotouwan.post;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Point;
 import android.media.ThumbnailUtils;
 import android.os.AsyncTask;
 import android.os.Handler;
@@ -10,6 +11,7 @@ import android.provider.MediaStore;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
 import android.view.animation.LinearInterpolator;
@@ -40,11 +42,11 @@ public class CachedImageButton extends ImageButton {
 
     public static final int DEFAULT_DELAY = 500;
     private String imagePath;
-    public void setImageWithPath(final String newImagePath, final int width, boolean async, int delay) {
+    public boolean setImageWithPath(final String newImagePath, final int width, boolean async, int delay) {
         if (videoPath == null && newImagePath.equals(imagePath))
-            return;
+            return false;
         videoPath = null;
-        if (newImagePath.equals(imagePath)) return;
+        if (newImagePath.equals(imagePath)) return false;
         imagePath = newImagePath;
         setImageBitmap(null);
         if (async) {
@@ -71,12 +73,13 @@ public class CachedImageButton extends ImageButton {
         } else {
             setImageBitmap(loadBitmap(imagePath, width));
         }
+        return true;
     }
 
     private String videoPath;
-    public void setImageWithVideoPath(final String newVideoPath, final int sizeKind, boolean async, int delay) {
+    public boolean setImageWithVideoPath(final String newVideoPath, final int sizeKind, boolean async, int delay) {
         if (imagePath == null && newVideoPath.equals(videoPath))
-         return;
+         return false;
         imagePath = null;
         videoPath = newVideoPath;
         setImageBitmap(null);
@@ -104,6 +107,7 @@ public class CachedImageButton extends ImageButton {
         } else {
             setImageBitmap(loadVideoThumbnail(videoPath, sizeKind));
         }
+        return true;
     }
 
     class LoadBitmapTask extends AsyncTask<Integer, Integer, Bitmap> {

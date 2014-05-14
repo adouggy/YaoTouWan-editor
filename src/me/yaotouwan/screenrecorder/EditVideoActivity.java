@@ -41,7 +41,6 @@ import java.util.*;
 
 public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Callback {
 
-//    private VideoStream player;
     private MediaPlayer mPlayer;
     private RelativeLayout previewGroup;
     private SurfaceHolder sHolder;
@@ -59,6 +58,8 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
 
     boolean isPlayerPrepared;
     Timer updateProgressTimer;
+
+    boolean readonly;
 
     private native int cutVideo(String srcFilename,
                                 String dstFilename,
@@ -101,8 +102,15 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         sHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
         try {
-            assert getIntent() != null && getIntent().getData() != null;
-            videoPath = getIntent().getData().getPath();
+            Intent intent = getIntent();
+            assert intent != null && intent.getData() != null;
+            if (intent.hasExtra("readonly")) {
+                readonly = intent.getBooleanExtra("readonly", false);
+            }
+            if (readonly) {
+                hideView(selector);
+            }
+            videoPath = intent.getData().getPath();
             if (new File(videoPath).exists()) {
                 prepareVideoPlayer();
             } else {
@@ -282,7 +290,8 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
     void updateUIForPlayerPaused() {
         toggleActionBar();
         exitFullscreen();
-        showView(selector);
+        if (!readonly)
+            showView(selector);
         playButton.setImageResource(R.drawable.btn_play_video);
         playButton.setBackgroundColor(Color.parseColor("#55000000"));
         AlphaAnimation animation = new AlphaAnimation(0, 1);
@@ -321,13 +330,11 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         if (selector.startProgress() == 0 && selector.endProgress() == 1) {
             Intent intent = new Intent(this, PostActivity.class);
             intent.setData(Uri.parse(videoPath));
-//            intent.putExtra("crop_video_finish", true);
-//            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-//            intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
             setResult(RESULT_OK, intent);
+            intent.putExtra("origin_video_path", videoPath);
+            intent.putExtra("video_width", videoWidth);
+            intent.putExtra("video_height", videoHeight);
             finish();
-
-//            startActivity(intent);
         } else {
             cutVideo();
         }
@@ -449,30 +456,33 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
 
             publishProgress(-1);
 
-            int sliceCount = 10;
-            sliceImages = new LinkedList<Bitmap>();
-            for (int p=0; p<sliceCount; p++) {
-                frameBytes = decodeFrame(p * 1.0 / sliceCount, false);
-                if (frameBytes == null) {
-                    if (sliceImageLastOne != null) {
-                        sliceImages.add(sliceImageLastOne);
-                        publishProgress(p);
+            if (!readonly) {
+                int sliceCount = 10;
+                sliceImages = new LinkedList<Bitmap>();
+                for (int p=0; p<sliceCount; p++) {
+                    frameBytes = decodeFrame(p * 1.0 / sliceCount, false);
+                    if (frameBytes == null) {
+                        if (sliceImageLastOne != null) {
+                            sliceImages.add(sliceImageLastOne);
+                            publishProgress(p);
+                        }
+                        continue;
                     }
-                    continue;
+                    Bitmap sliceImage;
+                    if (isVideoRotated) {
+                        sliceImage = Bitmap.createBitmap(100, 100 * videoWidth / videoHeight, Bitmap.Config.ARGB_8888);
+                        sliceImage.copyPixelsFromBuffer(makeBuffer(frameBytes));
+                        sliceImage = YTWHelper.rotateBitmap(sliceImage, rotate);
+                    } else {
+                        sliceImage = Bitmap.createBitmap(100, 100 * videoHeight / videoWidth, Bitmap.Config.ARGB_8888);
+                        sliceImage.copyPixelsFromBuffer(makeBuffer(frameBytes));
+                    }
+                    sliceImages.add(sliceImage);
+                    sliceImageLastOne = sliceImage;
+                    publishProgress(p);
                 }
-                Bitmap sliceImage;
-                if (isVideoRotated) {
-                    sliceImage = Bitmap.createBitmap(100, 100 * videoWidth / videoHeight, Bitmap.Config.ARGB_8888);
-                    sliceImage.copyPixelsFromBuffer(makeBuffer(frameBytes));
-                    sliceImage = YTWHelper.rotateBitmap(sliceImage, rotate);
-                } else {
-                    sliceImage = Bitmap.createBitmap(100, 100 * videoHeight / videoWidth, Bitmap.Config.ARGB_8888);
-                    sliceImage.copyPixelsFromBuffer(makeBuffer(frameBytes));
-                }
-                sliceImages.add(sliceImage);
-                sliceImageLastOne = sliceImage;
-                publishProgress(p);
             }
+
             return true;
         }
 
@@ -558,7 +568,16 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
 
                     selector.minInterval = 1000.0 / videoDuration;
 
-                    showView(playButton);
+                    if (!readonly)
+                        showView(playButton);
+
+                    if (readonly)
+                        new Handler().postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                play();
+                            }
+                        }, 500);
 
                 } catch (IOException e) {
                     e.printStackTrace();
