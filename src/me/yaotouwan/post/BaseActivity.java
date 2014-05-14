@@ -531,4 +531,8 @@ public class BaseActivity extends SherlockActivity {
         int height = activity.getWindowManager().getDefaultDisplay().getHeight();
         return new Point(width, height);
     }
+
+    protected Point getWindowSize() {
+        return getWindowSize(this);
+    }
 }

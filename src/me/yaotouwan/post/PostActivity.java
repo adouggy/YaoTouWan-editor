@@ -1,15 +1,11 @@
 package me.yaotouwan.post;
 
-import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.*;
 import android.database.Cursor;
 import android.graphics.*;
-import android.media.ThumbnailUtils;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.v4.content.LocalBroadcastManager;
 import android.text.*;
@@ -29,7 +25,6 @@ import com.mobeta.android.dslv.SimpleDragSortCursorAdapter;
 import me.yaotouwan.R;
 import me.yaotouwan.screenrecorder.EditVideoActivity;
 import me.yaotouwan.screenrecorder.SelectGameActivity;
-import me.yaotouwan.screenrecorder.YoukuUploader;
 import me.yaotouwan.uicommon.ActionSheet;
 import me.yaotouwan.uicommon.ActionSheetItem;
 import me.yaotouwan.util.AppPackageHelper;
@@ -42,8 +37,6 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Created by jason on 14-3-18.
@@ -73,6 +66,8 @@ public class PostActivity extends BaseActivity {
 
     List<AppPackageHelper.Game> gamesInstalled;
 
+    boolean readonly;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -84,7 +79,13 @@ public class PostActivity extends BaseActivity {
         setupActionBar(R.string.post_title);
         menuResId = R.menu.post_actions;
 
+        Intent intent = getIntent();
+        if (intent.hasExtra("readonly")) {
+            readonly = intent.getBooleanExtra("readonly", false);
+        }
+
         toolbar = (ViewGroup) findViewById(R.id.post_toolbar);
+        hideView(toolbar);
 
         postItemsListView = (DragSortListView) findViewById(R.id.post_items);
         ((DragSortController)postItemsListView.mFloatViewManager).dragModeShadowImage
@@ -92,10 +93,24 @@ public class PostActivity extends BaseActivity {
 
         View titleContent = getLayoutInflater().inflate(R.layout.post_title, null);
         postItemsListView.addHeaderView(titleContent);
-        View footer = getLayoutInflater().inflate(R.layout.post_footer, null);
-        postItemsListView.addFooterView(footer);
+        if (!readonly) {
+            View footer = getLayoutInflater().inflate(R.layout.post_footer, null);
+            postItemsListView.addFooterView(footer);
+        }
 
         titleEditor = (EditText) findViewById(R.id.post_title);
+        titleEditor.setEnabled(!readonly);
+        if (readonly) {
+            titleEditor.setBackgroundColor(Color.WHITE);
+            titleEditor.setTextSize(20);
+
+            hideView(R.id.title_seperator1);
+            hideView(R.id.title_seperator2);
+            hideView(R.id.title_seperator3);
+            hideView(R.id.title_seperator4);
+            hideView(R.id.title_seperator5);
+            hideView(R.id.title_seperator6);
+        }
 
         adapter = new PostListViewDataSource();
         Uri draftUri = getIntent().getData();
@@ -107,6 +122,8 @@ public class PostActivity extends BaseActivity {
         postItemsListView.setAdapter(adapter);
         postItemsListView.setDragSortListener(adapter);
         postItemsListView.setOnScrollListener(adapter);
+
+        postItemsListView.readonly = readonly;
 
         listenKeyboard();
 
@@ -125,6 +142,8 @@ public class PostActivity extends BaseActivity {
 
     @Override
     public void onBackPressed() {
+        if (readonly)
+            return;
         if (adapter.editingTextRow >= 0) {
             adapter.editingTextRow = -1;
             adapter.notifyDataSetChanged();
@@ -414,133 +433,6 @@ public class PostActivity extends BaseActivity {
         return null;
     }
 
-    public static String readPostContentAsHTML(JSONObject post, Activity activity) {
-        try {
-            JSONObject urlMap = new JSONObject();
-            if (post.has("url_map")) {
-                urlMap = post.getJSONObject("url_map");
-            }
-            String title = "";
-            if (post.has("title")) {
-                title = post.getString("title");
-            }
-            StringBuilder sb = new StringBuilder();
-            sb.append("<h>" + title + "</h>");
-            JSONArray sections = post.getJSONArray("sections");
-            for (int i=0; i<sections.length(); i++) {
-                sb.append("<p>");
-                JSONObject section = (JSONObject) sections.get(i);
-                boolean hasMedia = false;
-                if (section.has("image_src")) {
-                    String imgTag = "<img src='{image_src}' " +
-                            "style='width={image_width}px;height={image_height}px;' />";
-                    String imagePath = section.getString("image_src");
-                    Uri imageUri = Uri.parse(imagePath);
-                    if ("file".equals(imageUri.getScheme())) {
-                        imgTag = imgTag.replace("{image_src}", "file://" + imagePath);
-                    } else if ("yaotouwan".equals(imageUri.getScheme())) {
-                        imagePath = imagePath.replace("yaotouwan://", "http://115.28.156.104/image/");
-                        imgTag = imgTag.replace("{image_src}", imagePath);
-                    }
-                    int width = 0, height = 0;
-                    if (section.has("media_width")) {
-                        width = section.getInt("media_width");
-                    }
-                    if (section.has("media_height")) {
-                        height = section.getInt("media_height");
-                    }
-                    if (width > 0 && height > 0) {
-                        Point winSize = getWindowSize(activity);
-                        height = winSize.x * height / width;
-                        width = winSize.x;
-                        if (width > height * 2) {
-                            height = width / 2;
-                        } else if (height > width * 2) {
-                            height = width * 2;
-                        }
-                        imgTag = imgTag.replace("{image_width}", width + "");
-                        imgTag = imgTag.replace("{image_height}", height + "");
-                    }
-                    sb.append(imgTag);
-                    hasMedia = true;
-                }
-                if (section.has("video_src")) {
-                    String videoPath = section.getString("video_src");
-                    Uri videoUri = Uri.parse(videoPath);
-                    String videoTag = null;
-                    if ("file".equals(videoUri.getScheme())) {
-                        videoTag = "<video src='{video_src}' " +
-                                "style='width={video_width}px;height={video_height}px;' />";
-                        videoTag = videoTag.replace("{video_src}", "file://" + videoPath);
-                    } else if ("youku".equals(videoUri.getScheme())) {
-                        videoTag =
-                                "<div id='youkuplayer_{youku_video_id}' " +
-                                        "style='width:{video_width}px;height:{video_height}px;'></div>\n" +
-                                "<script type='text/javascript' src='http://player.youku.com/jsapi'>\n" +
-                                "player = new YKU.Player('youkuplayer_{youku_video_id}',{\n" +
-                                "styleid: '0',\n" +
-                                "client_id: '{youku_client_id}',\n" +
-                                "vid: '{youku_video_id}'\n" +
-                                "});\n" +
-                                "</script>";
-                        String videoID = videoPath.replace("yaotouwan://", "");
-                        videoTag = videoTag.replaceAll("\\{youku_video_id\\}", videoID);
-                        videoTag = videoTag.replace("{youku_client_id}", YoukuUploader.CLIENT_ID);
-                    } else {
-                        continue;
-                    }
-
-                    int width = 0, height = 0;
-                    if (section.has("media_width")) {
-                        width = section.getInt("media_width");
-                    }
-                    if (section.has("media_height")) {
-                        height = section.getInt("media_height");
-                    }
-                    if (width > 0 && height > 0) {
-                        Point winSize = getWindowSize(activity);
-                        height = winSize.x * height / width;
-                        width = winSize.x;
-                        if (width > height * 2) {
-                            height = width / 2;
-                        } else if (height > width * 2) {
-                            height = width * 2;
-                        }
-                        videoTag = videoTag.replace("{video_width}", width + "");
-                        videoTag = videoTag.replace("{video_height}", height + "");
-                    }
-                    sb.append(videoTag);
-                    hasMedia = true;
-                }
-
-                if (section.has("text")) {
-                    String text = section.getString("text");
-                    int textStyle = 0;
-                    if (section.has("text_style")) {
-                        textStyle = section.getInt("text_style");
-                    }
-                    if (!hasMedia && textStyle == 0) {
-                        sb.append(text);
-                    } else if (textStyle == 1) {
-                        sb.append("<h>" + text + "</h>");
-                    } else if (textStyle == 2) {
-                        sb.append("<b>" + text + "</b>");
-                    } else if (textStyle == 3) {
-                        sb.append("<i>" + text + "</i>");
-                    } else if (textStyle == 4) {
-                        sb.append("<blockquote>" + text + "</blockquote>");
-                    }
-                }
-                sb.append("</p>");
-            }
-            post.remove("url_map");
-            return post.toString();
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
     public void onFinishClick(MenuItem menuItem) {
         if (!finishButtonClicked && isSoftKeyboardShown) {
             hideSoftKeyboard();
@@ -550,6 +442,9 @@ public class PostActivity extends BaseActivity {
         finishButtonClicked = false;
 
         saveDraft();
+
+        setResult(RESULT_OK, new Intent().setData(Uri.parse(draftFile.getAbsolutePath())));
+        finish();
     }
 
     private void uploadMedia() {
@@ -849,6 +744,7 @@ public class PostActivity extends BaseActivity {
         @Override
         public void bindView(final View rowView, Context context, Cursor cursor) {
             final me.yaotouwan.post.TextEditor textEditor = (me.yaotouwan.post.TextEditor) rowView.findViewById(R.id.post_item_text);
+            textEditor.setEnabled(!readonly);
 
             final int position = cursor.getPosition();
 
@@ -1041,7 +937,6 @@ public class PostActivity extends BaseActivity {
                     postItemsListView.editMode = false;
                     postItemsListView.editingPosition = -1;
                     editTargetView = null;
-                    notifyDataSetChanged();
                 }
                 if (imagePath != null) {
                     ImageView imageView = (ImageView) targetView.findViewById(R.id.post_item_image);
@@ -1065,6 +960,10 @@ public class PostActivity extends BaseActivity {
                     wm.removeView(editPopMenu);
                 }
             } else {
+                if (readonly) {
+                    return;
+                }
+
                 postItemsListView.makeFloatViewForEditRow(position);
 
                 WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
@@ -1145,7 +1044,8 @@ public class PostActivity extends BaseActivity {
 
                 editTargetView = targetView;
             }
-            notifyDataSetChanged();
+            if (!readonly)
+                notifyDataSetChanged();
         }
 
 

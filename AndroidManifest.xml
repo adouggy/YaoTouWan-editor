@@ -58,6 +58,7 @@
 			    />
 	    <activity android:name=".post.PhotoAlbum"/>
 	    <activity android:name=".post.SelectPhoto"/>
+	    <activity android:name=".post.PreviewPost"/>
 
 	    <service android:name=".screenrecorder.SRecorderService"/>
 	    <service android:name=".post.UploadPostMediaService"/>

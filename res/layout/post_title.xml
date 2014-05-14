@@ -4,13 +4,17 @@
               android:orientation="vertical"
               android:layout_width="match_parent"
               android:layout_height="match_parent">
-	<View android:layout_width="match_parent"
-	      android:layout_height="20dp"
-	      android:background="@color/post_background_default"
+	<View
+			android:id="@+id/title_seperator5"
+			android:layout_width="match_parent"
+	        android:layout_height="20dp"
+	        android:background="@color/post_background_default"
 			/>
-	<View android:layout_width="match_parent"
-	      android:layout_height="1dp"
-	      android:background="@color/post_seperator_default"
+	<View
+			android:id="@+id/title_seperator6"
+			android:layout_width="match_parent"
+	        android:layout_height="1dp"
+	        android:background="@color/post_seperator_default"
 			/>
 	<LinearLayout
 			android:layout_width="match_parent"
@@ -27,20 +31,28 @@
 				android:hint="@string/post_title_hint"
 				/>
 	</LinearLayout>
-	<View android:layout_width="match_parent"
-	      android:layout_height="2dp"
-	      android:background="@color/post_seperator_default"
+	<View
+			android:id="@+id/title_seperator1"
+			android:layout_width="match_parent"
+	        android:layout_height="2dp"
+	        android:background="@color/post_seperator_default"
 			/>
-	<View android:layout_width="match_parent"
-	      android:layout_height="20dp"
-	      android:background="@color/post_background_default"
+	<View
+			android:id="@+id/title_seperator2"
+			android:layout_width="match_parent"
+	        android:layout_height="20dp"
+	        android:background="@color/post_background_default"
 			/>
-	<View android:layout_width="match_parent"
-	      android:layout_height="1dp"
-	      android:background="@color/post_seperator_default"
+	<View
+			android:id="@+id/title_seperator3"
+			android:layout_width="match_parent"
+	        android:layout_height="1dp"
+	        android:background="@color/post_seperator_default"
 			/>
-	<View android:layout_width="match_parent"
-	      android:layout_height="2dp"
-	      android:background="@color/post_background_default"
+	<View
+			android:id="@+id/title_seperator4"
+			android:layout_width="match_parent"
+	        android:layout_height="2dp"
+	        android:background="@color/post_background_default"
 			/>
 </LinearLayout>
