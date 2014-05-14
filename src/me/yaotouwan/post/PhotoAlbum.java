@@ -65,37 +65,25 @@ public class PhotoAlbum extends BaseActivity {
 
             List<Album> albums = new ArrayList<Album>(2);
 
-            void loadPhotoAtDir(File dir, String name) {
-                if (dir.exists()) {
-                    Album cameraAlbum = readPhotosAtDir(dir, null);
-                    if (cameraAlbum != null) {
-                        cameraAlbum.name = name;
-                        cameraAlbum.path = dir.getAbsolutePath();
-                        cameraAlbum.savePhotoList();
-                        albums.add(cameraAlbum);
-                    }
-                }
-            }
-
             @Override
             protected Boolean doInBackground(Integer... params) {
-                File rootDir = Environment.getExternalStorageDirectory();
+                dataSource = new DataSource(albums);
 
+                File rootDir = Environment.getExternalStorageDirectory();
                 File dir = Environment.getExternalStoragePublicDirectory(
                         Environment.DIRECTORY_DCIM);
-                loadPhotoAtDir(dir, "相机交卷");
+                loadPhotoInDir(dir, "相机交卷", false);
 
                 dir = Environment.getExternalStoragePublicDirectory(
                         Environment.DIRECTORY_PICTURES);
-                loadPhotoAtDir(dir, "我的相册");
+                loadPhotoInDir(dir, "我的相册", false);
 
                 dir = new File(rootDir, "Pictures/Screenshots");
-                loadPhotoAtDir(dir, "屏幕截图");
+                loadPhotoInDir(dir, "屏幕截图", false);
 
                 dir = new File(rootDir, "我的相机");
-                loadPhotoAtDir(dir, "我的相机");
+                loadPhotoInDir(dir, "我的相机", false);
 
-                dataSource = new DataSource(albums);
                 publishProgress(1);
 
                 File albumListFile = new File(getCacheDir(), albumListFilePath());
@@ -104,7 +92,7 @@ public class PhotoAlbum extends BaseActivity {
                     reader = new BufferedReader(new FileReader(albumListFile));
                     String path;
                     while ((path = reader.readLine()) != null) {
-                        loadPhotoInDir(new File(path));
+                        loadPhotoInDir(new File(path), null, true);
                     }
                 } catch (FileNotFoundException e) {
                 } catch (IOException e) {
@@ -123,13 +111,16 @@ public class PhotoAlbum extends BaseActivity {
                 if (files == null) return false;
 
                 for (File file : files) {
-                    loadPhotoInDir(file);
+                    String title = null;
+                    if (file.getName().equals("yaotouwan"))
+                        title = "摇头玩";
+                    loadPhotoInDir(file, title, true);
                 }
 
                 return true;
             }
 
-            void loadPhotoInDir(File dir) {
+            void loadPhotoInDir(File dir, String title, boolean updateProgress) {
                 if (!dir.exists()) return;
                 if (!dir.isDirectory()) return;
                 if (dir.isHidden()) return;
@@ -147,10 +138,13 @@ public class PhotoAlbum extends BaseActivity {
                 Album album = readPhotosAtDir(dir, null);
                 if (album != null) {
                     album.name = dir.getName();
+                    if (title != null)
+                        album.name = title;
                     album.path = dir.getAbsolutePath();
                     album.savePhotoList();
                     dataSource.albums.add(album);
-                    publishProgress(1);
+                    if (updateProgress)
+                        publishProgress(1);
                 }
             }
 

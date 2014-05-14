@@ -1,32 +1,20 @@
 package me.yaotouwan.post;
 
 import android.app.Service;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
+import android.content.*;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.IBinder;
-import android.os.NetworkOnMainThreadException;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
-import ch.boye.httpclientandroidlib.HttpEntity;
 import ch.boye.httpclientandroidlib.HttpResponse;
 import ch.boye.httpclientandroidlib.client.ClientProtocolException;
 import ch.boye.httpclientandroidlib.client.HttpClient;
 import ch.boye.httpclientandroidlib.client.methods.HttpPost;
-import ch.boye.httpclientandroidlib.entity.ContentType;
 import ch.boye.httpclientandroidlib.entity.mime.HttpMultipartMode;
 import ch.boye.httpclientandroidlib.entity.mime.MultipartEntityBuilder;
-import ch.boye.httpclientandroidlib.entity.mime.content.ByteArrayBody;
-import ch.boye.httpclientandroidlib.entity.mime.content.ContentBody;
 import ch.boye.httpclientandroidlib.entity.mime.content.InputStreamBody;
-import ch.boye.httpclientandroidlib.impl.client.CloseableHttpClient;
-import ch.boye.httpclientandroidlib.impl.client.HttpClients;
-import ch.boye.httpclientandroidlib.message.BasicHeader;
+import me.yaotouwan.screenrecorder.YoukuUploader;
 import me.yaotouwan.util.YTWHelper;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -79,7 +67,7 @@ public class UploadPostMediaService extends Service {
                         int totalMediaCount = 0;
                         for (int i=0; i<sections.length(); i++) {
                             JSONObject section = (JSONObject) sections.get(i);
-                            if (section.has("image_path") || section.has("video_path")) {
+                            if (section.has("image_src") || section.has("video_src")) {
                                 totalMediaCount ++;
                             }
                         }
@@ -90,34 +78,43 @@ public class UploadPostMediaService extends Service {
                         int uploadedMediaCount = 0;
                         for (int i=0; i<sections.length(); i++) {
                             JSONObject section = (JSONObject) sections.get(i);
-                            if (section.has("image_path")) {
-                                String imagePath = section.getString("image_path");
+                            boolean didUpload = false;
+                            if (section.has("image_src")) {
+                                String imagePath = section.getString("image_src");
                                 String imagePathHash = YTWHelper.md5(imagePath);
                                 if (!urlMap.has(imagePathHash)) {
                                     String imageUrl = uploadImage(imagePath);
                                     if (imageUrl != null) {
                                         urlMap.put(imagePathHash, imageUrl);
+                                        didUpload = true;
                                     }
                                 }
                                 uploadedMediaCount ++;
                             }
-                            if (section.has("video_path")) {
-                                String videoPath = section.getString("video_path");
+                            if (section.has("video_src")) {
+                                String videoPath = section.getString("video_src");
                                 String videoPathHash = YTWHelper.md5(videoPath);
                                 if (!urlMap.has(videoPathHash)) {
-                                    String imageUrl = uploadImage(videoPath);
-                                    if (imageUrl != null) {
-                                        urlMap.put(videoPathHash, imageUrl);
+                                    String gameName = null;
+                                    if (section.has("game_name")) {
+                                        gameName = section.getString("game_name");
+                                    }
+                                    String videoId = uploadVideo(videoPath, gameName);
+                                    if (videoId != null) {
+                                        urlMap.put(videoPathHash, videoId);
+                                        didUpload = true;
                                     }
                                 }
                                 uploadedMediaCount ++;
                             }
-                            post.put("url_map", urlMap);
-                            if (uploadedMediaCount < totalMediaCount) {
-                                publishProgress(uploadedMediaCount * 1.0f / totalMediaCount);
+                            if (didUpload) {
+                                post.put("url_map", urlMap);
+                                if (uploadedMediaCount < totalMediaCount) {
+                                    publishProgress(uploadedMediaCount * 1.0f / totalMediaCount);
+                                }
+                                YTWHelper.writeTextContentToFile(post.toString(),
+                                        postJSONFileUri.getPath());
                             }
-                            YTWHelper.writeTextContentToFile(post.toString(),
-                                    postJSONFileUri.getPath());
                             if (mediaUpdated) {
                                 break;
                             }
@@ -132,7 +129,10 @@ public class UploadPostMediaService extends Service {
 
             @Override
             protected void onProgressUpdate(Float... values) {
+                float progress = values[0];
                 broadcastProgress(values[0]);
+                if (progress >= 1)
+                    stopSelf();
             }
         }.execute();
     }
@@ -154,13 +154,48 @@ public class UploadPostMediaService extends Service {
         }
     };
 
-    String uploadVideo(String videoPath) {
+    String uploadVideo(String videoPath, String game) {
+        if (HttpClientUtil.checkConnection(this)) {
+            YoukuUploader uploader = new YoukuUploader();
+            try {
+                return uploader.uploadVideoFile(videoPath,
+                        nameVideoTitleByGameName(game), nameVideoTagsByGameName(game));
+            } catch (YoukuUploader.UploadException e) {
+                Intent intent = new Intent("upload_post_media_error");
+                intent.setData(postJSONFileUri);
+                intent.putExtra("error_name", "youku_upload_error");
+                intent.putExtra("error_code", e.code);
+                intent.putExtra("error_desc", e.description);
+                intent.putExtra("video_path", videoPath);
+                intent.putExtra("game_name", game);
+                LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+            }
+        }
         return null;
+    }
+
+    String username = null;
+    String nameVideoTitleByGameName(String gameName) {
+        if (gameName == null)
+            gameName = "";
+        if (username == null) {
+            SharedPreferences pref = getSharedPreferences("yaotouwan_user_info", Context.MODE_APPEND);
+            username = pref.getString("userName", "");
+        }
+        return "摇头玩用户" + username + "录制" + gameName + "游戏视频";
+    }
+
+    String nameVideoTagsByGameName(String gameName) {
+        String tags = "摇头玩,游戏视频";
+        if (gameName != null) {
+            tags += gameName;
+        }
+        return tags;
     }
 
     static final String TAG = "UploadPostMediaService";
     static final String IMAGE_ADD_URL = "http://115.28.156.104/image/add";
-    static final String IMAGE_URL_PREFIX = "http://115.28.156.104/image/";
+    static final String IMAGE_URL_PREFIX = "yaotouwan://";
 
     class FileStreamBody extends InputStreamBody {
 
@@ -178,6 +213,8 @@ public class UploadPostMediaService extends Service {
     }
 
     private String uploadImage(String imageFilePath) {
+        if (!HttpClientUtil.checkConnection(this))
+            return null;
         HttpClient httpclient = HttpClientUtil.createInstance();
         HttpPost httppost = new HttpPost(IMAGE_ADD_URL);
         MultipartEntityBuilder mpEntity = MultipartEntityBuilder.create();

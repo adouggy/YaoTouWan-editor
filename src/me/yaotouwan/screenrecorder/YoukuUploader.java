@@ -1,10 +1,18 @@
 package me.yaotouwan.screenrecorder;
 
 import android.util.Log;
+import ch.boye.httpclientandroidlib.HttpEntity;
+import ch.boye.httpclientandroidlib.HttpResponse;
+import ch.boye.httpclientandroidlib.client.ClientProtocolException;
+import ch.boye.httpclientandroidlib.client.methods.HttpGet;
+import ch.boye.httpclientandroidlib.client.methods.HttpPost;
+import ch.boye.httpclientandroidlib.entity.ByteArrayEntity;
+import ch.boye.httpclientandroidlib.entity.StringEntity;
+import ch.boye.httpclientandroidlib.entity.mime.MultipartEntityBuilder;
+import ch.boye.httpclientandroidlib.impl.client.HttpClients;
+import ch.boye.httpclientandroidlib.util.EntityUtils;
 import me.yaotouwan.util.HttpHelper;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.util.EntityUtils;
+import me.yaotouwan.util.YTWHelper;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -27,8 +35,13 @@ public class YoukuUploader {
     private static final String UPLOAD_TOKEN_URL = "https://openapi.youku.com/v2/uploads/create.json";
     private static final String UPLOAD_COMMIT_URL = "https://openapi.youku.com/v2/uploads/commit.json";
     private static final String VERSION_UPDATE_URL = "http://open.youku.com/sdk/version_update";
-    private static final String REFRESH_FILE = "/sdcard/yaotouwan/refresh.txt";
 
+    public static final String CLIENT_ID = "2780bc1482be4fd7"; // Youku OpenAPI client_id
+    public static final String CLIENT_SECRET = "763deedf075ea67cb2c9c111b80ef779"; //Youku OpenAPI client_secret
+    public static final String ACCESS_TOKEN = "ae71097668c9397221aa7096a1e9fc44";
+    public static final String REFRESH_TOKEN = "85a2a457e8c924bba2a664af8f5dda12";
+
+    private String refreshFilePath;
     private String client_id;
     private String client_secret;
     private String access_token;
@@ -69,8 +82,13 @@ public class YoukuUploader {
         Log.i("Youku", "POST " + url);
         String paramString = buildQuery(parameters);
         Log.i("Youku", "POST body " + paramString);
-        HttpResponse response = HttpHelper.INSTANCE.post(url, paramString);
+
         try {
+            HttpPost httpPost = new HttpPost(url);
+            StringEntity entity = new StringEntity(paramString);
+            httpPost.setHeader("Content-Type", "application/json");
+            httpPost.setEntity(entity);
+            HttpResponse response = HttpClients.createDefault().execute(httpPost);
             String responseContent = EntityUtils.toString(response.getEntity());
             Log.i("Youku", "Response" + responseContent);
             JSONObject result = new JSONObject(responseContent);
@@ -79,11 +97,16 @@ public class YoukuUploader {
                 throw new UploadException(error.getString("description"), error.getInt(("code")));
             }
             return result;
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        } catch (ClientProtocolException e) {
+            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
         return null;
     }
 
@@ -95,8 +118,8 @@ public class YoukuUploader {
             url += "?" + paramString;
         }
 
-        HttpResponse response = HttpHelper.INSTANCE.get(url);
         try {
+            HttpResponse response = HttpClients.createDefault().execute(new HttpGet(url));
             String responseContent = EntityUtils.toString(response.getEntity());
             Log.i("Youku", "Response " + responseContent);
             JSONObject result = new JSONObject(responseContent);
@@ -105,11 +128,14 @@ public class YoukuUploader {
                 throw new UploadException(error.getString("description"), error.getInt(("code")));
             }
             return result;
+        } catch (ClientProtocolException e) {
+            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
         return null;
     }
 
@@ -177,16 +203,21 @@ public class YoukuUploader {
             return null;
         }
         Log.i("Youku", "POST with data " + url);
-        HttpResponse response = HttpHelper.INSTANCE.uploadData(url, data);
-        HttpEntity entity = response.getEntity();
-        String responseContent = null;
+
         try {
-            responseContent = EntityUtils.toString(entity);
+            HttpPost httpPost = new HttpPost(url);
+            ByteArrayEntity dataEntity = new ByteArrayEntity(data);
+            httpPost.setEntity(dataEntity);
+            HttpResponse response = HttpClients.createDefault().execute(httpPost);
+            String responseContent = EntityUtils.toString(response.getEntity());
+            return jsonObjectOfResponse(responseContent);
+        } catch (ClientProtocolException e) {
+            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        Log.i("Youku", "POST Response " + responseContent);
-        return jsonObjectOfResponse(responseContent);
+
+        return null;
     }
 
     private JSONObject commit(String uploadServerIp) throws UploadException {
@@ -221,13 +252,13 @@ public class YoukuUploader {
         return doPOST(ACCESS_TOKEN_URL, parameters);
     }
 
-    private void readRefreshFile(String refresh_file) {
+    private void readRefreshFile() {
         BufferedInputStream bis = null;
         try {
-            bis = new BufferedInputStream(new FileInputStream(refresh_file));
+            bis = new BufferedInputStream(new FileInputStream(refreshFilePath));
             byte[] bytes = new byte[1024];
             int len = bis.read(bytes);
-            String refreshContent = new String(bytes);
+            String refreshContent = new String(bytes, 0, len);
             JSONObject refreshJSONObject = new JSONObject(refreshContent);
             this.access_token = refreshJSONObject.getString("access_token");
             if (this.access_token == null) this.access_token = "";
@@ -266,11 +297,15 @@ public class YoukuUploader {
         }
     }
 
-    public void upload(boolean upload_process, Map<String, String> params, Map<String, String> uploadInfo) throws UploadException {
+    private String upload(Map<String, String> params, Map<String, String> uploadInfo) throws UploadException {
 
         this.access_token = params.get("access_token");
         this.refresh_token = params.get("refresh_token");
-        readRefreshFile(REFRESH_FILE);
+
+        if (refreshFilePath == null) {
+            String dataRootDir = YTWHelper.dataRootDirectory(0);
+            refreshFilePath = dataRootDir + "youku.token.txt";
+        }
 
 //        versionUpdate();
 
@@ -282,19 +317,19 @@ public class YoukuUploader {
                 JSONObject refreshResult = this.refreshToken();
                 this.access_token = refreshResult.getString("access_token");
                 this.refresh_token = refreshResult.getString("refresh_token");
-                writeRefreshFile(REFRESH_FILE, refreshResult);
+                writeRefreshFile(refreshFilePath, refreshResult);
                 uploadResult = getUploadToken(uploadInfo);
             }
 
             if (!uploadResult.has("upload_token")) {
                 Log.d("Youku", "upload failed");
-                return;
+                return null;
             }
             this.upload_token = uploadResult.getString("upload_token");
             String filename = uploadInfo.get("file_name");
             this.upload_server_ip = uploadResult.getString("upload_server_uri");//getHost(uploadResult.getString("upload_server_uri"));
 
-            JSONObject uploadCreate = uploadCreate(filename);
+            uploadCreate(filename);
             Log.i("Youku", "Uploading start!");
             boolean finish = false;
             int transferred = 0;
@@ -310,7 +345,7 @@ public class YoukuUploader {
                 slice_id = uploadSlice.getInt("slice_task_id");
                 offset = uploadSlice.getInt("offset");
                 length = uploadSlice.getInt("length");
-                transferred = (int)Math.round(uploadSlice.getInt("transferred")
+                transferred = Math.round(uploadSlice.getInt("transferred")
                         / Integer.parseInt(uploadInfo.get("file_size")) * 100);
                 if (slice_id == 0) {
                     do {
@@ -327,19 +362,21 @@ public class YoukuUploader {
                         }
                     } while (true);
                 }
-                if (upload_process) Log.i("Youku", "Upload progress:" + transferred);
+                Log.i("Youku", "Upload progress:" + transferred);
             } while (!finish);
-            if (finish) {
-                JSONObject commitResult = commit(uploadServerIp);
-                Log.i("Youku", "Uploading success");
-                if (commitResult.getInt("video_id") > 0) {
-                    Log.i("Youku", "videoid: " + commitResult.getInt("video_id"));
-                }
+            JSONObject commitResult = commit(uploadServerIp);
+            Log.i("Youku", "Uploading success");
+            String videoId = "";
+            if (commitResult.has("video_id")) {
+                videoId = commitResult.getString("video_id");
+                Log.i("Youku", "videoid: " + videoId);
+                return "youku://" + videoId;
             }
-
+            return null;
         } catch (JSONException e) {
+            e.printStackTrace();
         }
-
+        return null;
     }
 
 
@@ -374,9 +411,9 @@ public class YoukuUploader {
         return null;
     }
 
-    private class UploadException extends Throwable {
-        private String description;
-        private int code;
+    public class UploadException extends Throwable {
+        public String description;
+        public int code;
         public UploadException(String description, int anInt) {
             this.description = description;
             this.code = anInt;
@@ -413,42 +450,37 @@ public class YoukuUploader {
         return String.format("%0" + (data.length * 2) + 'x', new BigInteger(1, data));
     }
 
-    public void uploadVideoFile() {
-        String filepath = "/sdcard/yaotouwan/screen.mp4";
-        client_id = "2780bc1482be4fd7"; // Youku OpenAPI client_id
-        client_secret = "763deedf075ea67cb2c9c111b80ef779"; //Youku OpenAPI client_secret
+    public String uploadVideoFile(String filepath, String title, String tags) throws UploadException {
+        client_id = CLIENT_ID;
+        client_secret = CLIENT_SECRET;
         Map<String, String> params = new HashMap<String, String>();
-        params.put("access_token", "ae71097668c9397221aa7096a1e9fc44");
-        params.put("refresh_token", "85a2a457e8c924bba2a664af8f5dda12");
+        params.put("access_token", ACCESS_TOKEN);
+        params.put("refresh_token", REFRESH_TOKEN);
 
         Map<String, String> uploadInfo = new HashMap<String, String>();
-        String md5 = null;
+        String md5 = "";
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             InputStream is = new FileInputStream(filepath);
-            DigestInputStream dis = new DigestInputStream(is, md);
+            new DigestInputStream(is, md);
             byte[] digest = md.digest();
-//            md5 = new String(digest);
-            md5 = "597d2b25005c17c25b538b7b00ad0158";
+            for (int i=0; i < digest.length; i++) {
+                md5 += Integer.toString((digest[i] & 0xff) + 0x100, 16).substring(1);
+            }
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
+            return null;
         } catch (FileNotFoundException e) {
             e.printStackTrace();
+            return null;
         }
-        if (md5 != null) {
-            uploadInfo.put("file_md5", md5);
-        }
-
+        uploadInfo.put("file_md5", md5);
         uploadInfo.put("file_size", new File(filepath).length() + "");
         uploadInfo.put("file_name", filepath);
-        uploadInfo.put("title", "jason_dev_test_file");
-        uploadInfo.put("tags", "Flappy_Bird");
+        uploadInfo.put("title", title);
+        uploadInfo.put("tags", tags);
+        uploadInfo.put("category", "游戏");
 
-        boolean progress = true;
-        try {
-            upload(progress, params, uploadInfo);
-        } catch (UploadException e) {
-            e.printStackTrace();
-        }
+        return upload(params, uploadInfo);
     }
 }

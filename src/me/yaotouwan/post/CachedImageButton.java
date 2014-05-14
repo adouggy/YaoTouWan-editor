@@ -246,7 +246,7 @@ public class CachedImageButton extends ImageButton {
         }
     }
 
-    Bitmap loadVideoThumbnail(String srcPath, int width) {
-        return loadVideoThumbnail(getContext(), srcPath, width);
+    Bitmap loadVideoThumbnail(String srcPath, int sizeKind) {
+        return loadVideoThumbnail(getContext(), srcPath, sizeKind);
     }
 }

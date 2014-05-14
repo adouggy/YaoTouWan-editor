@@ -23,7 +23,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import me.yaotouwan.R;
 import me.yaotouwan.screenrecorder.EditVideoActivity;
-import me.yaotouwan.screenrecorder.Root;
 import me.yaotouwan.screenrecorder.SRecorderService;
 import me.yaotouwan.uicommon.ActionSheet;
 import me.yaotouwan.uicommon.ActionSheetItem;
@@ -40,7 +39,6 @@ public class RecordScreenActivity extends BaseActivity {
 
     Handler timerHandler;
     String videoPath;
-    int tryStartGameCount;
 
     private static final int INTENT_REQUEST_CODE_CUT_VIDEO = 1;
 
@@ -48,6 +46,7 @@ public class RecordScreenActivity extends BaseActivity {
     private int orientation = -1;
 
     String packageName;
+    String gameName;
 
     int videoQuality; // low: -1, middle: 0 (default), high: 1
     boolean showTouches;
@@ -60,6 +59,7 @@ public class RecordScreenActivity extends BaseActivity {
 
         sm = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
         packageName = getIntent().getStringExtra("package_name");
+        gameName = getIntent().getStringExtra("game_name");
     }
 
     public void startRecordButtonClicked(View v) {
@@ -120,25 +120,31 @@ public class RecordScreenActivity extends BaseActivity {
     }
 
     void startGame() {
-        tryStartGameCount = 0;
         if (YTWHelper.hasBuildinScreenRecorder()) {
-            timerHandler = new Handler();
-            timerHandler.postDelayed(new Runnable() {
+            new AsyncTask<Integer, Integer, Boolean>() {
                 @Override
-                public void run() {
-                    if (tryStartGameCount > 100) {
-                        tryStartGameCount = 0;
-                        return;
+                protected Boolean doInBackground(Integer... params) {
+                    for (int i=0; i<100; i++) {
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        if (YTWHelper.isBuildinScreenRecorderRunning()) {
+                            return true;
+                        }
                     }
-                    if (YTWHelper.isBuildinScreenRecorderRunning()) {
-                        tryStartGameCount = 0;
+                    return false;
+                }
+
+                @Override
+                protected void onPostExecute(Boolean succ) {
+                    super.onPostExecute(succ);
+                    if (succ) {
                         doStartGame();
-                    } else {
-                        tryStartGameCount ++;
-                        timerHandler.postDelayed(this, 100);
                     }
                 }
-            }, 300);
+            }.execute();
         } else {
             doStartGame();
         }
@@ -187,6 +193,11 @@ public class RecordScreenActivity extends BaseActivity {
             @Override
             protected Boolean doInBackground(Integer... params) {
                 for (int i=0; i<100; i++) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                     if (YTWHelper.hasBuildinScreenRecorder()) {
                         if (!YTWHelper.isBuildinScreenRecorderRunning()) {
                             return true;
@@ -207,11 +218,11 @@ public class RecordScreenActivity extends BaseActivity {
 
             @Override
             protected void onPostExecute(Boolean succ) {
+                super.onPostExecute(succ);
                 mProgressDialog.dismiss();
                 if (succ) {
                     doEditVideo();
                 }
-                super.onPostExecute(succ);
             }
         }.execute();
     }
@@ -242,6 +253,18 @@ public class RecordScreenActivity extends BaseActivity {
                 }
                 Intent intent = new Intent();
                 intent.setData(data.getData());
+                intent.putExtra("game_name", gameName);
+                if (!intent.hasExtra("video_width")) {
+                    int width = SRecorderService.getVideoWidthByQuality(videoQuality);
+                    int height = width * getWindowManager().getDefaultDisplay().getHeight() / getWindowManager().getDefaultDisplay().getWidth();
+                    if (orientation % 2 == 0) {
+                        intent.putExtra("video_width", height);
+                        intent.putExtra("video_height", width);
+                    } else {
+                        intent.putExtra("video_width", width);
+                        intent.putExtra("video_height", height);
+                    }
+                }
                 setResult(RESULT_OK, intent);
             } else {
                 if (videoPath != null)

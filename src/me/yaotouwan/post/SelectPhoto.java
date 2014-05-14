@@ -4,6 +4,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.*;
+import android.media.ThumbnailUtils;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.LayoutInflater;
@@ -237,6 +238,14 @@ public class SelectPhoto extends BaseActivity {
                 Integer pos = selectedPhotoIds.get(i);
                 String path = photos.get(pos);
                 intent.putExtra((isVideo ? "selected_video_" : "selected_photo_") + i, path);
+                if (isVideo) {
+                    Bitmap thumbnail = CachedImageButton.loadVideoThumbnail(this,
+                            path, MediaStore.Video.Thumbnails.MINI_KIND);
+                    if (thumbnail != null) {
+                        intent.putExtra("selected_video_width_" + i, thumbnail.getWidth());
+                        intent.putExtra("selected_video_height_" + i, thumbnail.getHeight());
+                    }
+                }
             }
             setResult(RESULT_OK, intent);
             finish();

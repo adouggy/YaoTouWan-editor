@@ -48,20 +48,34 @@ public class SRecorderService extends Service {
         System.loadLibrary("srecorder");
     }
 
-    String buildCommandLine() {
-        String bitrate = "";
-        double hwratio = screenHeight * 1.0 / screenWidth;
+    public static int getVideoWidthByQuality(int videoQuality) {
         int w = 360;
         if (videoQuality == 0) {
             w = 360;
-            bitrate = "800000";
         } else if (videoQuality == 1) {
             w = 540;
-            bitrate = "400000";
         } else if (videoQuality == -1) {
             w = 240;
+        }
+        return w;
+    }
+
+    public static String getVideoBitrateByQuality(int videoQuality) {
+        String bitrate = "";
+        if (videoQuality == 0) {
+            bitrate = "800000";
+        } else if (videoQuality == 1) {
+            bitrate = "800000";
+        } else if (videoQuality == -1) {
             bitrate = "200000";
         }
+        return bitrate;
+    }
+
+    String buildCommandLine() {
+        String bitrate = getVideoBitrateByQuality(videoQuality);
+        double hwratio = screenHeight * 1.0 / screenWidth;
+        int w = getVideoWidthByQuality(videoQuality);
         int h = (int) (w * hwratio * 1.0 / 2 * 2);
         String size = w + "x" + h;
         String firstVideoPath = YTWHelper.correctFilePath(videoPath.substring(0, videoPath.length() - 4));

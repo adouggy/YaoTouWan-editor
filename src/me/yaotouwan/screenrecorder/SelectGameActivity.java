@@ -111,7 +111,9 @@ public class SelectGameActivity extends BaseActivity {
                 public void onClick(View v) {
                     Intent intent = new Intent(SelectGameActivity.this, RecordScreenActivity.class);
                     String pname = getItem(position).pname;
+                    String appname = getItem(position).appname;
                     intent.putExtra("package_name", pname);
+                    intent.putExtra("game_name", appname);
                     startActivityForResult(intent, INTENT_REQUEST_CODE_RECORD_SCREEN);
                 }
             });
@@ -121,7 +123,6 @@ public class SelectGameActivity extends BaseActivity {
 
             return rowView;
         }
-
     }
 
     public void selectOther(View view) {

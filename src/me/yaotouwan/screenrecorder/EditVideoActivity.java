@@ -351,6 +351,8 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             Intent intent = new Intent();
             intent.setData(Uri.parse(dstfpath));
             intent.putExtra("origin_video_path", videoPath);
+            intent.putExtra("video_width", videoWidth);
+            intent.putExtra("video_height", videoHeight);
             setResult(RESULT_OK, intent);
             finish();
         }

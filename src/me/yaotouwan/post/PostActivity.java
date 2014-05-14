@@ -1,20 +1,22 @@
 package me.yaotouwan.post;
 
+import android.app.Activity;
 import android.app.ActivityManager;
-import android.content.Context;
-import android.content.DialogInterface;
-import android.content.Intent;
+import android.content.*;
 import android.database.Cursor;
 import android.graphics.*;
 import android.media.ThumbnailUtils;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.v4.content.LocalBroadcastManager;
 import android.text.*;
 import android.text.format.DateFormat;
 import android.text.method.LinkMovementMethod;
 import android.text.style.*;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -27,6 +29,7 @@ import com.mobeta.android.dslv.SimpleDragSortCursorAdapter;
 import me.yaotouwan.R;
 import me.yaotouwan.screenrecorder.EditVideoActivity;
 import me.yaotouwan.screenrecorder.SelectGameActivity;
+import me.yaotouwan.screenrecorder.YoukuUploader;
 import me.yaotouwan.uicommon.ActionSheet;
 import me.yaotouwan.uicommon.ActionSheetItem;
 import me.yaotouwan.util.AppPackageHelper;
@@ -73,6 +76,9 @@ public class PostActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        LocalBroadcastManager.getInstance(this).registerReceiver(uploadMediaProgressReceiver,
+                new IntentFilter("upload_post_media_progress"));
 
         setContentView(R.layout.post);
         setupActionBar(R.string.post_title);
@@ -144,6 +150,22 @@ public class PostActivity extends BaseActivity {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(uploadMediaProgressReceiver);
+    }
+
+    private BroadcastReceiver uploadMediaProgressReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            float progress = intent.getFloatExtra("progress", 0);
+            if (progress >= 1) {
+                Toast.makeText(PostActivity.this, "Media Upload Done", Toast.LENGTH_LONG);
+            }
+        }
+    };
+
     protected void onKeyboardHide() {
         super.onKeyboardHide();
 
@@ -188,7 +210,8 @@ public class PostActivity extends BaseActivity {
                             if (canAppend()) {
                                 append();
                             }
-                            adapter.updateImage(adapter.getCount() - 1, imagePathForUpload);
+                            adapter.updateImage(adapter.getCount() - 1,
+                                    imagePathForUpload, srcBitmap.getWidth(), srcBitmap.getHeight());
                         }
                     }
                     adapter.notifyDataSetChanged();
@@ -198,10 +221,12 @@ public class PostActivity extends BaseActivity {
                     int count = data.getIntExtra("selected_video_count", 0);
                     for (int i=0; i<count; i++) {
                         String videoPath = data.getStringExtra("selected_video_" + i);
+                        int width = data.getIntExtra("selected_video_width_" + i, 0);
+                        int height = data.getIntExtra("selected_video_height_" + i, 0);
                         if (canAppend()) {
                             append();
                         }
-                        adapter.updateVideo(adapter.getCount() - 1, videoPath);
+                        adapter.updateVideo(adapter.getCount() - 1, videoPath, null, width, height);
                     }
                     adapter.notifyDataSetChanged();
                 }
@@ -212,14 +237,20 @@ public class PostActivity extends BaseActivity {
                         append();
                     }
                     String videoPath = croppedVideoUri.getPath();
-                    adapter.updateVideo(adapter.getCount() - 1, videoPath);
+                    String gameName = null;
+                    if (data.hasExtra("game_name")) {
+                        gameName = data.getStringExtra("game_name");
+                    }
+                    int width = data.getIntExtra("video_width", 0);
+                    int height = data.getIntExtra("video_height", 0);
+                    adapter.updateVideo(adapter.getCount() - 1, videoPath, gameName, width, height);
                     adapter.notifyDataSetChanged();
                 }
             } else if (requestCode == INTENT_REQUEST_CODE_CUT_VIDEO) {
                 if (data != null && data.getData() != null) {
                     croppedVideoUri = data.getData();
                     String videoPath = croppedVideoUri.getPath();
-                    adapter.updateVideo(editVideoAtPosition, videoPath);
+                    adapter.updateVideo(editVideoAtPosition, videoPath, null, 0, 0);
                     adapter.notifyDataSetChanged();
                     editVideoAtPosition = -1;
                 }
@@ -232,8 +263,14 @@ public class PostActivity extends BaseActivity {
     void saveDraft() {
         if (adapter == null) return;
         try {
-            if (draft == null)
+            if (draftFile != null) {
+                String JSON = YTWHelper.readTextContent(Uri.parse(draftFile.getAbsolutePath()));
+                if (JSON != null)
+                    draft = new JSONObject(JSON);
+            }
+            if (draft == null) {
                 draft = new JSONObject();
+            }
 
             assert titleEditor != null && titleEditor.getText() != null;
             String title = titleEditor.getText().toString();
@@ -249,19 +286,25 @@ public class PostActivity extends BaseActivity {
                     section.put("text", text);
                 }
 
-                String previewImagePath = adapter.getPreviewImagePath(i);
-                if (previewImagePath != null) {
-                    section.put("preview_image_path", previewImagePath);
-                }
-
                 String imagePath = adapter.getImagePath(i);
                 if (imagePath != null) {
-                    section.put("image_path", imagePath);
+                    section.put("image_src", imagePath);
                 }
 
                 String videoPath = adapter.getVideoPath(i);
                 if (videoPath != null) {
-                    section.put("video_path", videoPath);
+                    section.put("video_src", videoPath);
+                }
+
+                String gameName = adapter.getGameName(i);
+                if (gameName != null) {
+                    section.put("game_name", gameName);
+                }
+
+                Point mediaSize = adapter.getMediaSize(i);
+                if (mediaSize != null) {
+                    section.put("media_width", mediaSize.x);
+                    section.put("media_height", mediaSize.y);
                 }
 
                 Integer textStyle = adapter.getTextStyle(i);
@@ -280,6 +323,8 @@ public class PostActivity extends BaseActivity {
             }
 
             YTWHelper.writeTextContentToFile(draft.toString(), draftFile);
+
+            uploadMedia();
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -299,13 +344,19 @@ public class PostActivity extends BaseActivity {
             for (int i=0; i<sections.length(); i++) {
                 adapter.appendRow();
                 JSONObject section = (JSONObject) sections.get(i);
-                if (section.has("image_path")) {
-                    String imagePath = section.getString("image_path");
-                    adapter.updateImage(i, imagePath);
+                int width = 0, height = 0;
+                if (section.has("width") && section.has("height")) {
+                    width = section.getInt("media_width");
+                    height = section.getInt("media_height");
                 }
-                if (section.has("video_path")) {
-                    String videoPath = section.getString("video_path");
-                    adapter.updateVideo(i, videoPath);
+                if (section.has("image_src")) {
+                    String imagePath = section.getString("image_src");
+                    adapter.updateImage(i, imagePath, width, height);
+                }
+                if (section.has("video_src") && section.has("game_name")) {
+                    String videoPath = section.getString("video_src");
+                    String gameName = section.getString("game_name");
+                    adapter.updateVideo(i, videoPath, gameName, width, height);
                 }
                 if (section.has("text")) {
                     String text = section.getString("text");
@@ -322,42 +373,146 @@ public class PostActivity extends BaseActivity {
         }
     }
 
-    public static String readPostContent(Uri postJSONFileUri, boolean localPreview) {
+    // read file as json string, used for sending to api, stored in db.
+    // image url will be online image url, like http://yaotouwan.me/image/<image_id>
+    // video url will be youku video id, like youku://<video_id>
+    public static String readPostContentForSend(Uri postJSONFileUri) {
         try {
             String JSON = YTWHelper.readTextContent(postJSONFileUri);
             JSONObject post = new JSONObject(JSON);
-            String title = "";
-            if (post.has("title"))
-                title = post.getString("title");
-
             JSONObject urlMap = new JSONObject();
             if (post.has("url_map")) {
                 urlMap = post.getJSONObject("url_map");
             }
             JSONArray sections = post.getJSONArray("sections");
-            StringBuilder sb = new StringBuilder(title + "\n");
+            for (int i=0; i<sections.length(); i++) {
+                JSONObject section = (JSONObject) sections.get(i);
+                if (section.has("image_src")) {
+                    String imagePath = section.getString("image_src");
+                    String imagePathHash = YTWHelper.md5(imagePath);
+                    if (!urlMap.has(imagePathHash)) {
+                        Log.d("Post", "post image not sent");
+                        return null;
+                    }
+                    section.put("image_src", urlMap.get(imagePathHash));
+                }
+                if (section.has("video_src")) {
+                    String videoPath = section.getString("video_src");
+                    String videoPathHash = YTWHelper.md5(videoPath);
+                    if (!urlMap.has(videoPathHash)) {
+                        Log.d("Post", "post video not sent");
+                        return null;
+                    }
+                    section.put("video_src", urlMap.get(videoPathHash));
+                }
+            }
+            post.remove("url_map");
+            return post.toString();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static String readPostContentAsHTML(JSONObject post, Activity activity) {
+        try {
+            JSONObject urlMap = new JSONObject();
+            if (post.has("url_map")) {
+                urlMap = post.getJSONObject("url_map");
+            }
+            String title = "";
+            if (post.has("title")) {
+                title = post.getString("title");
+            }
+            StringBuilder sb = new StringBuilder();
+            sb.append("<h>" + title + "</h>");
+            JSONArray sections = post.getJSONArray("sections");
             for (int i=0; i<sections.length(); i++) {
                 sb.append("<p>");
                 JSONObject section = (JSONObject) sections.get(i);
                 boolean hasMedia = false;
-                if (section.has("image_path")) {
-                    String imagePath = section.getString("image_path");
-                    String imagePathHash = YTWHelper.md5(imagePath);
-                    if (!localPreview && urlMap.has(imagePathHash)) {
-                        imagePath = urlMap.getString(imagePathHash);
+                if (section.has("image_src")) {
+                    String imgTag = "<img src='{image_src}' " +
+                            "style='width={image_width}px;height={image_height}px;' />";
+                    String imagePath = section.getString("image_src");
+                    Uri imageUri = Uri.parse(imagePath);
+                    if ("file".equals(imageUri.getScheme())) {
+                        imgTag = imgTag.replace("{image_src}", "file://" + imagePath);
+                    } else if ("yaotouwan".equals(imageUri.getScheme())) {
+                        imagePath = imagePath.replace("yaotouwan://", "http://115.28.156.104/image/");
+                        imgTag = imgTag.replace("{image_src}", imagePath);
                     }
-                    sb.append("<img src=\"" + imagePath + "\" />");
+                    int width = 0, height = 0;
+                    if (section.has("media_width")) {
+                        width = section.getInt("media_width");
+                    }
+                    if (section.has("media_height")) {
+                        height = section.getInt("media_height");
+                    }
+                    if (width > 0 && height > 0) {
+                        Point winSize = getWindowSize(activity);
+                        height = winSize.x * height / width;
+                        width = winSize.x;
+                        if (width > height * 2) {
+                            height = width / 2;
+                        } else if (height > width * 2) {
+                            height = width * 2;
+                        }
+                        imgTag = imgTag.replace("{image_width}", width + "");
+                        imgTag = imgTag.replace("{image_height}", height + "");
+                    }
+                    sb.append(imgTag);
                     hasMedia = true;
                 }
-                if (section.has("video_path")) {
-                    String videoPath = section.getString("video_path");
-                    String videoPathHash = YTWHelper.md5(videoPath);
-                    if (!localPreview && urlMap.has(videoPathHash)) {
-                        videoPath = urlMap.getString(videoPathHash);
+                if (section.has("video_src")) {
+                    String videoPath = section.getString("video_src");
+                    Uri videoUri = Uri.parse(videoPath);
+                    String videoTag = null;
+                    if ("file".equals(videoUri.getScheme())) {
+                        videoTag = "<video src='{video_src}' " +
+                                "style='width={video_width}px;height={video_height}px;' />";
+                        videoTag = videoTag.replace("{video_src}", "file://" + videoPath);
+                    } else if ("youku".equals(videoUri.getScheme())) {
+                        videoTag =
+                                "<div id='youkuplayer_{youku_video_id}' " +
+                                        "style='width:{video_width}px;height:{video_height}px;'></div>\n" +
+                                "<script type='text/javascript' src='http://player.youku.com/jsapi'>\n" +
+                                "player = new YKU.Player('youkuplayer_{youku_video_id}',{\n" +
+                                "styleid: '0',\n" +
+                                "client_id: '{youku_client_id}',\n" +
+                                "vid: '{youku_video_id}'\n" +
+                                "});\n" +
+                                "</script>";
+                        String videoID = videoPath.replace("yaotouwan://", "");
+                        videoTag = videoTag.replaceAll("\\{youku_video_id\\}", videoID);
+                        videoTag = videoTag.replace("{youku_client_id}", YoukuUploader.CLIENT_ID);
+                    } else {
+                        continue;
                     }
-                    sb.append("<video src=\"" + videoPath + "\" />");
+
+                    int width = 0, height = 0;
+                    if (section.has("media_width")) {
+                        width = section.getInt("media_width");
+                    }
+                    if (section.has("media_height")) {
+                        height = section.getInt("media_height");
+                    }
+                    if (width > 0 && height > 0) {
+                        Point winSize = getWindowSize(activity);
+                        height = winSize.x * height / width;
+                        width = winSize.x;
+                        if (width > height * 2) {
+                            height = width / 2;
+                        } else if (height > width * 2) {
+                            height = width * 2;
+                        }
+                        videoTag = videoTag.replace("{video_width}", width + "");
+                        videoTag = videoTag.replace("{video_height}", height + "");
+                    }
+                    sb.append(videoTag);
                     hasMedia = true;
                 }
+
                 if (section.has("text")) {
                     String text = section.getString("text");
                     int textStyle = 0;
@@ -377,8 +532,9 @@ public class PostActivity extends BaseActivity {
                     }
                 }
                 sb.append("</p>");
-                return sb.toString();
             }
+            post.remove("url_map");
+            return post.toString();
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -394,7 +550,6 @@ public class PostActivity extends BaseActivity {
         finishButtonClicked = false;
 
         saveDraft();
-        uploadMedia();
     }
 
     private void uploadMedia() {
@@ -453,7 +608,7 @@ public class PostActivity extends BaseActivity {
     }
 
     String[] getColumnNames() {
-        return new String[]{"_id", "text", "preview_image_path", "image_path", "video_path", "text_style"};
+        return new String[]{"_id", "text", "image_src", "video_src", "text_style"};
     }
 
     public void onAppendTextClick(View view) {
@@ -520,10 +675,12 @@ public class PostActivity extends BaseActivity {
         PostCursor cursor;
         static final int id_col_idx = 0;
         static final int text_col_idx = 1;
-        static final int preview_image_path_col_idx = 2;
-        static final int image_path_col_idx = 3;
-        static final int video_path_col_idx = 4;
-        static final int text_style_col_idx = 5;
+        static final int image_path_col_idx = 2;
+        static final int video_path_col_idx = 3;
+        static final int text_style_col_idx = 4;
+        static final int game_name_col_idx = 5;
+        static final int media_width_col_idx = 6;
+        static final int media_height_col_idx = 7;
 
         static final int TEXT_STYLE_HEAD = 1;
         static final int TEXT_STYLE_BOLD = 2;
@@ -550,29 +707,40 @@ public class PostActivity extends BaseActivity {
         }
 
         void insertRow(int pos) {
-            cursor.insertRow(pos, null, null, null, null, 0);
+            cursor.insertRow(pos, null, null, null, 0, null, 0, 0);
         }
 
         // 如果最后一行内容为空，则添加失败并返回false
         boolean appendRow() {
-            cursor.addRow(0, null, null, null, null, 0);
+            cursor.addRow(0, null, null, null, 0, null, 0, 0);
             return true;
         }
 
-        void updateImage(int pos, String imagePath) {
+        void updateImage(int pos, String imagePath, int width, int height) {
             cursor.updateRowAtColumn(pos, image_path_col_idx, imagePath);
+            if (width > 0 && height > 0)
+                updateMediaSize(pos, width, height);
         }
 
         void updateText(int pos, String text) {
             cursor.updateRowAtColumn(pos, text_col_idx, text);
         }
 
-        void updateVideo(int pos, String videoPath) {
+        void updateVideo(int pos, String videoPath, String gameName, int width, int height) {
             cursor.updateRowAtColumn(pos, video_path_col_idx, videoPath);
+            if (gameName != null)
+                cursor.updateRowAtColumn(pos, game_name_col_idx, gameName);
+            if (width > 0 && height > 0)
+                updateMediaSize(pos, width, height);
         }
 
         void updateTextStyle(int pos, int style) {
             cursor.updateRowAtColumn(pos, text_style_col_idx, style);
+        }
+
+        private void updateMediaSize(int pos, int width, int height) {
+            cursor.updateRowAtColumn(pos, media_width_col_idx, width);
+            cursor.updateRowAtColumn(pos, media_height_col_idx, height);
         }
 
         boolean toggleTextStyle(int pos, int style) {
@@ -631,7 +799,6 @@ public class PostActivity extends BaseActivity {
 
         boolean hasDataAtRow(int row) {
             if (!cursor.isNull(row, text_col_idx)) return true;
-            if (!cursor.isNull(row, preview_image_path_col_idx)) return true;
             if (!cursor.isNull(row, image_path_col_idx)) return true;
             if (!cursor.isNull(row, video_path_col_idx)) return true;
             return false;
@@ -655,10 +822,6 @@ public class PostActivity extends BaseActivity {
             return (String) cursor.getValue(row, text_col_idx);
         }
 
-        String getPreviewImagePath(int row) {
-            return (String) cursor.getValue(row, preview_image_path_col_idx);
-        }
-
         String getImagePath(int row) {
             return (String) cursor.getValue(row, image_path_col_idx);
         }
@@ -669,6 +832,18 @@ public class PostActivity extends BaseActivity {
 
         Integer getTextStyle(int row) {
             return (Integer) cursor.getValue(row, text_style_col_idx);
+        }
+
+        String getGameName(int row) {
+            return (String) cursor.getValue(row, game_name_col_idx);
+        }
+
+        Point getMediaSize(int row) {
+            int width = (Integer) (cursor.getValue(row, media_width_col_idx));
+            int height = (Integer) (cursor.getValue(row, media_height_col_idx));
+            if (width > 0 && height > 0)
+                return new Point(width, height);
+            return null;
         }
 
         @Override
@@ -881,7 +1056,6 @@ public class PostActivity extends BaseActivity {
                 int pos = position + postItemsListView.getHeaderViewsCount() - postItemsListView.getFirstVisiblePosition();
                 View rowView = postItemsListView.getChildAt(pos);
                 if (rowView == null) return;
-                targetView = rowView.findViewById(R.id.post_item_text);
             } else if (postItemsListView.editingPosition == position) {
                 postItemsListView.editingPosition = -1;
                 postItemsListView.editMode = false;

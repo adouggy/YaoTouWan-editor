@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.Point;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -523,5 +524,11 @@ public class BaseActivity extends SherlockActivity {
         }
 
         return orientation;
+    }
+
+    public static Point getWindowSize(Activity activity) {
+        int width = activity.getWindowManager().getDefaultDisplay().getWidth();
+        int height = activity.getWindowManager().getDefaultDisplay().getHeight();
+        return new Point(width, height);
     }
 }
