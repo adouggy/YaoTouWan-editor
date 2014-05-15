@@ -568,8 +568,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
 
                     selector.minInterval = 1000.0 / videoDuration;
 
-                    if (!readonly)
-                        showView(playButton);
+                    showView(playButton);
 
                     if (readonly)
                         new Handler().postDelayed(new Runnable() {

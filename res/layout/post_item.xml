@@ -27,9 +27,8 @@
 					android:id="@+id/post_item_image"
 					android:layout_width="match_parent"
 					android:layout_height="200dp"
-					android:background="@color/clear"
+					android:background="@color/black"
 					android:scaleType="centerCrop"
-					android:visibility="gone"
 					android:layout_marginTop="10dp"
 					android:enabled="false"
 					/>
@@ -39,12 +38,16 @@
 					android:layout_width="match_parent"
 					android:layout_height="match_parent"
 					android:layout_centerVertical="true"
-					android:visibility="gone"
 					android:background="@color/clear"
 					android:src="@drawable/btn_play_video"
 					android:enabled="false"
 					/>
 		</RelativeLayout>
+		<WebView
+				android:id="@+id/video_webview"
+				android:layout_width="match_parent"
+				android:layout_height="300dp"
+				/>
 
 		<me.yaotouwan.post.TextEditor
 				android:id="@+id/post_item_text"

@@ -13,10 +13,9 @@ import android.text.format.DateFormat;
 import android.text.method.LinkMovementMethod;
 import android.text.style.*;
 import android.util.Log;
-import android.view.Gravity;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.WindowManager;
+import android.view.*;
+import android.webkit.WebChromeClient;
+import android.webkit.WebView;
 import android.widget.*;
 import com.actionbarsherlock.view.MenuItem;
 import com.mobeta.android.dslv.DragSortController;
@@ -25,6 +24,7 @@ import com.mobeta.android.dslv.SimpleDragSortCursorAdapter;
 import me.yaotouwan.R;
 import me.yaotouwan.screenrecorder.EditVideoActivity;
 import me.yaotouwan.screenrecorder.SelectGameActivity;
+import me.yaotouwan.screenrecorder.YoukuUploader;
 import me.yaotouwan.uicommon.ActionSheet;
 import me.yaotouwan.uicommon.ActionSheetItem;
 import me.yaotouwan.util.AppPackageHelper;
@@ -68,6 +68,10 @@ public class PostActivity extends BaseActivity {
 
     boolean readonly;
 
+    FrameLayout customViewContainer;
+    View webViewCustomeView;
+    WebChromeClient.CustomViewCallback customViewCallback;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -98,6 +102,8 @@ public class PostActivity extends BaseActivity {
             View footer = getLayoutInflater().inflate(R.layout.post_footer, null);
             postItemsListView.addFooterView(footer);
         }
+
+        customViewContainer = (FrameLayout) findViewById(R.id.video_fullscreen);
 
         titleEditor = (EditText) findViewById(R.id.post_title);
         titleEditor.setEnabled(!readonly);
@@ -173,9 +179,30 @@ public class PostActivity extends BaseActivity {
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        if (adapter.webViews != null) {
+            for (WebView webView : adapter.webViews) {
+                webView.loadData("about:blank", "text/html", "UTF-8");
+            }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        adapter.notifyDataSetChanged();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         LocalBroadcastManager.getInstance(this).unregisterReceiver(uploadMediaProgressReceiver);
+        if (adapter.webViews != null) {
+            for (WebView webView : adapter.webViews) {
+                webView.loadData("about:blank", "text/html", "UTF-8");
+            }
+        }
     }
 
     private BroadcastReceiver uploadMediaProgressReceiver = new BroadcastReceiver() {
@@ -358,6 +385,7 @@ public class PostActivity extends BaseActivity {
         if (draftFile == null) return;
         try {
             String JSON = YTWHelper.readTextContent(draftFile.getAbsolutePath());
+            if (JSON == null) return;
             draft = new JSONObject(JSON);
             if (draft.has("title")) {
                 String title = draft.getString("title");
@@ -596,6 +624,8 @@ public class PostActivity extends BaseActivity {
 
         boolean deleting;
 
+        List<WebView> webViews;
+
         public PostListViewDataSource() {
             super(PostActivity.this, R.layout.post_item, null,
                     getColumnNames(),
@@ -742,7 +772,6 @@ public class PostActivity extends BaseActivity {
             textEditor.setEnabled(!readonly);
 
             final int position = cursor.getPosition();
-            logd("position " + position);
 
             final String text = cursor.getString(text_col_idx);
 
@@ -759,6 +788,66 @@ public class PostActivity extends BaseActivity {
             previewImageView.setEnabled(false);
 
             ViewGroup previewGroup = (ViewGroup) rowView.findViewById(R.id.post_item_preview);
+            final WebView webView = (WebView) rowView.findViewById(R.id.video_webview);
+            if (webViews == null || !webViews.contains(webView)) {
+                if (webViews == null) {
+                    webViews = new ArrayList<WebView>(3);
+                }
+                webViews.add(webView);
+                webView.getSettings().setJavaScriptEnabled(true);
+                webView.getSettings().setAppCacheEnabled(true);
+                webView.getSettings().setBuiltInZoomControls(true);
+                webView.getSettings().setSaveFormData(true);
+//                webView.setWebChromeClient(new WebChromeClient() {
+//                    private Bitmap mDefaultVideoPoster;
+//                    private View mVideoProgressView;
+//
+//                    @Override
+//                    public void onShowCustomView(View view, CustomViewCallback callback) {
+//
+//                        // if a view already exists then immediately terminate the new one
+//                        if (webViewCustomeView != null) {
+//                            callback.onCustomViewHidden();
+//                            return;
+//                        }
+//                        webViewCustomeView = view;
+//                        webView.setVisibility(View.GONE);
+//                        customViewContainer.setVisibility(View.VISIBLE);
+//                        customViewContainer.addView(view);
+//                        customViewCallback = callback;
+//                    }
+//
+//                    @Override
+//                    public View getVideoLoadingProgressView() {
+//
+//                        if (mVideoProgressView == null) {
+////                            LayoutInflater inflater = LayoutInflater.from(PostActivity.this);
+////                            mVideoProgressView = inflater.inflate(R.layout.video_progress, null);
+//                        }
+//                        return mVideoProgressView;
+//                    }
+//
+//                    @Override
+//                    public void onHideCustomView() {
+//                        super.onHideCustomView();    //To change body of overridden methods use File | Settings | File Templates.
+//                        if (webViewCustomeView == null)
+//                            return;
+//
+//                        webView.setVisibility(View.VISIBLE);
+//                        customViewContainer.setVisibility(View.GONE);
+//
+//                        // Hide the custom view.
+//                        webViewCustomeView.setVisibility(View.GONE);
+//
+//                        // Remove the custom view from its container.
+//                        customViewContainer.removeView(webViewCustomeView);
+//                        customViewCallback.onCustomViewHidden();
+//
+//                        webViewCustomeView = null;
+//                    }
+//                });
+            }
+            webView.setTag("reused");
 
             if (postItemsListView.editingPosition == position) {
                 textEditor.setBackgroundDrawable(new EditModeBGDrawable(PostActivity.this, 0));
@@ -767,55 +856,85 @@ public class PostActivity extends BaseActivity {
             }
 
             if (imagePath != null) {
+                showView(previewGroup);
+                hideView(playBtn);
+                hideView(webView);
+
+                previewImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 previewImageView.setImageWithPath(imagePath,
                         postItemsListView.getWidth(), scrolling, 0);
                 if (readonly) {
                     Point imgSize = getMediaSize(position);
-                    if (imgSize != null)
+                    if (imgSize != null) {
+                        if (imgSize.x > imgSize.y * 2) {
+                            imgSize.x = imgSize.y * 2;
+                        } else if (imgSize.y > imgSize.x * 2) {
+                            imgSize.y = imgSize.x * 2;
+                        }
                         setViewHeight(previewImageView,
                                 postItemsListView.getWidth() * imgSize.y / imgSize.x);
+                    }
+                } else {
+                    setViewHeight(previewImageView, postItemsListView.getWidth() * 3 / 4);
                 }
             } else if (videoPath != null) {
-                previewImageView.setImageWithVideoPath(videoPath,
-                        MediaStore.Video.Thumbnails.FULL_SCREEN_KIND, scrolling, 0);
-                if (readonly) {
-                    Point imgSize = getMediaSize(position);
-                    if (imgSize != null)
-                        setViewHeight(previewImageView,
-                                postItemsListView.getWidth() * imgSize.y / imgSize.x);
-                }
-            }
+                if ("youku".equals(Uri.parse(videoPath).getScheme())) {
+                    hideView(previewGroup);
+                    showView(webView);
 
-            if (imagePath != null) {
-                previewGroup.setVisibility(View.VISIBLE);
-                previewImageView.setVisibility(View.VISIBLE);
-                playBtn.setVisibility(View.GONE);
-            } else if (videoPath != null) {
-                previewGroup.setVisibility(View.VISIBLE);
-                previewImageView.setVisibility(View.VISIBLE);
-                playBtn.setVisibility(View.VISIBLE);
+                    String videoTag =
+                            "<div id='youkuplayer_{youku_video_id}'></div>\n" +
+                            "<script type='text/javascript' src='http://player.youku.com/jsapi'>\n" +
+                            "player = new YKU.Player('youkuplayer_{youku_video_id}',{\n" +
+                            "styleid: '0',\n" +
+                            "client_id: '{youku_client_id}',\n" +
+                            "vid: '{youku_video_id}'\n" +
+                            "});\n" +
+                            "</script>";
+                    String videoID = videoPath.replace("youku://", "");
+                    videoTag = videoTag.replaceAll("\\{youku_video_id\\}", videoID);
+                    videoTag = videoTag.replace("{youku_client_id}", YoukuUploader.CLIENT_ID);
+                    webView.loadData(videoTag, "text/html", "UTF-8");
+                    setViewHeight(webView, postItemsListView.getWidth() * 3 / 4);
+                } else {
+                    showView(previewGroup);
+                    showView(playBtn);
+                    hideView(webView);
+
+                    previewImageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                    previewImageView.setImageWithVideoPath(videoPath,
+                            MediaStore.Video.Thumbnails.FULL_SCREEN_KIND, scrolling, 0);
+                    if (readonly) {
+                        Point imgSize = getMediaSize(position);
+                        if (imgSize != null)
+                            setViewHeight(previewImageView,
+                                    postItemsListView.getWidth() * imgSize.y / imgSize.x);
+                    }
+                    setViewHeight(previewImageView, postItemsListView.getWidth() * 3 / 4);
+                }
             } else {
-                previewGroup.setVisibility(View.GONE);
+                hideView(previewGroup);
+                hideView(webView);
             }
 
             int minLines = 0;
-            int hint = 0;
-            if (imagePath != null) {
-                minLines = 1;
-                hint = R.string.post_image_desc_hint;
-            } else if (videoPath != null) {
-                minLines = 1;
-                hint = R.string.post_video_desc_hint;
-            } else {
-                if (getCount() == 1) {
-                    minLines = 5;
+            if (!readonly) {
+                if (imagePath != null) {
+                    minLines = 1;
+                    textEditor.setHint(R.string.post_image_desc_hint);
+                } else if (videoPath != null) {
+                    minLines = 1;
+                    textEditor.setHint(R.string.post_video_desc_hint);
                 } else {
-                    minLines = 2;
+                    if (getCount() == 1) {
+                        minLines = 5;
+                    } else {
+                        minLines = 2;
+                    }
+                    textEditor.setHint(R.string.post_section_hint);
                 }
-                hint = R.string.post_section_hint;
             }
             textEditor.setMinLines(minLines);
-            textEditor.setHint(hint);
 
             if (editingTextRow == position) {
                 hideView(dragHandle);
