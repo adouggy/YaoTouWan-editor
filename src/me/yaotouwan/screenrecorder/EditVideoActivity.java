@@ -5,16 +5,20 @@ import android.animation.ValueAnimator;
 import android.app.ActionBar;
 import android.app.ProgressDialog;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Point;
 import android.graphics.drawable.BitmapDrawable;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.media.ThumbnailUtils;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.MediaStore;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -35,6 +39,8 @@ import me.yaotouwan.uicommon.ActionSheetItem;
 import me.yaotouwan.util.YTWHelper;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.IntBuffer;
 import java.util.*;
@@ -197,7 +203,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             mPlayer = null;
         }
 
-        new CutVideoTask().execute();
+        new CutVideoTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     void mergeVideo() {
@@ -206,7 +212,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         mDialog.setCancelable(false);
         mDialog.show();
 
-        new MergeVideoTask().execute();
+        new MergeVideoTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     void play() {
@@ -289,7 +295,8 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
 
     void updateUIForPlayerPaused() {
         toggleActionBar();
-        exitFullscreen();
+        if (!isLandscape())
+            exitFullscreen();
         if (!readonly)
             showView(selector);
         playButton.setImageResource(R.drawable.btn_play_video);
@@ -385,7 +392,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             if (result && new File(videoPath).exists()) {
                 prepareVideoPlayer();
             } else {
-                Toast.makeText(EditVideoActivity.this, "合并文件失败", Toast.LENGTH_LONG);
+                Toast.makeText(EditVideoActivity.this, "合并文件失败", Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -444,14 +451,19 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
                 return false;
             }
 
-            int[] frameBytes = decodeFrame(0, true);
-            if (isVideoRotated) {
-                previewImage = Bitmap.createBitmap(videoHeight, videoWidth, Bitmap.Config.ARGB_8888);
-                previewImage.copyPixelsFromBuffer(makeBuffer(frameBytes));
-                previewImage = YTWHelper.rotateBitmap(previewImage, rotate);
+            int[] frameBytes;
+            if (android.os.Build.MANUFACTURER.equals("Xiaomi")) {
+                previewImage = ThumbnailUtils.createVideoThumbnail(videoPath, MediaStore.Video.Thumbnails.FULL_SCREEN_KIND);
             } else {
-                previewImage = Bitmap.createBitmap(videoWidth, videoHeight, Bitmap.Config.ARGB_8888);
-                previewImage.copyPixelsFromBuffer(makeBuffer(frameBytes));
+                frameBytes = decodeFrame(0, true);
+                if (isVideoRotated) {
+                    previewImage = Bitmap.createBitmap(videoHeight, videoWidth, Bitmap.Config.ARGB_8888);
+                    previewImage.copyPixelsFromBuffer(makeBuffer(frameBytes));
+                    previewImage = YTWHelper.rotateBitmap(previewImage, rotate);
+                } else {
+                    previewImage = Bitmap.createBitmap(videoWidth, videoHeight, Bitmap.Config.ARGB_8888);
+                    previewImage.copyPixelsFromBuffer(makeBuffer(frameBytes));
+                }
             }
 
             publishProgress(-1);
@@ -494,7 +506,8 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             if (progress == -1) {
                 layoutSurface();
 
-                previewImageView.setImageDrawable(new BitmapDrawable(getResources(), previewImage));
+                BitmapDrawable drawable = new BitmapDrawable(getResources(), previewImage);
+                previewImageView.setImageDrawable(drawable);
                 previewImage = null;
             } else if (progress >= 0) {
                 try {
@@ -615,9 +628,20 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             mDialog.setMessage(getString(R.string.please_wait));
             mDialog.setCancelable(false);
             mDialog.show();
-            new ReadVideoInfoTask().execute(uri.getPath());
+            new ReadVideoInfoTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, uri.getPath());
             return true;
         }
         return false;
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (newConfig.orientation ==
+                Configuration.ORIENTATION_LANDSCAPE) {
+            enterFullscreen();
+        } else if (!mPlayer.isPlaying()) {
+            exitFullscreen();
+        }
     }
 }

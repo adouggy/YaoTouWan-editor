@@ -134,7 +134,7 @@ public class UploadPostMediaService extends Service {
                 if (progress >= 1)
                     stopSelf();
             }
-        }.execute();
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     void broadcastProgress(float progress) {
@@ -188,7 +188,7 @@ public class UploadPostMediaService extends Service {
     String nameVideoTagsByGameName(String gameName) {
         String tags = "摇头玩,游戏视频";
         if (gameName != null) {
-            tags += gameName;
+            tags += "," + gameName;
         }
         return tags;
     }
@@ -234,10 +234,13 @@ public class UploadPostMediaService extends Service {
                 InputStream is = response.getEntity().getContent();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(is));
                 while (reader.ready()) {
-                    String line = reader.readLine().trim();
-                    if (line.startsWith("<h1>")) {
-                        String imageId = line.substring(9, 32);
-                        return IMAGE_URL_PREFIX + imageId;
+                    String line = reader.readLine();
+                    if (line != null) {
+                        line = line.trim();
+                        if (line.startsWith("<h1>")) {
+                            String imageId = line.substring(9, 32);
+                            return IMAGE_URL_PREFIX + imageId;
+                        }
                     }
                 }
                 return null;

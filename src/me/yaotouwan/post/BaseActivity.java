@@ -526,6 +526,12 @@ public class BaseActivity extends SherlockActivity {
         return orientation;
     }
 
+    protected boolean isLandscape() {
+        int orientation = getScreenOrientation();
+        return orientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                || orientation == ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE;
+    }
+
     public static Point getWindowSize(Activity activity) {
         int width = activity.getWindowManager().getDefaultDisplay().getWidth();
         int height = activity.getWindowManager().getDefaultDisplay().getHeight();
@@ -534,5 +540,25 @@ public class BaseActivity extends SherlockActivity {
 
     protected Point getWindowSize() {
         return getWindowSize(this);
+    }
+
+    protected void setPaddingLeft(View view, int paddingLeft) {
+        view.setPadding(paddingLeft, view.getPaddingTop(),
+                view.getPaddingRight(), view.getPaddingBottom());
+    }
+
+    protected void setPaddingRight(View view, int paddingRight) {
+        view.setPadding(view.getPaddingLeft(), view.getPaddingTop(),
+                paddingRight, view.getPaddingBottom());
+    }
+
+    protected void setPaddingTop(View view, int paddingTop) {
+        view.setPadding(view.getPaddingLeft(), paddingTop,
+                view.getPaddingRight(), view.getPaddingBottom());
+    }
+
+    protected void setPaddingBottom(View view, int paddingBottom) {
+        view.setPadding(view.getPaddingLeft(), view.getPaddingTop(),
+                view.getPaddingRight(), paddingBottom);
     }
 }

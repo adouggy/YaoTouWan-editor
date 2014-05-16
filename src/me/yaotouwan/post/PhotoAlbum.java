@@ -180,7 +180,7 @@ public class PhotoAlbum extends BaseActivity {
             String albumListFilePath() {
                 return isVideo ? "video_albums" : "photo_albums";
             }
-        }.execute();
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     boolean isMediaFile(File file) {

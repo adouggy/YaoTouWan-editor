@@ -17,6 +17,7 @@
 	        android:background="@color/post_seperator_default"
 			/>
 	<LinearLayout
+			android:id="@+id/post_title_group"
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
 			android:background="@color/white"
@@ -28,6 +29,7 @@
 				android:layout_height="wrap_content"
 				android:textColor="@color/black"
 				android:singleLine="true"
+				android:textSize="20sp"
 				android:hint="@string/post_title_hint"
 				/>
 	</LinearLayout>

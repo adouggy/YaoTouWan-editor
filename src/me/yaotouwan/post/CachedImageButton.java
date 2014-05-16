@@ -50,25 +50,17 @@ public class CachedImageButton extends ImageButton {
         imagePath = newImagePath;
         setImageBitmap(null);
         if (async) {
-            final String oldImagePath = newImagePath;
             if (delay > 0) {
                 postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        if (oldImagePath.equals(imagePath)) {
-                            new LoadBitmapTask().execute(width);
+                        if (newImagePath.equals(imagePath)) {
+                            new LoadBitmapTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, width);
                         }
                     }
                 }, delay);
             } else {
-                post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (oldImagePath.equals(imagePath)) {
-                            new LoadBitmapTask().execute(width);
-                        }
-                    }
-                });
+                new LoadBitmapTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, width);
             }
         } else {
             setImageBitmap(loadBitmap(imagePath, width));
@@ -83,26 +75,21 @@ public class CachedImageButton extends ImageButton {
         imagePath = null;
         videoPath = newVideoPath;
         setImageBitmap(null);
+        if (android.os.Build.MANUFACTURER.equals("Xiaomi")) {
+            async = false;
+        }
         if (async) {
-            final String oldVideoPath = newVideoPath;
             if (delay > 0) {
                 postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        if (oldVideoPath.equals(videoPath)) {
-                            new LoadVideoThumbnailTask().execute(sizeKind);
+                        if (newVideoPath.equals(videoPath)) {
+                            new LoadVideoThumbnailTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, sizeKind);
                         }
                     }
                 }, delay);
             } else {
-                post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (oldVideoPath.equals(videoPath)) {
-                            new LoadVideoThumbnailTask().execute(sizeKind);
-                        }
-                    }
-                });
+                new LoadVideoThumbnailTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, sizeKind);
             }
         } else {
             setImageBitmap(loadVideoThumbnail(videoPath, sizeKind));
@@ -195,7 +182,7 @@ public class CachedImageButton extends ImageButton {
 
         @Override
         protected void onPostExecute(Bitmap bitmap) {
-            if (videoPath.equals(loadedVideoPath)) {
+            if (videoPath != null && videoPath.equals(loadedVideoPath)) {
                 AlphaAnimation alphaUp = new AlphaAnimation(0, 0);
                 alphaUp.setFillAfter(true);
                 startAnimation(alphaUp);

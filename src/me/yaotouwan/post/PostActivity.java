@@ -23,6 +23,7 @@ import com.mobeta.android.dslv.DragSortListView;
 import com.mobeta.android.dslv.SimpleDragSortCursorAdapter;
 import me.yaotouwan.R;
 import me.yaotouwan.screenrecorder.EditVideoActivity;
+import me.yaotouwan.screenrecorder.Root;
 import me.yaotouwan.screenrecorder.SelectGameActivity;
 import me.yaotouwan.screenrecorder.YoukuUploader;
 import me.yaotouwan.uicommon.ActionSheet;
@@ -70,6 +71,9 @@ public class PostActivity extends BaseActivity {
 
     FrameLayout customViewContainer;
     View webViewCustomeView;
+
+    boolean appendedText;
+
     WebChromeClient.CustomViewCallback customViewCallback;
 
     @Override
@@ -95,12 +99,23 @@ public class PostActivity extends BaseActivity {
         postItemsListView = (DragSortListView) findViewById(R.id.post_items);
         ((DragSortController)postItemsListView.mFloatViewManager).dragModeShadowImage
                 = R.drawable.post_item_drag_mode_bg;
+        if (readonly) {
+            postItemsListView.setDividerHeight(dpToPx(15));
+        }
 
         View titleContent = getLayoutInflater().inflate(R.layout.post_title, null);
         postItemsListView.addHeaderView(titleContent);
-        if (!readonly) {
-            View footer = getLayoutInflater().inflate(R.layout.post_footer, null);
-            postItemsListView.addFooterView(footer);
+
+        View footer = getLayoutInflater().inflate(R.layout.post_footer, null);
+        postItemsListView.addFooterView(footer);
+        if (readonly) {
+            hideView(R.id.footer_sep);
+            hideView(R.id.footer_sep);
+            showView(R.id.footer_readonly);
+        } else {
+            showView(R.id.footer_sep);
+            showView(R.id.footer_sep);
+            hideView(R.id.footer_readonly);
         }
 
         customViewContainer = (FrameLayout) findViewById(R.id.video_fullscreen);
@@ -109,8 +124,10 @@ public class PostActivity extends BaseActivity {
         titleEditor.setEnabled(!readonly);
         if (readonly) {
             titleEditor.setBackgroundColor(Color.WHITE);
-            titleEditor.setTextSize(20);
+            titleEditor.setSingleLine(false);
 
+            ViewGroup titleGroup = (ViewGroup) findViewById(R.id.post_title_group);
+            titleGroup.setPadding(0, dpToPx(20), 0, dpToPx(20));
             hideView(R.id.title_seperator1);
             hideView(R.id.title_seperator2);
             hideView(R.id.title_seperator3);
@@ -150,29 +167,12 @@ public class PostActivity extends BaseActivity {
     @Override
     public void onBackPressed() {
         if (readonly) {
-            finish();
+            super.onBackPressed();
             return;
         }
         if (adapter.editingTextRow >= 0) {
             adapter.editingTextRow = -1;
             adapter.notifyDataSetChanged();
-        } else if (adapter.hasData()) {
-            List<ActionSheetItem> items = new ArrayList<ActionSheetItem>();
-            items.add(new ActionSheetItem(getString(R.string.post_not_save_draft),
-                    new ActionSheetItem.ActionSheetItemOnClickListener() {
-                        @Override
-                        public void onClick() {
-                            finish();
-                        }
-                    }));
-            items.add(new ActionSheetItem(getString(R.string.post_save_draft),
-                    new ActionSheetItem.ActionSheetItemOnClickListener() {
-                        @Override
-                        public void onClick() {
-                            finish();
-                        }
-                    }));
-            ActionSheet.showWithItems(this, items);
         } else {
             super.onBackPressed();
         }
@@ -183,7 +183,7 @@ public class PostActivity extends BaseActivity {
         super.onPause();
         if (adapter.webViews != null) {
             for (WebView webView : adapter.webViews) {
-                webView.loadData("about:blank", "text/html", "UTF-8");
+                webView.loadUrl("about:blank");
             }
         }
     }
@@ -210,7 +210,7 @@ public class PostActivity extends BaseActivity {
         public void onReceive(Context context, Intent intent) {
             float progress = intent.getFloatExtra("progress", 0);
             if (progress >= 1) {
-                Toast.makeText(PostActivity.this, "Media Upload Done", Toast.LENGTH_LONG);
+                Toast.makeText(PostActivity.this, "Media Upload Done", Toast.LENGTH_LONG).show();
             }
         }
     };
@@ -218,6 +218,7 @@ public class PostActivity extends BaseActivity {
     protected void onKeyboardHide() {
         super.onKeyboardHide();
 
+        titleEditor.clearFocus();
         if (adapter.editingTextRow >= 0) {
             adapter.editingTextRow = -1;
         }
@@ -238,7 +239,7 @@ public class PostActivity extends BaseActivity {
         if (resultCode == RESULT_OK) {
             if (requestCode == INTENT_REQUEST_CODE_SELECT_PHOTO) {
                 if (data != null) {
-                    int count = data.getIntExtra("selected_photo_count", 0);
+                    final int count = data.getIntExtra("selected_photo_count", 0);
                     for (int i=0; i<count; i++) {
                         String path = data.getStringExtra("selected_photo_" + i);
                         Bitmap srcBitmap = YTWHelper.decodeBitmapFromPath(path, MAX_IMAGE_WIDTH_FOR_UPLOAD);
@@ -252,39 +253,55 @@ public class PostActivity extends BaseActivity {
                                     imagePathForUpload = saveImage(srcBitmap);
                                     jpgFileSize = new File(imagePathForUpload).length();
                                     if (jpgFileSize > MAX_IMAGE_FILE_SIZE) {
-                                        Toast.makeText(this, "图片太大，无法使用", Toast.LENGTH_LONG);
+                                        Toast.makeText(this, "图片太大，无法使用", Toast.LENGTH_LONG).show();
                                         continue;
                                     }
                                 }
                             }
                             if (canAppend()) {
-                                append();
+                                adapter.appendRow();
                             }
                             adapter.updateImage(adapter.getCount() - 1,
                                     imagePathForUpload, srcBitmap.getWidth(), srcBitmap.getHeight());
                         }
                     }
                     adapter.notifyDataSetChanged();
+                    postItemsListView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (adapter.getCount() - count >= 0) {
+                                postItemsListView.setSelection(adapter.getCount() - count);
+                            }
+                        }
+                    });
                 }
             } else if (requestCode == INTENT_REQUEST_CODE_SELECT_VODEO) {
                 if (data != null) {
-                    int count = data.getIntExtra("selected_video_count", 0);
+                    final int count = data.getIntExtra("selected_video_count", 0);
                     for (int i=0; i<count; i++) {
                         String videoPath = data.getStringExtra("selected_video_" + i);
                         int width = data.getIntExtra("selected_video_width_" + i, 0);
                         int height = data.getIntExtra("selected_video_height_" + i, 0);
                         if (canAppend()) {
-                            append();
+                            adapter.appendRow();
                         }
                         adapter.updateVideo(adapter.getCount() - 1, videoPath, null, width, height);
                     }
                     adapter.notifyDataSetChanged();
+                    postItemsListView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (adapter.getCount() - count >= 0) {
+                                postItemsListView.setSelection(adapter.getCount() - count);
+                            }
+                        }
+                    });
                 }
             } else if (requestCode == INTENT_REQUEST_CODE_RECORD_SCREEN) {
                 if (data != null && data.getData() != null) {
                     croppedVideoUri = data.getData();
                     if (canAppend()) {
-                        append();
+                        adapter.appendRow();
                     }
                     String videoPath = croppedVideoUri.getPath();
                     String gameName = null;
@@ -295,6 +312,14 @@ public class PostActivity extends BaseActivity {
                     int height = data.getIntExtra("video_height", 0);
                     adapter.updateVideo(adapter.getCount() - 1, videoPath, gameName, width, height);
                     adapter.notifyDataSetChanged();
+                    postItemsListView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (adapter.getCount() - 1 >= 0) {
+                                postItemsListView.setSelection(adapter.getCount() - 1);
+                            }
+                        }
+                    });
                 }
             } else if (requestCode == INTENT_REQUEST_CODE_CUT_VIDEO) {
                 if (data != null && data.getData() != null) {
@@ -332,19 +357,24 @@ public class PostActivity extends BaseActivity {
             for (int i=0; i<adapter.getCount(); i++) {
                 JSONObject section = new JSONObject();
 
+                boolean hasData = false;
+
                 String text = adapter.getText(i);
                 if (text != null) {
                     section.put("text", text);
+                    hasData = true;
                 }
 
                 String imagePath = adapter.getImagePath(i);
                 if (imagePath != null) {
                     section.put("image_src", imagePath);
+                    hasData = true;
                 }
 
                 String videoPath = adapter.getVideoPath(i);
                 if (videoPath != null) {
                     section.put("video_src", videoPath);
+                    hasData = true;
                 }
 
                 String gameName = adapter.getGameName(i);
@@ -363,7 +393,8 @@ public class PostActivity extends BaseActivity {
                     section.put("text_style", textStyle);
                 }
 
-                sections.put(section);
+                if (hasData)
+                    sections.put(section);
             }
 
             draft.put("sections", sections);
@@ -389,7 +420,9 @@ public class PostActivity extends BaseActivity {
             draft = new JSONObject(JSON);
             if (draft.has("title")) {
                 String title = draft.getString("title");
-                titleEditor.setText(title);
+                SpannableString styledText = new SpannableString(title);
+                styledText.setSpan(new RelativeSizeSpan(1.2f), 0, title.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                titleEditor.setText(styledText);
             }
             adapter.removeAll();
             JSONArray sections = draft.getJSONArray("sections");
@@ -405,9 +438,11 @@ public class PostActivity extends BaseActivity {
                     String imagePath = section.getString("image_src");
                     adapter.updateImage(i, imagePath, width, height);
                 }
-                if (section.has("video_src") && section.has("game_name")) {
+                if (section.has("video_src")) {
                     String videoPath = section.getString("video_src");
-                    String gameName = section.getString("game_name");
+                    String gameName = null;
+                    if (section.has("game_name"))
+                        gameName = section.getString("game_name");
                     adapter.updateVideo(i, videoPath, gameName, width, height);
                 }
                 if (section.has("text")) {
@@ -542,22 +577,19 @@ public class PostActivity extends BaseActivity {
     public void onAppendTextClick(View view) {
         hideSoftKeyboard();
 
-        if (!canAppend()) return ;
+        if (canAppend())
+            adapter.appendRow();
 
-        append();
+        appendedText = true;
+        adapter.editingTextRow = adapter.getCount() - 1;
+        adapter.notifyDataSetChanged();
+        postItemsListView.setSelection(adapter.getCount() - 1);
     }
 
     boolean canAppend() {
-//        return true;
         if (adapter.getCount() <= 0)
             return true;
         return adapter.hasDataAtRow(adapter.getCount() - 1);
-    }
-
-    void append() {
-        adapter.appendRow();
-        adapter.notifyDataSetChanged();
-        postItemsListView.setSelection(adapter.getCount() - 1);
     }
 
     public void onAppendPhotoClick(View view) {
@@ -571,6 +603,10 @@ public class PostActivity extends BaseActivity {
                 new ActionSheetItem.ActionSheetItemOnClickListener() {
                     @Override
                     public void onClick() {
+                        if (!Root.isDeviceRooted()) {
+                            Toast.makeText(PostActivity.this, R.string.root_permission_needed, Toast.LENGTH_LONG).show();
+                            return;
+                        }
                         SelectGameActivity.preLoadGames = gamesInstalled;
                         Intent intent = new Intent(PostActivity.this, SelectGameActivity.class);
                         startActivityForResult(intent, INTENT_REQUEST_CODE_RECORD_SCREEN);
@@ -690,7 +726,7 @@ public class PostActivity extends BaseActivity {
 
             styledText.setSpan(new TypefaceSpan("serif"), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             if (style == TEXT_STYLE_HEAD) {
-                styledText.setSpan(new RelativeSizeSpan(1.6f), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                styledText.setSpan(new RelativeSizeSpan(1.3f), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             } else if (style == TEXT_STYLE_BOLD) {
                 styledText.setSpan(new StyleSpan(Typeface.BOLD), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 styledText.setSpan(new TypefaceSpan("monospace"), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -796,8 +832,6 @@ public class PostActivity extends BaseActivity {
                 webViews.add(webView);
                 webView.getSettings().setJavaScriptEnabled(true);
                 webView.getSettings().setAppCacheEnabled(true);
-                webView.getSettings().setBuiltInZoomControls(true);
-                webView.getSettings().setSaveFormData(true);
 //                webView.setWebChromeClient(new WebChromeClient() {
 //                    private Bitmap mDefaultVideoPoster;
 //                    private View mVideoProgressView;
@@ -860,11 +894,12 @@ public class PostActivity extends BaseActivity {
                 hideView(playBtn);
                 hideView(webView);
 
+                previewImageView.setBackgroundColor(Color.WHITE);
                 previewImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 previewImageView.setImageWithPath(imagePath,
                         postItemsListView.getWidth(), scrolling, 0);
+                Point imgSize = getMediaSize(position);
                 if (readonly) {
-                    Point imgSize = getMediaSize(position);
                     if (imgSize != null) {
                         if (imgSize.x > imgSize.y * 2) {
                             imgSize.x = imgSize.y * 2;
@@ -875,7 +910,15 @@ public class PostActivity extends BaseActivity {
                                 postItemsListView.getWidth() * imgSize.y / imgSize.x);
                     }
                 } else {
-                    setViewHeight(previewImageView, postItemsListView.getWidth() * 3 / 4);
+                    if (imgSize != null) {
+                        if (imgSize.x > imgSize.y * 2) {
+                            imgSize.x = imgSize.y * 2;
+                        } else if (imgSize.y > imgSize.x) {
+                            imgSize.y = imgSize.x;
+                        }
+                        setViewHeight(previewImageView,
+                                postItemsListView.getWidth() * imgSize.y / imgSize.x);
+                    }
                 }
             } else if (videoPath != null) {
                 if ("youku".equals(Uri.parse(videoPath).getScheme())) {
@@ -901,6 +944,7 @@ public class PostActivity extends BaseActivity {
                     showView(playBtn);
                     hideView(webView);
 
+                    previewImageView.setBackgroundColor(Color.BLACK);
                     previewImageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
                     previewImageView.setImageWithVideoPath(videoPath,
                             MediaStore.Video.Thumbnails.FULL_SCREEN_KIND, scrolling, 0);
@@ -934,7 +978,7 @@ public class PostActivity extends BaseActivity {
                     textEditor.setHint(R.string.post_section_hint);
                 }
             }
-            textEditor.setMinLines(minLines);
+//            textEditor.setMinLines(minLines);
 
             if (editingTextRow == position) {
                 hideView(dragHandle);
@@ -942,7 +986,17 @@ public class PostActivity extends BaseActivity {
                 textEditor.setEnabled(true);
                 textEditor.requestFocus();
                 if (!isSoftKeyboardShown) {
-                    showSoftKeyboard(true);
+                    if (appendedText) {
+                        appendedText = false;
+                        textEditor.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                doEditTextOnPosition(position);
+                            }
+                        });
+                    } else {
+                        showSoftKeyboard(true);
+                    }
                 }
             } else if (editingTextRow >= 0) {
                 showView(dragHandle);
@@ -961,6 +1015,11 @@ public class PostActivity extends BaseActivity {
             textEditor.removeTextChangedListener(adapter);
             Integer style = (Integer) this.cursor.getValue(position, text_style_col_idx);
             applyStyle(textEditor, text, style);
+            if (readonly && (text == null || text.length() == 0)) {
+                hideView(textEditor);
+            } else {
+                showView(textEditor);
+            }
             if (editingTextRow == position) {
                 textEditor.addTextChangedListener(adapter);
             }
@@ -970,6 +1029,11 @@ public class PostActivity extends BaseActivity {
                     textEditor.setSelection(text.length());
                 else
                     textEditor.setSelection(0);
+            }
+            if (readonly && (imagePath != null || videoPath != null)) {
+                textEditor.setTextSize(14);
+            } else {
+                textEditor.setTextSize(16);
             }
 
             textEditor.post(new Runnable() {
@@ -981,6 +1045,13 @@ public class PostActivity extends BaseActivity {
                     }
                 }
             });
+
+            if (readonly) {
+                previewGroup.setPadding(0, 0, 0, 0);
+                previewImageView.setPadding(0, 0, 0, 0);
+                webView.setPadding(0, 0, 0, 0);
+                textEditor.setPadding(0, 0, 0, 0);
+            }
         }
 
         @Override

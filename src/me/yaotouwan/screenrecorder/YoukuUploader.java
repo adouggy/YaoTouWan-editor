@@ -1,23 +1,21 @@
 package me.yaotouwan.screenrecorder;
 
 import android.util.Log;
-import ch.boye.httpclientandroidlib.HttpEntity;
 import ch.boye.httpclientandroidlib.HttpResponse;
 import ch.boye.httpclientandroidlib.client.ClientProtocolException;
 import ch.boye.httpclientandroidlib.client.methods.HttpGet;
 import ch.boye.httpclientandroidlib.client.methods.HttpPost;
 import ch.boye.httpclientandroidlib.entity.ByteArrayEntity;
 import ch.boye.httpclientandroidlib.entity.StringEntity;
-import ch.boye.httpclientandroidlib.entity.mime.MultipartEntityBuilder;
 import ch.boye.httpclientandroidlib.impl.client.HttpClients;
 import ch.boye.httpclientandroidlib.util.EntityUtils;
-import me.yaotouwan.util.HttpHelper;
 import me.yaotouwan.util.YTWHelper;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.*;
 import java.math.BigInteger;
+import java.net.URLEncoder;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -70,6 +68,11 @@ public class YoukuUploader {
         int i = 0;
         for(String key : keys) {
             String val = parameters.get(key).toString();
+            try {
+                val = URLEncoder.encode(val, "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
             if (i++ > 0) {
                 paramString += "&";
             }
@@ -461,7 +464,10 @@ public class YoukuUploader {
         String md5 = "";
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
-            InputStream is = new FileInputStream(filepath);
+            File file = new File(filepath);
+            if (!file.exists())
+                return null;
+            InputStream is = new FileInputStream(file);
             new DigestInputStream(is, md);
             byte[] digest = md.digest();
             for (int i=0; i < digest.length; i++) {
@@ -478,7 +484,8 @@ public class YoukuUploader {
         uploadInfo.put("file_size", new File(filepath).length() + "");
         uploadInfo.put("file_name", filepath);
         uploadInfo.put("title", title);
-        uploadInfo.put("tags", tags);
+//        uploadInfo.put("tags", tags);
+        uploadInfo.put("tags", "游戏");
         uploadInfo.put("category", "游戏");
 
         return upload(params, uploadInfo);

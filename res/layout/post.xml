@@ -71,7 +71,7 @@
 			android:layout_height="match_parent"
 			android:layout_above="@id/post_toolbar"
 			android:fastScrollEnabled="true"
-			android:divider="@color/clear"
+			android:divider="@color/white"
 			android:dividerHeight="0dp"
 			dslv:drag_enabled="true"
 			dslv:collapsed_height="2dp"

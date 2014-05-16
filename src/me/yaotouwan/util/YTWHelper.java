@@ -60,7 +60,7 @@ public class YTWHelper {
     }
 
     public static boolean checkFBPermission() {
-        if (new Root().isDeviceRooted()) {
+        if (Root.isDeviceRooted()) {
             try {
                 File fbFile = new File("/dev/graphics/fb0");
                 if (!fbFile.canRead() || !fbFile.canWrite()) {

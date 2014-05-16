@@ -148,7 +148,7 @@ public class RecordScreenActivity extends BaseActivity {
                         doStartGame();
                     }
                 }
-            }.execute();
+            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         } else {
             doStartGame();
         }
@@ -228,7 +228,7 @@ public class RecordScreenActivity extends BaseActivity {
                     doEditVideo();
                 }
             }
-        }.execute();
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     void doEditVideo() {

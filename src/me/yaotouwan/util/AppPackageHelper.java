@@ -131,6 +131,6 @@ public class AppPackageHelper {
                 if (games != null)
                     delegate.onComplete(games);
             }
-        }.execute();
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 }
