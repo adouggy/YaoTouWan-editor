@@ -93,7 +93,10 @@ public class PhotoAlbum extends BaseActivity {
                     reader = new BufferedReader(new FileReader(albumListFile));
                     String path;
                     while ((path = reader.readLine()) != null) {
-                        loadPhotoInDir(new File(path), null, true);
+                        String title = null;
+                        if (new File(path).getName().toLowerCase().equals("yaotouwan"))
+                            title = "摇头玩";
+                        loadPhotoInDir(new File(path), title, true);
                     }
                 } catch (FileNotFoundException e) {
                 } catch (IOException e) {
@@ -113,7 +116,7 @@ public class PhotoAlbum extends BaseActivity {
 
                 for (File file : files) {
                     String title = null;
-                    if (file.getName().equals("yaotouwan"))
+                    if (file.getName().toLowerCase().equals("yaotouwan"))
                         title = "摇头玩";
                     loadPhotoInDir(file, title, true);
                 }

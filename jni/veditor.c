@@ -443,13 +443,14 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_decodeFrame
 )
 {
     int err;
-
-    if (progress > 0) {
-        progress = progress * video_stream->duration;
-        if ((err = av_seek_frame(fmt_ctx, video_stream_idx, progress, 0)) < 0) {
-            LOGE("Error seek frame %s", av_err2str(err));
-        }
-    }
+//    LOGI("progress %g, duration %d", progress, video_stream->duration);
+//    if (progress > 0) {
+//
+//    }
+//    progress = progress * video_stream->duration;
+//    if ((err = av_seek_frame(fmt_ctx, video_stream_idx, 0, 0)) < 0) {
+//        LOGE("Error seek frame %s", av_err2str(err));
+//    }
 
     while (av_read_frame(fmt_ctx, &pkt) >= 0) {
         do {
@@ -462,6 +463,10 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_decodeFrame
 
                 if (got_frame) {
                     if (pkt.flags & AV_PKT_FLAG_KEY == 0) {
+                        break;
+                    }
+
+                    if (pkt.pts < progress * video_stream->duration) {
                         break;
                     }
 

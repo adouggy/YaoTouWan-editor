@@ -429,7 +429,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             assert params.length > 0;
             String videoPath = params[0];
             // start to read video infomation
-            logd("start to read video infomation");
+//            logd("start to read video infomation");
             int[] info = prepareDecoder(videoPath);
             if (info == null) {
                 return false;
@@ -444,9 +444,9 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
                 videoWidth = info[1];
                 videoHeight = info[0];
             }
-            logd("video " + videoWidth + "x" + videoHeight);
+//            logd("video " + videoWidth + "x" + videoHeight);
             videoDuration = info[2];
-            logd("got video info via ffmpeg duration " + videoDuration);
+//            logd("got video info via ffmpeg duration " + videoDuration);
 
             if (videoWidth <= 0 || videoHeight <= 0 || videoDuration <= 0) {
                 loge("video error");
@@ -471,7 +471,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             publishProgress(-1);
 
             if (!readonly) {
-                int sliceCount = 10;
+                int sliceCount = (getWindowSize().x - dpToPx(10) * 2) * videoHeight / dpToPx(50) / videoWidth;
                 sliceImages = new LinkedList<Bitmap>();
                 for (int p=0; p<sliceCount; p++) {
                     frameBytes = decodeFrame(p * 1.0 / sliceCount, false);
@@ -527,7 +527,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             super.onPostExecute(succ);
 
             if (succ) {
-                logd("Complete read video info");
+//                logd("Complete read video info");
                 mPlayer = new MediaPlayer();
                 try {
                     mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
@@ -616,14 +616,14 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
     void layoutSurface() {
         View rootViewGroup = getRootViewGroup();
         Point rootSize = new Point(rootViewGroup.getWidth(), rootViewGroup.getHeight());
-        logd(rootSize.toString());
+//        logd(rootSize.toString());
         Point surfaceSize = YTWHelper.restrictSizeInSize(new Point(videoWidth, videoHeight), rootSize);
-        logd(surfaceSize.toString());
+//        logd(surfaceSize.toString());
         setViewSize(previewGroup, surfaceSize.x, surfaceSize.y);
     }
 
     boolean readVideoInfo(Uri uri) {
-        logd("get video size " + uri.getPath());
+//        logd("get video size " + uri.getPath());
         assert uri != null && uri.getPath() != null;
         if (uri.getPath().endsWith(".mp4")) {
             mDialog = new ProgressDialog(this);

@@ -318,4 +318,11 @@ public class CutVideoSelector extends RelativeLayout {
         handleLayoutParams.setMargins(marginLeft, 0, 0, 0);
         handle.setLayoutParams(handleLayoutParams);
     }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+
+        reLayout();
+    }
 }

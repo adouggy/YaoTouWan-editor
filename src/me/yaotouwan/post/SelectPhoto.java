@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.*;
 import android.media.ThumbnailUtils;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.LayoutInflater;
@@ -50,34 +51,51 @@ public class SelectPhoto extends BaseActivity {
 
         listView = (ListView) getRootViewGroup();
 
-        photoPathListFilePath = getIntent().getData().getPath();
-        photos = new ArrayList<String>(getIntent().getIntExtra("photo_count", 16));
-        BufferedReader reader = null;
-        try {
-            reader = new BufferedReader(new FileReader(photoPathListFilePath));
-            String path = null;
-            while ((path = reader.readLine()) != null) {
-                photos.add(path);
-            }
-            Collections.reverse(photos);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (reader != null) {
+        loadContent();
+    }
+
+    void loadContent() {
+        new AsyncTask<Void, Void, Void>() {
+
+            @Override
+            protected Void doInBackground(Void... params) {
+                photoPathListFilePath = getIntent().getData().getPath();
+                photos = new ArrayList<String>(getIntent().getIntExtra("photo_count", 16));
+                BufferedReader reader = null;
                 try {
-                    reader.close();
+                    reader = new BufferedReader(new FileReader(photoPathListFilePath));
+                    String path = null;
+                    while ((path = reader.readLine()) != null) {
+                        photos.add(path);
+                    }
+                    Collections.reverse(photos);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
                 } catch (IOException e) {
                     e.printStackTrace();
+                } finally {
+                    if (reader != null) {
+                        try {
+                            reader.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
                 }
+
+                selectedPhotoIds = new ArrayList<Integer>(maxSelectionCount);
+
+                dataSource = new DataSource();
+
+                return null;
             }
-        }
 
-        selectedPhotoIds = new ArrayList<Integer>(maxSelectionCount);
-
-        dataSource = new DataSource();
-        listView.setAdapter(dataSource);
+            @Override
+            protected void onPostExecute(Void aVoid) {
+                listView.setAdapter(dataSource);
+                super.onPostExecute(aVoid);
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     @Override
