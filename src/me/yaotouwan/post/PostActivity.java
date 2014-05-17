@@ -417,7 +417,7 @@ public class PostActivity extends BaseActivity {
             if (!drafsDir.exists()) {
                 drafsDir.mkdirs();
             }
-            String fn = DateFormat.format("yyyyMMdd_hhmmss", new Date()).toString();
+            String fn = DateFormat.format("yyyyMMdd_HHmmss", new Date()).toString();
             draftFile = new File(drafsDir, fn + ".json");
         }
 //        String fn = draftFile.getName();
@@ -979,21 +979,17 @@ public class PostActivity extends BaseActivity {
             int minLines = 0;
             if (!readonly) {
                 if (imagePath != null) {
-                    minLines = 1;
                     textEditor.setHint(R.string.post_image_desc_hint);
                 } else if (videoPath != null) {
-                    minLines = 1;
                     textEditor.setHint(R.string.post_video_desc_hint);
                 } else {
                     if (getCount() == 1) {
                         minLines = 5;
-                    } else {
-                        minLines = 2;
                     }
                     textEditor.setHint(R.string.post_section_hint);
                 }
             }
-//            textEditor.setMinLines(minLines);
+            textEditor.setMinLines(minLines);
 
             if (editingTextRow == position) {
                 hideView(dragHandle);
@@ -1180,6 +1176,11 @@ public class PostActivity extends BaseActivity {
                 }
             } else {
                 if (readonly) {
+                    return;
+                }
+
+                if (adapter.getCount() == 1) {
+                    doubleClick(position, targetView);
                     return;
                 }
 
