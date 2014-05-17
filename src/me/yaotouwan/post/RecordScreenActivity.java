@@ -54,6 +54,8 @@ public class RecordScreenActivity extends BaseActivity {
 
     int recordedVideoOrientation;
 
+    Uri draftUri;
+
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.record_screen);
@@ -61,6 +63,7 @@ public class RecordScreenActivity extends BaseActivity {
         hideActionBar();
 
         sm = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
+        draftUri = getIntent().getData();
         packageName = getIntent().getStringExtra("package_name");
         gameName = getIntent().getStringExtra("game_name");
     }
@@ -106,7 +109,7 @@ public class RecordScreenActivity extends BaseActivity {
         if (showTouches)
             YTWHelper.runRootCommand("su -c settings put system show_touches 1");
 
-        videoPath = YTWHelper.prepareFilePathForVideoSave();
+        videoPath = YTWHelper.prepareFilePathForVideoSaveWithDraftUri(draftUri);
         startRecordingService();
     }
 
@@ -233,7 +236,8 @@ public class RecordScreenActivity extends BaseActivity {
 
     void doEditVideo() {
         startActivityForResult(new Intent(this, EditVideoActivity.class)
-                .setData(Uri.parse(videoPath)), INTENT_REQUEST_CODE_CUT_VIDEO);
+                .setData(Uri.parse(videoPath)).putExtra("draft_path", draftUri.getPath()),
+                INTENT_REQUEST_CODE_CUT_VIDEO);
     }
 
     private boolean isRecordingServiceRunning() {

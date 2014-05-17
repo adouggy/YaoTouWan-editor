@@ -3,6 +3,7 @@ package me.yaotouwan.screenrecorder;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -31,10 +32,14 @@ public class SelectGameActivity extends BaseActivity {
     public static List<AppPackageHelper.Game> preLoadGames;
     List<AppPackageHelper.Game> gamesInstalled;
 
+    Uri draftUri;
+
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.select_game);
         setupActionBar(R.string.select_game_title);
+
+        draftUri = getIntent().getData();
 
         if (preLoadGames != null) {
             gamesInstalled = preLoadGames;
@@ -110,6 +115,7 @@ public class SelectGameActivity extends BaseActivity {
                 @Override
                 public void onClick(View v) {
                     Intent intent = new Intent(SelectGameActivity.this, RecordScreenActivity.class);
+                    intent.setData(draftUri);
                     String pname = getItem(position).pname;
                     String appname = getItem(position).appname;
                     intent.putExtra("package_name", pname);
@@ -126,7 +132,8 @@ public class SelectGameActivity extends BaseActivity {
     }
 
     public void selectOther(View view) {
-        startActivityForResult(new Intent(this, RecordScreenActivity.class), INTENT_REQUEST_CODE_RECORD_SCREEN);
+        startActivityForResult(new Intent(this, RecordScreenActivity.class).setData(draftUri),
+                INTENT_REQUEST_CODE_RECORD_SCREEN);
     }
 
     @Override

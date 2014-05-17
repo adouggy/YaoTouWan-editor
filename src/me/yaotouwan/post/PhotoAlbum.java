@@ -4,6 +4,7 @@ import android.app.ProgressDialog;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -372,41 +373,13 @@ public class PhotoAlbum extends BaseActivity {
 
     Uri sourceImageUri;
     Uri sourceVideoUri;
-    String takePicturePath;
-    String recordVideoPath;
     public void onCameraClick(MenuItem item) {
         if (isVideo) {
-            ContentValues values = new ContentValues();
-            values.put(MediaStore.Video.Media.TITLE,
-                    YTWHelper.generateRandomFilename("mp4"));
-            values.put(MediaStore.Video.Media.DESCRIPTION,
-                    "Video captured by camera");
-            recordVideoPath = YTWHelper.prepareVideoPathForCamera(getContentResolver());
-            values.put(MediaStore.Video.Media.DATA, recordVideoPath);
-
-            sourceVideoUri = getContentResolver().insert(
-                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
-
-            Intent intent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, sourceVideoUri);
-            intent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1);
-            startActivityForResult(intent, INTENT_REQUEST_CODE_RECORD_VIDEO);
+            Intent intent = new Intent(android.provider.MediaStore.ACTION_VIDEO_CAPTURE);
+            startActivityForResult(Intent.createChooser(intent, "拍摄视频"), INTENT_REQUEST_CODE_RECORD_VIDEO);
         } else {
-            ContentValues values = new ContentValues();
-            values.put(MediaStore.Images.Media.TITLE,
-                    YTWHelper.generateRandomFilename("jpg"));
-            values.put(MediaStore.Images.Media.DESCRIPTION,
-                    "Image capture by camera");
-            takePicturePath = YTWHelper.prepareImagePathForCamera(getContentResolver());
-            values.put(MediaStore.Images.Media.DATA, takePicturePath);
-
-            sourceImageUri = getContentResolver().insert(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-
-            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, sourceImageUri);
-            intent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1);
-            startActivityForResult(intent, INTENT_REQUEST_CODE_TAKE_PHOTO);
+            Intent intent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+            startActivityForResult(Intent.createChooser(intent, "拍摄照片"), INTENT_REQUEST_CODE_TAKE_PHOTO);
         }
     }
 
@@ -421,19 +394,29 @@ public class PhotoAlbum extends BaseActivity {
             }
         } else if (requestCode == INTENT_REQUEST_CODE_TAKE_PHOTO) {
             if (resultCode == RESULT_OK) {
-                Intent intent = new Intent();
-                intent.putExtra("selected_photo_count", 1);
-                intent.putExtra("selected_photo_0", takePicturePath);
-                setResult(RESULT_OK, intent);
-                finish();
+                Cursor cursor = getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        new String[]{MediaStore.Images.ImageColumns.DATA}, null, null, MediaStore.Images.ImageColumns._ID + " DESC");
+                if (cursor.moveToFirst()) {
+                    String takePicturePath = cursor.getString(0);
+                    Intent intent = new Intent();
+                    intent.putExtra("selected_photo_count", 1);
+                    intent.putExtra("selected_photo_0", takePicturePath);
+                    setResult(RESULT_OK, intent);
+                    finish();
+                }
             }
         } else if (requestCode == INTENT_REQUEST_CODE_RECORD_VIDEO) {
             if (resultCode == RESULT_OK) {
-                Intent intent = new Intent();
-                intent.putExtra("selected_video_count", 1);
-                intent.putExtra("selected_video_0", recordVideoPath);
-                setResult(RESULT_OK, intent);
-                finish();
+                Cursor cursor = getContentResolver().query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                        new String[]{MediaStore.Video.VideoColumns.DATA}, null, null, MediaStore.Video.VideoColumns._ID + " DESC");
+                if (cursor.moveToFirst()) {
+                    String recordVideoPath = cursor.getString(0);
+                    Intent intent = new Intent();
+                    intent.putExtra("selected_video_count", 1);
+                    intent.putExtra("selected_video_0", recordVideoPath);
+                    setResult(RESULT_OK, intent);
+                    finish();
+                }
             }
         }
     }

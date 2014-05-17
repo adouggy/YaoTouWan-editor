@@ -205,24 +205,25 @@ public class ConfirmPhotoActivity extends BaseActivity {
     }
 
     String copyImage(String srcPath) {
-        try {
-            String dstPath = YTWHelper.prepareFilePathForImageSave();
-            InputStream in = new FileInputStream(srcPath);
-            OutputStream out = new FileOutputStream(dstPath);
-
-            byte[] buf = new byte[4096];
-            int len;
-            while ((len = in.read(buf)) > 0) {
-                out.write(buf, 0, len);
-            }
-            in.close();
-            out.close();
-            return dstPath;
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        // 这个类都不需要了，还没删，所以先把这行无法编译的代码注视掉
+//        try {
+//            String dstPath = YTWHelper.prepareFilePathForImageSave();
+//            InputStream in = new FileInputStream(srcPath);
+//            OutputStream out = new FileOutputStream(dstPath);
+//
+//            byte[] buf = new byte[4096];
+//            int len;
+//            while ((len = in.read(buf)) > 0) {
+//                out.write(buf, 0, len);
+//            }
+//            in.close();
+//            out.close();
+//            return dstPath;
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
         return null;
     }
 }

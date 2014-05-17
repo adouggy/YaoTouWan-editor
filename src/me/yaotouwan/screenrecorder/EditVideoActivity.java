@@ -60,6 +60,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
     private ImageButton playButton;
     private ProgressDialog mDialog;
     String videoPath;
+    Uri draftUri;
     boolean isShouldReplay;
 
     boolean isPlayerPrepared;
@@ -116,6 +117,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             if (readonly) {
                 hideView(selector);
             }
+            draftUri = Uri.parse(intent.getStringExtra("draft_path"));
             videoPath = intent.getData().getPath();
             if (new File(videoPath).exists()) {
                 prepareVideoPlayer();
@@ -353,7 +355,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
 
         protected Boolean doInBackground(Integer... args) {
             String srcfpath = videoPath;
-            dstfpath = YTWHelper.prepareFilePathForVideoSave();
+            dstfpath = YTWHelper.prepareFilePathForVideoSaveWithDraftUri(draftUri);
             cutVideo(srcfpath, dstfpath,
                     selector.startProgress(),
                     selector.endProgress());
@@ -452,7 +454,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             }
 
             int[] frameBytes;
-            if (android.os.Build.MANUFACTURER.equals("Xiaomi")) {
+            if (true/*android.os.Build.MANUFACTURER.equals("Xiaomi")*/) {
                 previewImage = ThumbnailUtils.createVideoThumbnail(videoPath, MediaStore.Video.Thumbnails.FULL_SCREEN_KIND);
             } else {
                 frameBytes = decodeFrame(0, true);

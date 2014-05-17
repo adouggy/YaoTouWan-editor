@@ -110,99 +110,107 @@ public class YTWHelper {
         return sdcard.getAbsolutePath();
     }
 
-    public static String videoDirectory() {
-        return dataRootDirectory(0);
-//        String rd = dataRootDirectory(0);
-//        if (rd != null) {
-//            File vd = new File(rd + "/video");
-//            if (!vd.exists()) {
-//                vd.mkdirs();
-//            }
-//            return vd.getAbsolutePath();
-//        }
-//        return null;
-    }
+//    public static String videoDirectory() {
+//        return dataRootDirectory(0);
+////        String rd = dataRootDirectory(0);
+////        if (rd != null) {
+////            File vd = new File(rd + "/video");
+////            if (!vd.exists()) {
+////                vd.mkdirs();
+////            }
+////            return vd.getAbsolutePath();
+////        }
+////        return null;
+//    }
 
-    public static String picturesDirectory() {
-        return dataRootDirectory(0);
-//        String rd = dataRootDirectory(0);
-//        if (rd != null) {
-//            File vd = new File(rd + "/pictures");
-//            if (!vd.exists()) {
-//                vd.mkdirs();
-//            }
-//            return vd.getAbsolutePath();
-//        }
-//        return null;
-    }
+//    public static String picturesDirectory() {
+//        return dataRootDirectory(0);
+////        String rd = dataRootDirectory(0);
+////        if (rd != null) {
+////            File vd = new File(rd + "/pictures");
+////            if (!vd.exists()) {
+////                vd.mkdirs();
+////            }
+////            return vd.getAbsolutePath();
+////        }
+////        return null;
+//    }
 
     public static String generateRandomFilename(String ext) {
         SimpleDateFormat df = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS");
         return df.format(new Date()) + "." + ext;
     }
 
-    public static String prepareFilePathForImageSave()  {
-        String dirPath = YTWHelper.picturesDirectory();
-        if (dirPath == null) return null;
-        return new File(dirPath, generateRandomFilename("jpg")).getAbsolutePath();
-    }
-
-    public static String prepareFilePathForVideoSave()  {
-        String dirPath = YTWHelper.videoDirectory();
-        if (dirPath == null) return null;
-        return new File(dirPath, generateRandomFilename("mp4")).getAbsolutePath();
-    }
-
-    public static String getRealPathFromURI(Uri content_uri, ContentResolver contentResolver) {
-        Cursor cursor = null;
-        try {
-            String column = MediaStore.Images.ImageColumns.DATA;
-            String [] proj = { column };
-            cursor = contentResolver.query(content_uri,
-                    proj, // Which columns to return
-                    null, // WHERE clause; which rows to return (all rows)
-                    null, // WHERE clause selection arguments (none)
-                    null); // Order-by clause (ascending by name)
-            int column_index = cursor.getColumnIndexOrThrow(column);
-            if (!cursor.moveToFirst())
-                return null;
-            return cursor.getString(column_index);
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
+    public static String prepareFilePathForImageSaveWithDraftUri(Uri draftUri)  {
+        String draftPath = draftUri.getPath();
+        String draftMediaDirPath = draftPath.substring(0, draftPath.length() - 5);
+        File draftMediaDir = new File(draftMediaDirPath);
+        if (!draftMediaDir.exists()) {
+            draftMediaDir.mkdirs();
         }
+        return new File(draftMediaDir, generateRandomFilename("jpg")).getAbsolutePath();
     }
 
-    public static String getCameraRootPath(ContentResolver contentResolver) {
-        if (new File("/sdcard/DCIM/Camera").exists())
-            return "/sdcard/DCIM/Camera";
-
-        String demoImagePath = getRealPathFromURI(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentResolver);
-        File parent = new File(demoImagePath).getParentFile();
-        if (!parent.exists()) {
-            parent = new File(correctFilePath(parent.getAbsolutePath()));
-            if (!parent.exists()) {
-                if (parent.mkdirs()) {
-                    return parent.getAbsolutePath();
-                }
-            }
+    public static String prepareFilePathForVideoSaveWithDraftUri(Uri draftUri)  {
+        String draftPath = draftUri.getPath();
+        String draftMediaDirPath = draftPath.substring(0, draftPath.length() - 5);
+        File draftMediaDir = new File(draftMediaDirPath);
+        if (!draftMediaDir.exists()) {
+            draftMediaDir.mkdirs();
         }
-        return parent.getAbsolutePath();
+        return new File(draftMediaDir, generateRandomFilename("mp4")).getAbsolutePath();
     }
 
-    public static String prepareImagePathForCamera(ContentResolver contentResolver) {
-        String dirPath = YTWHelper.getCameraRootPath(contentResolver);
-        if (dirPath == null) return null;
-        return new File(dirPath, generateRandomFilename("jpg")).getAbsolutePath();
-    }
+//    public static String getRealPathFromURI(Uri content_uri, ContentResolver contentResolver) {
+//        Cursor cursor = null;
+//        try {
+//            String column = MediaStore.Images.ImageColumns.DATA;
+//            String [] proj = { column };
+//            cursor = contentResolver.query(content_uri,
+//                    proj, // Which columns to return
+//                    null, // WHERE clause; which rows to return (all rows)
+//                    null, // WHERE clause selection arguments (none)
+//                    null); // Order-by clause (ascending by name)
+//            int column_index = cursor.getColumnIndexOrThrow(column);
+//            if (!cursor.moveToFirst())
+//                return null;
+//            return cursor.getString(column_index);
+//        } finally {
+//            if (cursor != null) {
+//                cursor.close();
+//            }
+//        }
+//    }
 
-    public static String prepareVideoPathForCamera(ContentResolver contentResolver) {
-        String dirPath = YTWHelper.getCameraRootPath(contentResolver);
-        if (dirPath == null) return null;
-        return new File(dirPath, generateRandomFilename("mp4")).getAbsolutePath();
-    }
+//    public static String getCameraRootPath(ContentResolver contentResolver) {
+//        if (new File("/sdcard/DCIM/Camera").exists())
+//            return "/sdcard/DCIM/Camera";
+//
+//        String demoImagePath = getRealPathFromURI(
+//                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentResolver);
+//        File parent = new File(demoImagePath).getParentFile();
+//        if (!parent.exists()) {
+//            parent = new File(correctFilePath(parent.getAbsolutePath()));
+//            if (!parent.exists()) {
+//                if (parent.mkdirs()) {
+//                    return parent.getAbsolutePath();
+//                }
+//            }
+//        }
+//        return parent.getAbsolutePath();
+//    }
+
+//    public static String prepareImagePathForCamera(ContentResolver contentResolver) {
+//        String dirPath = YTWHelper.getCameraRootPath(contentResolver);
+//        if (dirPath == null) return null;
+//        return new File(dirPath, generateRandomFilename("jpg")).getAbsolutePath();
+//    }
+
+//    public static String prepareVideoPathForCamera(ContentResolver contentResolver) {
+//        String dirPath = YTWHelper.getCameraRootPath(contentResolver);
+//        if (dirPath == null) return null;
+//        return new File(dirPath, generateRandomFilename("mp4")).getAbsolutePath();
+//    }
 
     public static String correctFilePath(String path) {
         if (!new File(path).exists()) {
@@ -329,41 +337,41 @@ public class YTWHelper {
         return preferences.getBoolean(propertyName, false);
     }
 
-    public static String saveImageAsCopy(String srcPath) {
-        InputStream in = null;
-        OutputStream out = null;
-        try {
-            String dstPath = YTWHelper.prepareFilePathForImageSave();
-            in = new FileInputStream(srcPath);
-            out = new FileOutputStream(dstPath);
-
-            byte[] buf = new byte[4096];
-            int len;
-            while ((len = in.read(buf)) > 0) {
-                out.write(buf, 0, len);
-            }
-            return dstPath;
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (in != null)
-                try {
-                    in.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        return null;
-    }
+//    public static String saveImageAsCopy(String srcPath) {
+//        InputStream in = null;
+//        OutputStream out = null;
+//        try {
+//            String dstPath = YTWHelper.prepareFilePathForImageSave();
+//            in = new FileInputStream(srcPath);
+//            out = new FileOutputStream(dstPath);
+//
+//            byte[] buf = new byte[4096];
+//            int len;
+//            while ((len = in.read(buf)) > 0) {
+//                out.write(buf, 0, len);
+//            }
+//            return dstPath;
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        } finally {
+//            if (in != null)
+//                try {
+//                    in.close();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//            if (out != null) {
+//                try {
+//                    out.close();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+//        return null;
+//    }
 
     public static int dpToPx(Context context, int dp) {
         final float scale = context.getResources().getDisplayMetrics().density;
@@ -476,6 +484,31 @@ public class YTWHelper {
         return readTextContent(fileUri.getPath());
     }
 
+    public static String readAssertsTextContent(Context context, String filename) {
+        InputStream is = null;
+        try {
+            is = context.getResources().getAssets().open(filename);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+            StringBuilder sb = new StringBuilder();
+            while (reader.ready())
+                sb.append(reader.readLine());
+            return sb.toString();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (is != null) {
+                try {
+                    is.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return null;
+    }
+
     public static String readTextContent(String filePath) {
         BufferedReader reader = null;
         try {
@@ -522,5 +555,44 @@ public class YTWHelper {
             }
         }
         return false;
+    }
+
+    public static void delete(File file) {
+
+        if(file.isDirectory()){
+
+            //directory is empty, then delete it
+            if(file.list().length==0){
+
+                file.delete();
+//                System.out.println("Directory is deleted : "
+//                        + file.getAbsolutePath());
+
+            }else{
+
+                //list all the directory contents
+                String files[] = file.list();
+
+                for (String temp : files) {
+                    //construct the file structure
+                    File fileDelete = new File(file, temp);
+
+                    //recursive delete
+                    delete(fileDelete);
+                }
+
+                //check the directory again, if empty then delete it
+                if(file.list().length==0){
+                    file.delete();
+//                    System.out.println("Directory is deleted : "
+//                            + file.getAbsolutePath());
+                }
+            }
+
+        }else{
+            //if file, then delete it
+            file.delete();
+//            System.out.println("File is deleted : " + file.getAbsolutePath());
+        }
     }
 }

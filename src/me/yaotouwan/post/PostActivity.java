@@ -1,5 +1,6 @@
 package me.yaotouwan.post;
 
+import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.*;
 import android.database.Cursor;
@@ -14,8 +15,7 @@ import android.text.method.LinkMovementMethod;
 import android.text.style.*;
 import android.util.Log;
 import android.view.*;
-import android.webkit.WebChromeClient;
-import android.webkit.WebView;
+import android.webkit.*;
 import android.widget.*;
 import com.actionbarsherlock.view.MenuItem;
 import com.mobeta.android.dslv.DragSortController;
@@ -35,9 +35,9 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.lang.annotation.*;
+import java.lang.annotation.Annotation;
+import java.util.*;
 
 /**
  * Created by jason on 14-3-18.
@@ -54,27 +54,20 @@ public class PostActivity extends BaseActivity {
 
     DragSortListView postItemsListView;
     PostListViewDataSource adapter;
-
     Uri croppedVideoUri;
-
     EditText titleEditor;
     ViewGroup toolbar;
     View editPopMenu;
-
     int editVideoAtPosition = -1;
-
     boolean finishButtonClicked; // 为防止键盘显示判断错误导致的点击无效
-
     List<AppPackageHelper.Game> gamesInstalled;
-
     boolean readonly;
-
-    FrameLayout customViewContainer;
-    View webViewCustomeView;
-
     boolean appendedText;
-
-    WebChromeClient.CustomViewCallback customViewCallback;
+    String youkuPlayerHTML;
+    boolean youkuFullscreen;
+    WebView youkuWebView;
+    ViewGroup youkuWebViewParent;
+    int youkuWebViewIndex = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -118,8 +111,6 @@ public class PostActivity extends BaseActivity {
             hideView(R.id.footer_readonly);
         }
 
-        customViewContainer = (FrameLayout) findViewById(R.id.video_fullscreen);
-
         titleEditor = (EditText) findViewById(R.id.post_title);
         titleEditor.setEnabled(!readonly);
         if (readonly) {
@@ -142,6 +133,7 @@ public class PostActivity extends BaseActivity {
             draftFile = new File(draftUri.getPath());
         }
         loadDraft();
+        prepareDraftFile();
 
         postItemsListView.setAdapter(adapter);
         postItemsListView.setDragSortListener(adapter);
@@ -166,6 +158,17 @@ public class PostActivity extends BaseActivity {
 
     @Override
     public void onBackPressed() {
+        if (youkuFullscreen) {
+            youkuFullscreen = false;
+            getRootViewGroup().removeView(youkuWebView);
+            youkuWebViewParent.addView(youkuWebView, youkuWebViewIndex);
+            youkuWebView = null;
+            youkuWebViewParent = null;
+            youkuWebViewIndex = -1;
+            exitFullscreen();
+            showActionBar();
+            return;
+        }
         if (readonly) {
             super.onBackPressed();
             return;
@@ -335,6 +338,7 @@ public class PostActivity extends BaseActivity {
 
     JSONObject draft;
     File draftFile;
+    File draftDir;
     void saveDraft() {
         if (readonly) return;
         if (adapter == null) return;
@@ -399,17 +403,29 @@ public class PostActivity extends BaseActivity {
 
             draft.put("sections", sections);
 
-            if (draftFile == null) {
-                String fn = "post_" + DateFormat.format("yyyyMMdd_hhmmss", new Date()).toString() + ".json";
-                draftFile = new File(YTWHelper.dataRootDirectory(0), fn);
-            }
-
             YTWHelper.writeTextContentToFile(draft.toString(), draftFile);
 
             uploadMedia();
         } catch (JSONException e) {
             e.printStackTrace();
         }
+    }
+
+    void prepareDraftFile() {
+        if (draftFile == null) {
+            File drafsDir = new File(YTWHelper.dataRootDirectory(0), "Posts");
+            if (!drafsDir.exists()) {
+                drafsDir.mkdirs();
+            }
+            String fn = DateFormat.format("yyyyMMdd_hhmmss", new Date()).toString();
+            draftFile = new File(drafsDir, fn + ".json");
+        }
+//        String fn = draftFile.getName();
+//        fn = fn.substring(0, fn.length()-5);
+//        draftDir = new File(draftFile.getParent(), fn);
+//        if (!draftDir.exists()) {
+//            draftDir.mkdirs();
+//        }
     }
 
     void loadDraft() {
@@ -458,6 +474,30 @@ public class PostActivity extends BaseActivity {
         } catch (JSONException e) {
             e.printStackTrace();
         }
+    }
+
+    public static List<Uri> listDrafts() {
+        File drafsDir = new File(YTWHelper.dataRootDirectory(0), "Posts");
+        String[] files = drafsDir.list(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String filename) {
+                return filename.endsWith(".json");
+            }
+        });
+        List<Uri> uris = new ArrayList<Uri>(files.length);
+        for (String file : files) {
+            uris.add(Uri.parse(file));
+        }
+        return uris;
+    }
+
+    public static void deleteDraft(Uri draftUri) {
+        String draftPath = draftUri.getPath();
+        String draftMediaDirPath = draftPath.substring(0, draftPath.length() - 5);
+        File draftMediaDir = new File(draftMediaDirPath);
+        YTWHelper.delete(draftMediaDir);
+        File draftFie = new File(draftPath);
+        YTWHelper.delete(draftFie);
     }
 
     // read file as json string, used for sending to api, stored in db.
@@ -538,12 +578,13 @@ public class PostActivity extends BaseActivity {
     }
 
     String saveImage(Bitmap srcBitmap) {
-        String dstPath = YTWHelper.prepareFilePathForImageSave();
+        String dstFile = YTWHelper.prepareFilePathForImageSaveWithDraftUri(
+                Uri.parse(draftFile.getAbsolutePath()));
         OutputStream os = null;
         try {
-            os = new BufferedOutputStream(new FileOutputStream(dstPath));
+            os = new BufferedOutputStream(new FileOutputStream(dstFile));
             if (srcBitmap.compress(Bitmap.CompressFormat.JPEG, 92, os)) {
-                return dstPath;
+                return dstFile;
             }
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -609,6 +650,7 @@ public class PostActivity extends BaseActivity {
                         }
                         SelectGameActivity.preLoadGames = gamesInstalled;
                         Intent intent = new Intent(PostActivity.this, SelectGameActivity.class);
+                        intent.setData(Uri.parse(draftFile.getAbsolutePath()));
                         startActivityForResult(intent, INTENT_REQUEST_CODE_RECORD_SCREEN);
                     }
                 }));
@@ -634,6 +676,31 @@ public class PostActivity extends BaseActivity {
         });
     }
 
+    class JavaScriptInterface {
+        @JavascriptInterface
+        public void onVideoStart(final int position) {
+            doTaskOnMainThread(new Runnable() {
+                @Override
+                public void run() {
+                    View rowView = postItemsListView.getItemViewAtRow(position);
+                    if (rowView == null) return;
+                    youkuWebView = (WebView) rowView.findViewById(R.id.video_webview);
+                    if (youkuWebView == null) return;
+                    youkuWebViewParent = (ViewGroup) youkuWebView.getParent();
+                    if (youkuWebViewParent == null) return;
+                    youkuWebViewIndex = youkuWebViewParent.indexOfChild(youkuWebView);
+                    youkuWebViewParent.removeView(youkuWebView);
+                    setViewSize(youkuWebView, ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT);
+                    getRootViewGroup().addView(youkuWebView);
+                    hideActionBar();
+                    enterFullscreen();
+                    youkuFullscreen = true;
+                }
+            });
+        }
+    }
+
     private class PostListViewDataSource extends SimpleDragSortCursorAdapter implements AbsListView.OnScrollListener, TextWatcher {
 
         PostCursor cursor;
@@ -655,11 +722,8 @@ public class PostActivity extends BaseActivity {
         boolean animateToShow;
         int draggingRow;
         int editingTextRow = -1;
-
         View editTargetView;
-
         boolean deleting;
-
         List<WebView> webViews;
 
         public PostListViewDataSource() {
@@ -825,6 +889,10 @@ public class PostActivity extends BaseActivity {
 
             ViewGroup previewGroup = (ViewGroup) rowView.findViewById(R.id.post_item_preview);
             final WebView webView = (WebView) rowView.findViewById(R.id.video_webview);
+            if (webView == null) {
+                logd("fullscreen");
+                return;
+            }
             if (webViews == null || !webViews.contains(webView)) {
                 if (webViews == null) {
                     webViews = new ArrayList<WebView>(3);
@@ -832,57 +900,8 @@ public class PostActivity extends BaseActivity {
                 webViews.add(webView);
                 webView.getSettings().setJavaScriptEnabled(true);
                 webView.getSettings().setAppCacheEnabled(true);
-//                webView.setWebChromeClient(new WebChromeClient() {
-//                    private Bitmap mDefaultVideoPoster;
-//                    private View mVideoProgressView;
-//
-//                    @Override
-//                    public void onShowCustomView(View view, CustomViewCallback callback) {
-//
-//                        // if a view already exists then immediately terminate the new one
-//                        if (webViewCustomeView != null) {
-//                            callback.onCustomViewHidden();
-//                            return;
-//                        }
-//                        webViewCustomeView = view;
-//                        webView.setVisibility(View.GONE);
-//                        customViewContainer.setVisibility(View.VISIBLE);
-//                        customViewContainer.addView(view);
-//                        customViewCallback = callback;
-//                    }
-//
-//                    @Override
-//                    public View getVideoLoadingProgressView() {
-//
-//                        if (mVideoProgressView == null) {
-////                            LayoutInflater inflater = LayoutInflater.from(PostActivity.this);
-////                            mVideoProgressView = inflater.inflate(R.layout.video_progress, null);
-//                        }
-//                        return mVideoProgressView;
-//                    }
-//
-//                    @Override
-//                    public void onHideCustomView() {
-//                        super.onHideCustomView();    //To change body of overridden methods use File | Settings | File Templates.
-//                        if (webViewCustomeView == null)
-//                            return;
-//
-//                        webView.setVisibility(View.VISIBLE);
-//                        customViewContainer.setVisibility(View.GONE);
-//
-//                        // Hide the custom view.
-//                        webViewCustomeView.setVisibility(View.GONE);
-//
-//                        // Remove the custom view from its container.
-//                        customViewContainer.removeView(webViewCustomeView);
-//                        customViewCallback.onCustomViewHidden();
-//
-//                        webViewCustomeView = null;
-//                    }
-//                });
+                webView.addJavascriptInterface(new JavaScriptInterface(), "Android");
             }
-            webView.setTag("reused");
-
             if (postItemsListView.editingPosition == position) {
                 textEditor.setBackgroundDrawable(new EditModeBGDrawable(PostActivity.this, 0));
             } else {
@@ -924,19 +943,15 @@ public class PostActivity extends BaseActivity {
                 if ("youku".equals(Uri.parse(videoPath).getScheme())) {
                     hideView(previewGroup);
                     showView(webView);
-
-                    String videoTag =
-                            "<div id='youkuplayer_{youku_video_id}'></div>\n" +
-                            "<script type='text/javascript' src='http://player.youku.com/jsapi'>\n" +
-                            "player = new YKU.Player('youkuplayer_{youku_video_id}',{\n" +
-                            "styleid: '0',\n" +
-                            "client_id: '{youku_client_id}',\n" +
-                            "vid: '{youku_video_id}'\n" +
-                            "});\n" +
-                            "</script>";
+                    if (youkuPlayerHTML == null) {
+                        youkuPlayerHTML = YTWHelper
+                                .readAssertsTextContent(PostActivity.this, "youku_player.html");
+                    }
+                    String videoTag = youkuPlayerHTML;
                     String videoID = videoPath.replace("youku://", "");
-                    videoTag = videoTag.replaceAll("\\{youku_video_id\\}", videoID);
+                    videoTag = videoTag.replace("{youku_video_id}", videoID);
                     videoTag = videoTag.replace("{youku_client_id}", YoukuUploader.CLIENT_ID);
+                    videoTag = videoTag.replace("{position}", position + "");
                     webView.loadData(videoTag, "text/html", "UTF-8");
                     setViewHeight(webView, postItemsListView.getWidth() * 3 / 4);
                 } else {
@@ -1145,9 +1160,11 @@ public class PostActivity extends BaseActivity {
                     pushActivity(PreviewImageActivity.class, Uri.parse(imagePath));
                 } else if (videoPath != null) {
                     editVideoAtPosition = position;
-                    startActivityForResult(new Intent(PostActivity.this, EditVideoActivity.class)
-                            .setData(Uri.parse(videoPath)).putExtra("readonly", readonly),
-                            INTENT_REQUEST_CODE_CUT_VIDEO);
+                    Intent intent = new Intent(PostActivity.this, EditVideoActivity.class);
+                    intent.setData(Uri.parse(videoPath));
+                    intent.putExtra("draft_path", draftFile.getAbsolutePath());
+                    intent.putExtra("readonly", readonly);
+                    startActivityForResult(intent, INTENT_REQUEST_CODE_CUT_VIDEO);
                 }
             } else if (targetView == null) {
                 int pos = position + postItemsListView.getHeaderViewsCount() - postItemsListView.getFirstVisiblePosition();
