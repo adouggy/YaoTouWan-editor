@@ -1,7 +1,6 @@
 package me.yaotouwan.post;
 
 import android.app.ProgressDialog;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.database.Cursor;
@@ -70,6 +69,7 @@ public class PhotoAlbum extends BaseActivity {
             protected Boolean doInBackground(Integer... params) {
                 dataSource = new DataSource(albums);
 
+                // 遍历常用目录
                 File rootDir = Environment.getExternalStorageDirectory();
                 File dir = Environment.getExternalStoragePublicDirectory(
                         Environment.DIRECTORY_DCIM);
@@ -87,6 +87,7 @@ public class PhotoAlbum extends BaseActivity {
 
                 publishProgress(1);
 
+                // 遍历上次发现过的目录
                 File albumListFile = new File(getCacheDir(), albumListFilePath());
                 BufferedReader reader = null;
                 try {
@@ -94,8 +95,8 @@ public class PhotoAlbum extends BaseActivity {
                     String path;
                     while ((path = reader.readLine()) != null) {
                         String title = null;
-                        if (new File(path).getName().toLowerCase().equals("yaotouwan"))
-                            title = "摇头玩";
+                        if (new File(path).getName().toLowerCase().equals(Consts.DATA_ROOT_DIR))
+                            title = getString(R.string.app_name);
                         loadPhotoInDir(new File(path), title, true);
                     }
                 } catch (FileNotFoundException e) {
@@ -111,13 +112,14 @@ public class PhotoAlbum extends BaseActivity {
                     }
                 }
 
+                // 遍历其他目录
                 File[] files = rootDir.listFiles();
                 if (files == null) return false;
 
                 for (File file : files) {
                     String title = null;
-                    if (file.getName().toLowerCase().equals("yaotouwan"))
-                        title = "摇头玩";
+                    if (file.getName().toLowerCase().equals(Consts.DATA_ROOT_DIR))
+                        title = getString(R.string.app_name);
                     loadPhotoInDir(file, title, true);
                 }
 
@@ -205,6 +207,8 @@ public class PhotoAlbum extends BaseActivity {
         for (File file : files) {
             if (file.isHidden()) continue;
             if (file.isDirectory()) {
+                if (file.getAbsolutePath().equals(YTWHelper.postsDir()))
+                    continue;
                 boolean existed = false;
                 if (dataSource != null) {
                     for (Album alb : dataSource.albums) {

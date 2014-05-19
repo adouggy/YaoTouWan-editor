@@ -595,4 +595,8 @@ public class YTWHelper {
 //            System.out.println("File is deleted : " + file.getAbsolutePath());
         }
     }
+
+    public static String postsDir() {
+        return new File(dataRootDirectory(0), "Posts").getAbsolutePath();
+    }
 }

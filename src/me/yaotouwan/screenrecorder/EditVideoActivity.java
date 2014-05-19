@@ -5,7 +5,6 @@ import android.animation.ValueAnimator;
 import android.app.ActionBar;
 import android.app.ProgressDialog;
 import android.content.Intent;
-import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -39,8 +38,6 @@ import me.yaotouwan.uicommon.ActionSheetItem;
 import me.yaotouwan.util.YTWHelper;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.IntBuffer;
 import java.util.*;

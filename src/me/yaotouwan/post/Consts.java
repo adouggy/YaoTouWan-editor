@@ -5,5 +5,5 @@ package me.yaotouwan.post;
  */
 public class Consts {
 
-
+    public static final String DATA_ROOT_DIR = "YaoTouWan";
 }

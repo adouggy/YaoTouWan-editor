@@ -8,9 +8,7 @@ import android.media.ThumbnailUtils;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
+import android.view.*;
 import android.widget.*;
 import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuItem;
@@ -104,29 +102,64 @@ public class SelectPhoto extends BaseActivity {
 
         maxSelectionCount = 8;
 
-        LinearLayout actionView = new LinearLayout(this);
+        final LinearLayout actionView = new LinearLayout(this);
+        actionView.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         actionView.setOrientation(LinearLayout.HORIZONTAL);
-        actionView.setPadding(0, 0, dpToPx(16), 0);
+        actionView.setPadding(dpToPx(10), 0, dpToPx(10), 0);
 
         ImageView icon = new ImageView(this);
-        icon.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        icon.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         actionView.addView(icon);
         icon.setImageResource(R.drawable.post_action_bar_icon_done);
 
         TextView label = new TextView(this);
-        label.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        label.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         actionView.addView(label);
         label.setTextColor(Color.WHITE);
         label.setTextSize(18);
+        label.setGravity(Gravity.CENTER_VERTICAL);
         selectedCountLabel = label;
 
         selectedCountLabel.setText(selectedPhotoIds.size() + "/" + maxSelectionCount);
 
         final MenuItem menuItem = menu.getItem(0);
-        actionView.setOnClickListener(new View.OnClickListener() {
+//        actionView.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                onFinishClick(menuItem);
+//            }
+//        });
+        icon.setOnTouchListener(new View.OnTouchListener() {
             @Override
-            public void onClick(View v) {
-                onFinishClick(menuItem);
+            public boolean onTouch(View v, MotionEvent event) {
+                logd("icon.onTouch");
+                if(event.getAction() == MotionEvent.ACTION_DOWN){
+                    actionView.setBackgroundColor(Color.parseColor("#55FFFFFF"));
+                } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                    onFinishClick(menuItem);
+                    actionView.setBackgroundColor(Color.parseColor("#00000000"));
+                } else if (event.getAction() == MotionEvent.ACTION_CANCEL) {
+                    actionView.setBackgroundColor(Color.parseColor("#00000000"));
+                }
+                return true;
+            }
+        });
+        label.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                logd("label.onTouch");
+                if(event.getAction() == MotionEvent.ACTION_DOWN){
+                    actionView.setBackgroundColor(Color.parseColor("#55FFFFFF"));
+                } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                    onFinishClick(menuItem);
+                    actionView.setBackgroundColor(Color.parseColor("#00000000"));
+                } else if (event.getAction() == MotionEvent.ACTION_CANCEL) {
+                    actionView.setBackgroundColor(Color.parseColor("#00000000"));
+                }
+                return true;
             }
         });
 
