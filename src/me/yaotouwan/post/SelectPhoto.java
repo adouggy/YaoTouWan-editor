@@ -126,16 +126,9 @@ public class SelectPhoto extends BaseActivity {
         selectedCountLabel.setText(selectedPhotoIds.size() + "/" + maxSelectionCount);
 
         final MenuItem menuItem = menu.getItem(0);
-//        actionView.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                onFinishClick(menuItem);
-//            }
-//        });
         icon.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                logd("icon.onTouch");
                 if(event.getAction() == MotionEvent.ACTION_DOWN){
                     actionView.setBackgroundColor(Color.parseColor("#55FFFFFF"));
                 } else if (event.getAction() == MotionEvent.ACTION_UP) {
@@ -150,7 +143,6 @@ public class SelectPhoto extends BaseActivity {
         label.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                logd("label.onTouch");
                 if(event.getAction() == MotionEvent.ACTION_DOWN){
                     actionView.setBackgroundColor(Color.parseColor("#55FFFFFF"));
                 } else if (event.getAction() == MotionEvent.ACTION_UP) {
@@ -229,7 +221,7 @@ public class SelectPhoto extends BaseActivity {
                     showView(group.findViewById(R.id.video_flag));
                 } else {
                     previewImageButton.setImageWithPath(path,
-                            width * 2 / 3, true, CachedImageButton.DEFAULT_DELAY);
+                            width * 2 / 3, true, 0);
                     hideView(group.findViewById(R.id.video_flag));
                 }
                 previewImageButton.setOnClickListener(new View.OnClickListener() {

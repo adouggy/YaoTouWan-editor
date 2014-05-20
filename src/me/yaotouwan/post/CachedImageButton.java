@@ -42,6 +42,9 @@ public class CachedImageButton extends ImageButton {
 
     public static final int DEFAULT_DELAY = 500;
     private String imagePath;
+    public boolean setImageWithPath(final String newImagePath, final int width, boolean async) {
+        return setImageWithPath(newImagePath, width, async, 0);
+    }
     public boolean setImageWithPath(final String newImagePath, final int width, boolean async, int delay) {
         if (videoPath == null && newImagePath.equals(imagePath))
             return false;
@@ -55,12 +58,16 @@ public class CachedImageButton extends ImageButton {
                     @Override
                     public void run() {
                         if (newImagePath.equals(imagePath)) {
-                            new LoadBitmapTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, width);
+                            new LoadBitmapTask().executeOnExecutor(
+                                    AsyncTask.THREAD_POOL_EXECUTOR, width);
+                        } else {
+                            Log.d("Cache", "ignored image");
                         }
                     }
                 }, delay);
             } else {
-                new LoadBitmapTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, width);
+                new LoadBitmapTask().executeOnExecutor(
+                        AsyncTask.THREAD_POOL_EXECUTOR, width);
             }
         } else {
             setImageBitmap(loadBitmap(imagePath, width));
@@ -84,12 +91,14 @@ public class CachedImageButton extends ImageButton {
                     @Override
                     public void run() {
                         if (newVideoPath.equals(videoPath)) {
-                            new LoadVideoThumbnailTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, sizeKind);
+                            new LoadVideoThumbnailTask().executeOnExecutor(
+                                    AsyncTask.THREAD_POOL_EXECUTOR, sizeKind);
                         }
                     }
                 }, delay);
             } else {
-                new LoadVideoThumbnailTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, sizeKind);
+                new LoadVideoThumbnailTask().executeOnExecutor(
+                        AsyncTask.THREAD_POOL_EXECUTOR, sizeKind);
             }
         } else {
             setImageBitmap(loadVideoThumbnail(videoPath, sizeKind));
@@ -111,16 +120,16 @@ public class CachedImageButton extends ImageButton {
         @Override
         protected void onPostExecute(Bitmap bitmap) {
             if (imagePath != null && imagePath.equals(loadedImagePath)) {
-                AlphaAnimation alphaUp = new AlphaAnimation(0, 0);
-                alphaUp.setFillAfter(true);
-                startAnimation(alphaUp);
+//                AlphaAnimation alphaUp = new AlphaAnimation(0, 0);
+//                alphaUp.setFillAfter(true);
+//                startAnimation(alphaUp);
 
                 setImageBitmap(bitmap);
 
-                Animation mAnimation = new AlphaAnimation(0, 1);
-                mAnimation.setDuration(250);
-                mAnimation.setInterpolator(new LinearInterpolator());
-                startAnimation(mAnimation);
+//                Animation mAnimation = new AlphaAnimation(0, 1);
+//                mAnimation.setDuration(250);
+//                mAnimation.setInterpolator(new LinearInterpolator());
+//                startAnimation(mAnimation);
             } else {
                 bitmap.recycle();
             }
@@ -183,16 +192,16 @@ public class CachedImageButton extends ImageButton {
         @Override
         protected void onPostExecute(Bitmap bitmap) {
             if (videoPath != null && videoPath.equals(loadedVideoPath)) {
-                AlphaAnimation alphaUp = new AlphaAnimation(0, 0);
-                alphaUp.setFillAfter(true);
-                startAnimation(alphaUp);
+//                AlphaAnimation alphaUp = new AlphaAnimation(0, 0);
+//                alphaUp.setFillAfter(true);
+//                startAnimation(alphaUp);
 
                 setImageBitmap(bitmap);
 
-                Animation mAnimation = new AlphaAnimation(0, 1);
-                mAnimation.setDuration(250);
-                mAnimation.setInterpolator(new LinearInterpolator());
-                startAnimation(mAnimation);
+//                Animation mAnimation = new AlphaAnimation(0, 1);
+//                mAnimation.setDuration(250);
+//                mAnimation.setInterpolator(new LinearInterpolator());
+//                startAnimation(mAnimation);
             } else {
                 bitmap.recycle();
             }

@@ -405,7 +405,7 @@ public class PostActivity extends BaseActivity {
         if (draftFile == null) {
             File drafsDir = new File(YTWHelper.dataRootDirectory(0), "Posts");
             if (!drafsDir.exists()) {
-                drafsDir.mkdirs();
+                logd("mkdirs " + drafsDir.mkdirs());
             }
             String fn = DateFormat.format("yyyyMMdd_HHmmss", new Date()).toString();
             draftFile = new File(drafsDir, fn + ".json");

@@ -1,13 +1,11 @@
 package me.yaotouwan.screenrecorder;
 
 import android.app.Service;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.AudioRecord.OnRecordPositionUpdateListener;
 import android.media.MediaRecorder;
-import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import me.yaotouwan.util.StreamHelper;
@@ -33,7 +31,7 @@ public class SRecorderService extends Service {
     // parameters for video
     int videoEncoderParameterRotate; // 0->Up, 1->Left, 2->Bottom, 3->Right
     int audioEncoderParameterBitRate; // XXbps, default 64000
-
+//    boolean showTouches;
 
 	private native int initRecorder(String filename, int rotation);
 	private native int encodeFrame(byte[] audioBuffer, int audioSamplesSize);
@@ -82,7 +80,6 @@ public class SRecorderService extends Service {
         String recordScriptPath = YTWHelper.screenrecordScriptPath();
         String cmd = "su -c sh " + recordScriptPath + " " +
                 indicatorFilePath() + " " + size + " " + bitrate + " " + firstVideoPath;
-        logd(cmd);
         return cmd;
     }
 
@@ -142,6 +139,7 @@ public class SRecorderService extends Service {
     }
     
 	public void startRecordingScreen() {
+        Log.d("Recorder", "start recording screen");
         if (YTWHelper.hasBuildinScreenRecorder()) {
             startBuildinRecorder();
             startAudioRecorder(false);
@@ -201,48 +199,38 @@ public class SRecorderService extends Service {
                 gotError();
             }
             inRecordMode = true;
-
-            new Thread(new Runnable() {
-                public void run() {
-                    while (inRecordMode) {
-                        audioSamplesRead = mAudioRecord.read(audioBuffer, 0, mAudioBufferSize);
-                    }
-                    mAudioRecord.stop();
-                }
-            }).start();
+            while (inRecordMode) {
+                audioSamplesRead = mAudioRecord.read(audioBuffer, 0, mAudioBufferSize);
+            }
+            mAudioRecord.stop();
         } else {
             mMediaRecorder.start();
         }
     }
 
     void startAudioRecorder(final boolean recordVideo) {
-        new Thread(new Runnable() {
-
-            public void run() {
-                try {
-                    if (doInitAudioRecorder(recordVideo)) {
-                        if (recordVideo) {
-                            initRecorder(YTWHelper.correctFilePath(videoPath),
-                                    videoEncoderParameterRotate);
+        try {
+            if (doInitAudioRecorder(recordVideo)) {
+                if (recordVideo) {
+                    initRecorder(YTWHelper.correctFilePath(videoPath),
+                            videoEncoderParameterRotate);
+                    doStartAudioRecorder(recordVideo);
+                } else {
+                    for (int i=0; i<100; i++) {
+                        if (YTWHelper.isBuildinScreenRecorderRunning()) {
                             doStartAudioRecorder(recordVideo);
+                            break;
                         } else {
-                            for (int i=0; i<100; i++) {
-                                if (YTWHelper.isBuildinScreenRecorderRunning()) {
-                                    doStartAudioRecorder(recordVideo);
-                                    break;
-                                } else {
-                                    Thread.sleep(100);
-                                }
-                            }
+                            Thread.sleep(100);
                         }
                     }
-                } catch (IllegalArgumentException e) {
-                    e.printStackTrace();
-                } catch (Exception e) {
-                    e.printStackTrace();
                 }
             }
-        }).start();
+        } catch (IllegalArgumentException e) {
+            // todo tell user to restart photo to fix the issue
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void stopRecordingScreen() {
@@ -263,6 +251,7 @@ public class SRecorderService extends Service {
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
         videoPath = intent.getData().getPath();
+        Log.d("Recorder", "start recording screen " + videoPath);
         videoEncoderParameterRotate = intent.getIntExtra("video_orientation", 0);
         videoQuality = intent.getIntExtra("video_quality", 0);
         screenWidth = intent.getIntExtra("screen_width", 0);
@@ -312,7 +301,9 @@ public class SRecorderService extends Service {
         try {
             out = new FileOutputStream(sp);
             BufferedWriter writer = StreamHelper.writer(out);
-            String content = "c=0\n" +
+            String content =
+//                    "su -c settings put system show_touches $5\n" +
+                    "c=0\n" +
                     "while [ $c -lt 20 ]\n" +
                     "do\n" +
                     "\tif [ -e $1 ]; then\n" +

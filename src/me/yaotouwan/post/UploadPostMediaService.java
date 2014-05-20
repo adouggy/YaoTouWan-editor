@@ -62,6 +62,7 @@ public class UploadPostMediaService extends Service {
                     mediaUpdated = false;
                     try {
                         String JSON = YTWHelper.readTextContent(postJSONFileUri);
+                        if (JSON == null) return false;
                         JSONObject post = new JSONObject(JSON);
                         JSONArray sections = post.getJSONArray("sections");
                         int totalMediaCount = 0;

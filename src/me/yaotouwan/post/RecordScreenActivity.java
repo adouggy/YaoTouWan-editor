@@ -50,7 +50,7 @@ public class RecordScreenActivity extends BaseActivity {
     String gameName;
 
     int videoQuality; // low: -1, middle: 0 (default), high: 1
-    boolean showTouches;
+    int showTouches;
 
     int recordedVideoOrientation;
 
@@ -99,15 +99,19 @@ public class RecordScreenActivity extends BaseActivity {
     }
 
     void startRecording() {
-
         try {
-            int showTouchesBeforeStartRecording = Settings.System.getInt(getContentResolver(), "touch_exploration_enabled");
-            YTWHelper.saveProperty(this, "touch_exploration_enabled_before_start_recording", showTouchesBeforeStartRecording > 0);
+            int showTouchesBeforeStartRecording =
+                    Settings.System.getInt(getContentResolver(),
+                            "show_touches");
+            if (showTouchesBeforeStartRecording != showTouches) {
+                Settings.System.putInt(getContentResolver(),
+                        "show_touches", showTouches);
+            }
+            YTWHelper.saveProperty(this,
+                    "show_touches_before_start_recording",
+                    showTouchesBeforeStartRecording);
         } catch (Settings.SettingNotFoundException e) {
-//            e.printStackTrace();
         }
-        if (showTouches)
-            YTWHelper.runRootCommand("su -c settings put system show_touches 1");
 
         videoPath = YTWHelper.prepareFilePathForVideoSaveWithDraftUri(draftUri);
         startRecordingService();
@@ -206,7 +210,8 @@ public class RecordScreenActivity extends BaseActivity {
                         e.printStackTrace();
                     }
                     if (YTWHelper.hasBuildinScreenRecorder()) {
-                        if (!YTWHelper.isBuildinScreenRecorderRunning()) {
+                        boolean r = YTWHelper.isBuildinScreenRecorderRunning();
+                        if (!r) {
                             return true;
                         }
                     } else {
@@ -312,8 +317,8 @@ public class RecordScreenActivity extends BaseActivity {
 
     public void showTouchesOptionOnClick(View view) {
         final Button optBtn = (Button) view;
-        showTouches = !showTouches;
-        optBtn.setText(showTouches ?
+        showTouches = showTouches > 0 ? 0 : 1;
+        optBtn.setText(showTouches > 0 ?
                 getString(R.string.video_encoder_show_touches_option_title_on) :
                 getString(R.string.video_encoder_show_touches_option_title_off));
     }
@@ -322,20 +327,30 @@ public class RecordScreenActivity extends BaseActivity {
     protected void onRestart() {
         super.onRestart();
 
-        YTWHelper.alertWithNeverAgain(this,
-                "record_screen_auto_stopped_alert",
-                getString(R.string.record_screen_auto_stopped_alert),
-                new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        editVideo();
-                    }
-                });
+        if (isRecordingServiceRunning()) {
+            YTWHelper.alertWithNeverAgain(this,
+                    "record_screen_auto_stopped_alert",
+                    getString(R.string.record_screen_auto_stopped_alert),
+                    new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            editVideo();
+                        }
+                    });
 
-        boolean showTouchesBeforeStartRecording = YTWHelper.getBooleanProperty(this, "touch_exploration_enabled_before_start_recording");
-        if (!showTouchesBeforeStartRecording && showTouches)
-            YTWHelper.runRootCommand("su -c settings put system show_touches 0");
-        stopRecording();
+            int showTouchesBeforeStartRecording = YTWHelper.getIntProperty(this,
+                    "show_touches_before_start_recording");
+            try {
+                int currentShowTouches = Settings.System.getInt(getContentResolver(),
+                        "show_touches");
+                if (currentShowTouches != showTouchesBeforeStartRecording) {
+                    Settings.System.putInt(getContentResolver(),
+                            "show_touches", showTouchesBeforeStartRecording);
+                }
+            } catch (Settings.SettingNotFoundException e) {
+            }
+            stopRecording();
+        }
     }
 
     @Override
