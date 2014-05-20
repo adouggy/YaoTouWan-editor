@@ -25,7 +25,7 @@ import java.util.List;
  */
 public class SelectPhoto extends BaseActivity {
 
-    ListView listView;
+    GridView listView;
     String photoPathListFilePath;
     List<String> photos;
     List<Integer> selectedPhotoIds;
@@ -33,6 +33,7 @@ public class SelectPhoto extends BaseActivity {
     TextView selectedCountLabel;
     int maxSelectionCount;
     boolean isVideo;
+    int thumbnailSize;
 
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,7 +48,12 @@ public class SelectPhoto extends BaseActivity {
             setupActionBar(R.string.select_photo_title);
         }
 
-        listView = (ListView) getRootViewGroup();
+        listView = (GridView) getRootViewGroup();
+        int width = getWindowSize().x / 3 - dpToPx(1) * 2;
+        listView.setColumnWidth(width);
+        listView.setHorizontalSpacing(dpToPx(1));
+        listView.setVerticalSpacing(dpToPx(1));
+        thumbnailSize = width;
 
         loadContent();
     }
@@ -163,16 +169,14 @@ public class SelectPhoto extends BaseActivity {
     class DataSource extends BaseAdapter {
 
         LayoutInflater inflater;
-        int countInRow;
 
         DataSource() {
             inflater = getLayoutInflater();
-            checkCountInRow();
         }
 
         @Override
         public int getCount() {
-            return (photos.size() + countInRow - 1) / countInRow;
+            return photos.size();
         }
 
         @Override
@@ -183,67 +187,8 @@ public class SelectPhoto extends BaseActivity {
         }
 
         @Override
-        public void notifyDataSetChanged() {
-            checkCountInRow();
-            super.notifyDataSetChanged();
-        }
-
-        private void checkCountInRow() {
-            int orientation = getScreenOrientation();
-            if (orientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                    || orientation == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT) {
-                countInRow = 3;
-            } else {
-                countInRow = 4;
-            }
-        }
-
-        @Override
         public long getItemId(int position) {
             return position;
-        }
-
-        void setupPhoto(ViewGroup group, final int pos) {
-            final CachedImageButton previewImageButton = (CachedImageButton) group.findViewById(R.id.photo_preview);
-            final ImageView checkbox = (ImageView) group.findViewById(R.id.check_box);
-
-            int width = (getRootViewGroup().getWidth() - dpToPx(2)) / countInRow;
-            setViewSize(group, width, width);
-
-            String path = getItem(pos);
-            if (path == null) {
-                hideView(group);
-            } else {
-                showView(group);
-                if (isVideo) {
-                    previewImageButton.setImageWithVideoPath(path,
-                            MediaStore.Video.Thumbnails.MINI_KIND, false, 0);
-                    showView(group.findViewById(R.id.video_flag));
-                } else {
-                    previewImageButton.setImageWithPath(path,
-                            width * 2 / 3, true, 0);
-                    hideView(group.findViewById(R.id.video_flag));
-                }
-                previewImageButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        if (selectedPhotoIds.contains(pos)) {
-                            selectedPhotoIds.remove(Integer.valueOf(pos));
-                            hideView(checkbox);
-                        } else if (selectedPhotoIds.size() < maxSelectionCount) {
-                            selectedPhotoIds.add(pos);
-                            showView(checkbox);
-                        }
-                        selectedCountLabel.setText(selectedPhotoIds.size() + "/" + maxSelectionCount);
-                    }
-                });
-
-                if (selectedPhotoIds.contains(pos)) {
-                    showView(checkbox);
-                } else {
-                    hideView(checkbox);
-                }
-            }
         }
 
         @Override
@@ -251,23 +196,38 @@ public class SelectPhoto extends BaseActivity {
             View rowView = convertView != null ? convertView : inflater.inflate(R.layout.select_photo_item, null);
             assert rowView != null;
 
-            ViewGroup group = (ViewGroup) rowView.findViewById(R.id.photo1);
-            setupPhoto(group, position * countInRow);
+            final CachedImageButton previewImageButton = (CachedImageButton) rowView.findViewById(R.id.photo_preview);
+            final ImageView checkbox = (ImageView) rowView.findViewById(R.id.check_box);
 
-            group = (ViewGroup) rowView.findViewById(R.id.photo2);
-            setupPhoto(group, position * countInRow + 1);
-
-            group = (ViewGroup) rowView.findViewById(R.id.photo3);
-            setupPhoto(group, position * countInRow + 2);
-
-            group = (ViewGroup) rowView.findViewById(R.id.photo4);
-            if (countInRow == 4) {
-                showView(group);
-                setupPhoto(group, position * countInRow + 3);
+            setViewHeight(previewImageButton, listView.getColumnWidth());
+            String path = getItem(position);
+            if (isVideo) {
+                previewImageButton.setImageWithVideoPath(path,
+                        MediaStore.Video.Thumbnails.MINI_KIND, false, 0);
+                showView(rowView.findViewById(R.id.video_flag));
             } else {
-                hideView(group);
+                previewImageButton.setImageWithPath(path, thumbnailSize, true, 0);
+                hideView(rowView.findViewById(R.id.video_flag));
             }
+            previewImageButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (selectedPhotoIds.contains(position)) {
+                        selectedPhotoIds.remove(Integer.valueOf(position));
+                        hideView(checkbox);
+                    } else if (selectedPhotoIds.size() < maxSelectionCount) {
+                        selectedPhotoIds.add(position);
+                        showView(checkbox);
+                    }
+                    selectedCountLabel.setText(selectedPhotoIds.size() + "/" + maxSelectionCount);
+                }
+            });
 
+            if (selectedPhotoIds.contains(position)) {
+                showView(checkbox);
+            } else {
+                hideView(checkbox);
+            }
 
             return rowView;
         }

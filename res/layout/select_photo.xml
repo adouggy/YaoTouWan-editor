@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<ListView xmlns:android="http://schemas.android.com/apk/res/android"
+<GridView xmlns:android="http://schemas.android.com/apk/res/android"
           android:layout_width="match_parent"
           android:layout_height="match_parent"
           android:id="@id/root_layout"
           android:background="@color/photo_album_bg"
-          android:dividerHeight="-1dp"
-		>
-
-</ListView>
+          android:numColumns="auto_fit"
+          android:stretchMode="columnWidth"
+		/>

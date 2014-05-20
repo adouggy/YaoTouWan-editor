@@ -68,6 +68,9 @@ public class AppPackageHelper {
                     if (p.applicationInfo.packageName.startsWith("com.android")) {
                         continue;
                     }
+                    if (p.applicationInfo.packageName.startsWith("com.google.android")) {
+                        continue;
+                    }
                     pkgs.add(p.applicationInfo.packageName);
                 }
                 if (pkgs.size() == 0) return null;

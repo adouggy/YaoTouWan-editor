@@ -12,9 +12,7 @@ import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.BaseAdapter;
-import android.widget.ListView;
-import android.widget.TextView;
+import android.widget.*;
 import com.actionbarsherlock.view.MenuItem;
 import me.yaotouwan.R;
 import me.yaotouwan.util.YTWHelper;
@@ -29,9 +27,10 @@ import java.util.List;
 public class PhotoAlbum extends BaseActivity {
 
     DataSource dataSource;
-    ListView listView;
+    GridView listView;
     boolean isVideo;
     ProgressDialog dialog;
+    int thumbnailSize;
 
     final static int INTENT_REQUEST_CODE_SELECT_PHOTO = 1;
     final static int INTENT_REQUEST_CODE_TAKE_PHOTO = 2;
@@ -50,7 +49,12 @@ public class PhotoAlbum extends BaseActivity {
             setupActionBar(R.string.photo_album_title);
         }
 
-        listView = (ListView) findViewById(R.id.root_layout);
+        listView = (GridView) findViewById(R.id.root_layout);
+        int width = getWindowSize().x / 3 - dpToPx(1) * 2;
+        listView.setColumnWidth(width);
+        listView.setHorizontalSpacing(dpToPx(1));
+        listView.setVerticalSpacing(dpToPx(1));
+        thumbnailSize = width;
 
         loadContent();
     }
@@ -276,33 +280,15 @@ public class PhotoAlbum extends BaseActivity {
 
         List<Album> albums;
         LayoutInflater inflater;
-        int countInRow;
 
         DataSource(List<Album> albums) {
             this.albums = albums;
             inflater = getLayoutInflater();
-            checkCountInRow();
-        }
-
-        @Override
-        public void notifyDataSetChanged() {
-            checkCountInRow();
-            super.notifyDataSetChanged();
-        }
-
-        private void checkCountInRow() {
-            int orientation = getScreenOrientation();
-            if (orientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                    || orientation == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT) {
-                countInRow = 2;
-            } else {
-                countInRow = 3;
-            }
         }
 
         @Override
         public int getCount() {
-            return (albums.size() + countInRow - 1) / countInRow;
+            return albums.size();
         }
 
         @Override
@@ -317,22 +303,22 @@ public class PhotoAlbum extends BaseActivity {
             return position;
         }
 
-        void setupAlbum(ViewGroup group, final Album album) {
-            if (album == null) {
-                hideView(group);
-                return;
-            }
-            showView(group);
-            int width = getRootViewGroup().getWidth() / countInRow - dpToPx(1);
-            setViewSize(group, width, width);
-            CachedImageButton previewImageButton = (CachedImageButton) group.findViewById(R.id.album_preview);
-            TextView titleLabel = (TextView) group.findViewById(R.id.album_title);
-            TextView countLabel = (TextView) group.findViewById(R.id.album_count);
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            View rowView = convertView != null ? convertView :
+                                inflater.inflate(R.layout.photo_album_item, null);
+            final Album album = getItem(position);
+
+            CachedImageButton previewImageButton = (CachedImageButton)
+                    rowView.findViewById(R.id.album_preview);
+            setViewHeight(previewImageButton, listView.getColumnWidth());
+            TextView titleLabel = (TextView) rowView.findViewById(R.id.album_title);
+            TextView countLabel = (TextView) rowView.findViewById(R.id.album_count);
             if (isVideo)
                 previewImageButton.setImageWithVideoPath(album.lastMediaPath,
                         MediaStore.Video.Thumbnails.FULL_SCREEN_KIND, false, 0);
             else
-                previewImageButton.setImageWithPath(album.lastMediaPath, width, false, 0);
+                previewImageButton.setImageWithPath(album.lastMediaPath, thumbnailSize, false, 0);
             titleLabel.setText(album.name);
             countLabel.setText(album.count + (isVideo ? "个" : "张"));
             previewImageButton.setOnClickListener(new View.OnClickListener() {
@@ -345,34 +331,6 @@ public class PhotoAlbum extends BaseActivity {
                     startActivityForResult(intent, INTENT_REQUEST_CODE_SELECT_PHOTO);
                 }
             });
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            View rowView = convertView != null ? convertView :
-                    inflater.inflate(R.layout.photo_album_item, null);
-
-            final Album albumLeft = getItem(position * countInRow);
-            ViewGroup leftAlbumGroup = (ViewGroup) rowView.findViewById(R.id.album_left);
-            setupAlbum(leftAlbumGroup, albumLeft);
-
-            if (countInRow == 2) {
-                ViewGroup albumGroup = (ViewGroup) rowView.findViewById(R.id.album_center);
-                hideView(albumGroup);
-
-                final Album albumRight = getItem(position * countInRow + 1);
-                albumGroup = (ViewGroup) rowView.findViewById(R.id.album_right);
-                setupAlbum(albumGroup, albumRight);
-            } else if (countInRow == 3) {
-                final Album albumCenter = getItem(position * countInRow + 1);
-                ViewGroup albumGroup = (ViewGroup) rowView.findViewById(R.id.album_center);
-                setupAlbum(albumGroup, albumCenter);
-                showView(albumGroup);
-
-                final Album albumRight = getItem(position * countInRow + 2);
-                albumGroup = (ViewGroup) rowView.findViewById(R.id.album_right);
-                setupAlbum(albumGroup, albumRight);
-            }
 
             return rowView;
         }

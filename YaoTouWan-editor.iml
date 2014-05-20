@@ -19,7 +19,6 @@
     <orderEntry type="module" module-name="lib_drag-sort-listview" />
     <orderEntry type="module" module-name="lib_PhotoView" />
     <orderEntry type="library" name="libs" level="project" />
-    <orderEntry type="library" name="httpmime-4.1.2" level="project" />
   </component>
 </module>
 

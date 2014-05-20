@@ -82,9 +82,6 @@ public class CachedImageButton extends ImageButton {
         imagePath = null;
         videoPath = newVideoPath;
         setImageBitmap(null);
-        if (android.os.Build.MANUFACTURER.equals("Xiaomi")) {
-            async = false;
-        }
         if (async) {
             if (delay > 0) {
                 postDelayed(new Runnable() {
