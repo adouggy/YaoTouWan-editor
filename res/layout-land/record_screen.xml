@@ -56,11 +56,11 @@
 					/>
 			<ImageView
 					android:id="@+id/record_screen_up_button"
-					android:layout_width="wrap_content"
-					android:layout_height="wrap_content"
+					android:layout_width="match_parent"
+					android:layout_height="match_parent"
 					android:src="@drawable/screen_orientation_up"
 					android:background="@null"
-					android:layout_centerInParent="true"
+					android:scaleType="center"
 					/>
 		</RelativeLayout>
 	</RelativeLayout>

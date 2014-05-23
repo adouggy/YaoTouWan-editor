@@ -80,7 +80,7 @@ AVStream *add_stream(AVFormatContext *oc, AVCodec **codec, enum AVCodecID codec_
         LOGE("Could not allocate stream\n");
         return NULL;
     }
-    st->id = oc->nb_streams-1;
+    st->id = oc->nb_streams - 1;
     c = st->codec;
     
     switch ((*codec)->type) {
@@ -97,6 +97,7 @@ AVStream *add_stream(AVFormatContext *oc, AVCodec **codec, enum AVCodecID codec_
                 return NULL;
             }
             c->codec_id = codec_id;
+            // todo bit rate not set
             c->bit_rate = 200 * 1000;
             if (rotation == 0 || rotation == 2) {
                 c->width = fb_width(&fb) / 4 * 2;
@@ -302,33 +303,21 @@ void write_video_frame(AVFormatContext *oc, AVStream *st, int flush)
         }
     }
     
-    if (oc->oformat->flags & AVFMT_RAWPICTURE && !flush) {
-        AVPacket pkt;
-        av_init_packet(&pkt);
-        
-        pkt.flags        |= AV_PKT_FLAG_KEY;
-        pkt.stream_index  = st->index;
-        pkt.data          = dst_picture.data[0];
-        pkt.size          = sizeof(AVPicture);
-        
-        ret = av_interleaved_write_frame(oc, &pkt);
+    AVPacket pkt = { 0 };
+    int got_packet;
+    av_init_packet(&pkt);
+
+    video_frame->pts = frame_count;
+    ret = avcodec_encode_video2(c, &pkt, flush ? NULL : video_frame, &got_packet);
+    if (ret < 0) {
+        LOGE("Error encoding video frame: %s\n", av_err2str(ret));
+        exit(1);
+    }
+
+    if (got_packet) {
+        ret = write_frame(oc, &c->time_base, st, &pkt);
     } else {
-        AVPacket pkt = { 0 };
-        int got_packet;
-        av_init_packet(&pkt);
-        
-        video_frame->pts = frame_count;
-        ret = avcodec_encode_video2(c, &pkt, flush ? NULL : video_frame, &got_packet);
-        if (ret < 0) {
-            LOGE("Error encoding video frame: %s\n", av_err2str(ret));
-            exit(1);
-        }
-        
-        if (got_packet) {
-            ret = write_frame(oc, &c->time_base, st, &pkt);
-        } else {
-            ret = 0;
-        }
+        ret = 0;
     }
     
     if (ret < 0) {
@@ -433,7 +422,7 @@ int encoder_encode_frame
 int encoder_stop_recording()
 {
     recording = 0;
-    
+
     av_write_trailer(oc);
     
     if (video_st)

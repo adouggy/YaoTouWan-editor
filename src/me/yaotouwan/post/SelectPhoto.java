@@ -129,7 +129,10 @@ public class SelectPhoto extends BaseActivity {
         label.setGravity(Gravity.CENTER_VERTICAL);
         selectedCountLabel = label;
 
-        selectedCountLabel.setText(selectedPhotoIds.size() + "/" + maxSelectionCount);
+        int selectedCount = 0;
+        if (selectedPhotoIds != null && selectedPhotoIds.size() > 0)
+            selectedCount = selectedPhotoIds.size();
+        selectedCountLabel.setText(selectedCount + "/" + maxSelectionCount);
 
         final MenuItem menuItem = menu.getItem(0);
         icon.setOnTouchListener(new View.OnTouchListener() {
@@ -199,7 +202,7 @@ public class SelectPhoto extends BaseActivity {
             final CachedImageButton previewImageButton = (CachedImageButton) rowView.findViewById(R.id.photo_preview);
             final ImageView checkbox = (ImageView) rowView.findViewById(R.id.check_box);
 
-            setViewHeight(previewImageButton, listView.getColumnWidth());
+            setViewHeight(previewImageButton, thumbnailSize);
             String path = getItem(position);
             if (isVideo) {
                 previewImageButton.setImageWithVideoPath(path,

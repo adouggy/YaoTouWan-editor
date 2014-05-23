@@ -4,14 +4,10 @@
 #include <math.h>
 #include <sys/time.h>
 
-#include <libavutil/opt.h>
-#include <libavutil/mathematics.h>
 #include <libavutil/timestamp.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 #include <libswresample/swresample.h>
-#include <libavutil/imgutils.h>
-#include <libavutil/samplefmt.h>
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -305,43 +301,7 @@ end:
         return width;
 }
 
-jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
-(
-    JNIEnv *env,
-    jobject this,
-    jstring filename_jni
-)
-{
-    src_filename = (*env)->GetStringUTFChars(env, filename_jni, NULL);
-
-    av_register_all();
-//    LOGI("1");
-
-    int err;
-    if ((err = avformat_open_input(&fmt_ctx, src_filename, NULL, NULL)) < 0) {
-        LOGE("Could not open source file %s, error: %s", src_filename, av_err2str(err));
-        return NULL;
-    }
-//    LOGI("2");
-
-    if ((err = avformat_find_stream_info(fmt_ctx, NULL)) < 0) {
-        LOGE("Could not find stream information, error: %s", av_err2str(err));
-        return NULL;
-    }
-//    LOGI("3");
-
-    if ((err = open_codec_context(&video_stream_idx, fmt_ctx, AVMEDIA_TYPE_VIDEO)) < 0) {
-        LOGE("Could not open codec context, error: %s", av_err2str(err));
-        return NULL;
-    }
-//    LOGI("4");
-
-    video_stream = fmt_ctx->streams[video_stream_idx];
-    if (!video_stream) {
-        LOGE("Could not find audio or video stream in the input, aborting");
-        return NULL;
-    }
-//    LOGI("5");
+int get_rotate_from_video_stream(AVStream *video_stream) {
     int rotate = 0;
     AVDictionary *metadata = video_stream->metadata;
     if (metadata) {
@@ -359,8 +319,51 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
             }
         }
     }
-//    LOGI("6");
+    return rotate;
+}
 
+int set_rotate_to_video_stream(AVStream *video_stream, int rotate) {
+    AVDictionary *metadata = video_stream->metadata;
+    if (metadata) {
+        char rotate_str[4] = {0};
+        sprintf(rotate_str, "%d", rotate);
+        av_dict_set(&metadata, "rotate", rotate_str, 0);
+    }
+}
+
+jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
+(
+    JNIEnv *env,
+    jobject this,
+    jstring filename_jni
+)
+{
+    src_filename = (*env)->GetStringUTFChars(env, filename_jni, NULL);
+
+    av_register_all();
+
+    int err;
+    if ((err = avformat_open_input(&fmt_ctx, src_filename, NULL, NULL)) < 0) {
+        LOGE("Could not open source file %s, error: %s", src_filename, av_err2str(err));
+        return NULL;
+    }
+
+    if ((err = avformat_find_stream_info(fmt_ctx, NULL)) < 0) {
+        LOGE("Could not find stream information, error: %s", av_err2str(err));
+        return NULL;
+    }
+
+    if ((err = open_codec_context(&video_stream_idx, fmt_ctx, AVMEDIA_TYPE_VIDEO)) < 0) {
+        LOGE("Could not open codec context, error: %s", av_err2str(err));
+        return NULL;
+    }
+
+    video_stream = fmt_ctx->streams[video_stream_idx];
+    if (!video_stream) {
+        LOGE("Could not find audio or video stream in the input, aborting");
+        return NULL;
+    }
+    int rotate = get_rotate_from_video_stream(video_stream);
     video_dec_ctx = video_stream->codec;
 
     height_small = video_dec_ctx->height * 1.0 / video_dec_ctx->width * width_small;
@@ -373,7 +376,6 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Cannot initialize the conversion context");
         return NULL;
     }
-//    LOGI("7");
 
     int width_large = video_dec_ctx->width;
     int height_large = video_dec_ctx->height;
@@ -387,7 +389,6 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Cannot initialize the conversion context");
         return NULL;
     }
-//    LOGI("8");
 
     video_dst_bufsize_small = av_image_alloc(video_dst_data_small, 
                                     video_dst_linesize_small,
@@ -397,7 +398,6 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Could not allocate raw video buffer, error: %s", av_err2str(video_dst_bufsize_small));
         return NULL;
     }
-//    LOGI("9");
 
     video_dst_bufsize_large = av_image_alloc(video_dst_data_large, 
                                     video_dst_linesize_large,
@@ -407,7 +407,6 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Could not allocate raw video buffer, error: %s", av_err2str(video_dst_bufsize_large));
         return NULL;
     }
-//    LOGI("10");
 
     if (api_mode == API_MODE_OLD)
         frame = avcodec_alloc_frame();
@@ -418,7 +417,6 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         LOGE("Could not allocate frame");
         return NULL;
     }
-//    LOGI("11");
 
     av_init_packet(&pkt);
     pkt.data = NULL;
@@ -443,15 +441,6 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_decodeFrame
 )
 {
     int err;
-//    LOGI("progress %g, duration %d", progress, video_stream->duration);
-//    if (progress > 0) {
-//
-//    }
-//    progress = progress * video_stream->duration;
-//    if ((err = av_seek_frame(fmt_ctx, video_stream_idx, 0, 0)) < 0) {
-//        LOGE("Error seek frame %s", av_err2str(err));
-//    }
-
     while (av_read_frame(fmt_ctx, &pkt) >= 0) {
         do {
             int got_frame = 0;
@@ -528,16 +517,6 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_clearDecoder
     src_filename = NULL;
 }
 
-jintArray Java_me_yaotouwan_screenrecorder_PreviewVideoActivity_decodeFrame
-(
-    JNIEnv *env,
-    jobject this,
-    jstring filename,
-    jdouble progress)
-{
-    //Java_me_yaotouwan_screenrecorder_EditVideoActivity_decodeFrame(env, this, filename, progress);
-}
-
 jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_videoInfo
 (
     JNIEnv *env,
@@ -575,15 +554,6 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_videoInfo
     return NULL;
 }
 
-jintArray Java_me_yaotouwan_screenrecorder_PreviewVideoActivity_videoInfo
-(
-    JNIEnv *env,
-    jobject this,
-    jstring filename)
-{
-    return Java_me_yaotouwan_screenrecorder_EditVideoActivity_videoInfo(env, this, filename);
-}
-
 static void log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt, const char *tag)
 {
     AVRational *time_base = &fmt_ctx->streams[pkt->stream_index]->time_base;
@@ -603,7 +573,9 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_cutVideo
  jstring src_filename_jni,
  jstring dst_filename_jni,
  jdouble start_progress_jni,
- jdouble end_progress_jni)
+ jdouble end_progress_jni,
+ jint rotate_jni
+ )
 {
     AVOutputFormat *ofmt = NULL;
     AVFormatContext *ifmt_ctx = NULL, *ofmt_ctx = NULL;
@@ -611,25 +583,21 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_cutVideo
     const char *in_filename, *out_filename;
     int ret, i;
 
-//    LOGI("~~~~~~~~~ cut video 1");
     in_filename  = (*env)->GetStringUTFChars(env, src_filename_jni, NULL);
     out_filename = (*env)->GetStringUTFChars(env, dst_filename_jni, NULL);
     
     av_register_all();
 
-//    LOGI("~~~~~~~~~ cut video 2");
     if ((ret = avformat_open_input(&ifmt_ctx, in_filename, 0, 0)) < 0) {
         LOGE("Could not open input file '%s'", in_filename);
         goto end;
     }
 
-//    LOGI("~~~~~~~~~ cut video 3");
     if ((ret = avformat_find_stream_info(ifmt_ctx, 0)) < 0) {
         LOGE("Failed to retrieve input stream information");
         goto end;
     }
 
-//    LOGI("~~~~~~~~~ cut video 4");
     avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, out_filename);
     if (!ofmt_ctx) {
         LOGE("Could not create output context\n");
@@ -637,7 +605,6 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_cutVideo
         goto end;
     }
 
-//    LOGI("~~~~~~~~~ cut video 5");
     ofmt = ofmt_ctx->oformat;
     
     for (i = 0; i < ifmt_ctx->nb_streams; i++) {
@@ -655,12 +622,17 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_cutVideo
             goto end;
         }
         av_dict_copy(&(out_stream->metadata), in_stream->metadata, 0);
+        if (in_stream->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+            int rotate = get_rotate_from_video_stream(in_stream);
+            rotate += rotate_jni;
+            rotate %= 360;
+            set_rotate_to_video_stream(out_stream, rotate);
+        }
         out_stream->codec->codec_tag = 0;
         if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
             out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
     }
 
-//    LOGI("~~~~~~~~~ cut video 6");
     if (!(ofmt->flags & AVFMT_NOFILE)) {
         ret = avio_open(&ofmt_ctx->pb, out_filename, AVIO_FLAG_WRITE);
         if (ret < 0) {
@@ -669,7 +641,6 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_cutVideo
         }
     }
 
-//    LOGI("~~~~~~~~~ cut video 7");
     ret = avformat_write_header(ofmt_ctx, NULL);
     if (ret < 0) {
         LOGE("Error occurred when opening output file\n");
@@ -679,25 +650,24 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_cutVideo
     double start_progress = start_progress_jni;
     double end_progress = end_progress_jni;
     int started = 0;
+    long start_pts = 0;
     while (1) {
-//        LOGI("~~~~~~~~~ cut video 8");
         AVStream *in_stream, *out_stream;
         
         ret = av_read_frame(ifmt_ctx, &pkt);
         if (ret < 0) {
-//            LOGE("read frame failed, error: %s", av_err2str(ret));
             break;
         }
         
         in_stream  = ifmt_ctx->streams[pkt.stream_index];
         out_stream = ofmt_ctx->streams[pkt.stream_index];
 
-//        LOGE("pkt.pts = %ld, start_progress = %g, in_stream->duration = %ld", (long)pkt.pts, start_progress, (long)in_stream->duration);
-        
-        if (pkt.pts >= start_progress * in_stream->duration
-            && pkt.flags & AV_PKT_FLAG_KEY > 0
+        if (in_stream->codec->codec_type == AVMEDIA_TYPE_VIDEO
+            && pkt.pts >= start_progress * in_stream->duration
+            && pkt.flags & AV_PKT_FLAG_KEY
             && !started)
         {
+            start_pts = pkt.pts;
             started = 1;
         }
         if (pkt.pts >= end_progress * in_stream->duration) {
@@ -707,10 +677,8 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_cutVideo
         }
         
         if (started) {
-
-//            LOGI("demuxed a frame");
-            pkt.pts -= start_progress * in_stream->duration;
-            pkt.dts -= start_progress * in_stream->duration;
+            pkt.pts -= start_pts;
+            pkt.dts -= start_pts;
             pkt.pts = av_rescale_q_rnd(pkt.pts, in_stream->time_base, out_stream->time_base, AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX);
             pkt.dts = av_rescale_q_rnd(pkt.dts, in_stream->time_base, out_stream->time_base, AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX);
             pkt.duration = av_rescale_q(pkt.duration, in_stream->time_base, out_stream->time_base);
@@ -750,14 +718,14 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
  jobject this,
  jstring src_video_filename_jni,
  jstring src_audio_filename_jni,
- jstring dst_filename_jni)
+ jstring dst_filename_jni,
+ jint rotate_jni)
 {
     AVOutputFormat *ofmt = NULL;
     AVFormatContext *vifmt_ctx = NULL, *aifmt_ctx = NULL, *ofmt_ctx = NULL;
     AVPacket pkt;
     int ret, i;
 
-//    LOGI("~~~~~~~~~ cut video 1");
     const char *in_video_fn  = (*env)->GetStringUTFChars(env, src_video_filename_jni, NULL);
     const char *in_audio_fn = (*env)->GetStringUTFChars(env, src_audio_filename_jni, NULL);
     const char *out_fn = (*env)->GetStringUTFChars(env, dst_filename_jni, NULL);
@@ -789,13 +757,11 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
                 break;
         }
 
-//        LOGI("~~~~~~~~~ cut video 2");
         if ((ret = avformat_open_input(&vifmt_ctx, split_video_fn, 0, 0)) < 0) {
             LOGE("Could not open input file '%s', %s", split_video_fn, av_err2str(ret));
             goto end;
         }
 
-//        LOGI("~~~~~~~~~ cut video 3");
         if ((ret = avformat_find_stream_info(vifmt_ctx, 0)) < 0) {
             LOGE("Failed to retrieve input stream information %s", av_err2str(ret));
             goto end;
@@ -812,7 +778,6 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
                 goto end;
             }
 
-//            LOGI("~~~~~~~~~ cut video 4");
             avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, out_fn);
             if (!ofmt_ctx) {
                 LOGE("Could not create output context\n");
@@ -820,7 +785,6 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
                 goto end;
             }
 
-//            LOGI("~~~~~~~~~ cut video 5");
             ofmt = ofmt_ctx->oformat;
 
             // assume only contains video stream
@@ -840,6 +804,11 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
             video_out_stream->codec->codec_tag = 0;
             if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
                 video_out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
+
+            int rotate = get_rotate_from_video_stream(video_in_stream);
+            rotate += rotate_jni;
+            rotate %= 360;
+            set_rotate_to_video_stream(video_out_stream, rotate);
 
             // assume only contains audio stream
             AVStream *audio_in_stream = aifmt_ctx->streams[0];
@@ -894,7 +863,6 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
                     pkt.pos = -1;
 
                     videoTime += pkt.duration * 1.0 / video_out_stream->time_base.den;
-//                    LOGI("video time %g", videoTime);
 
                     ret = av_interleaved_write_frame(ofmt_ctx, &pkt);
                     if (ret < 0) {
@@ -919,7 +887,6 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
                     pkt.pos = -1;
 
                     audioTime += pkt.duration * 1.0 / audio_out_stream->codec->sample_rate;
-//                    LOGI("audio time %g", audioTime);
 
                     ret = av_interleaved_write_frame(ofmt_ctx, &pkt);
                     if (ret < 0) {

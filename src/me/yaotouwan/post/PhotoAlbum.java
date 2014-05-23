@@ -92,6 +92,7 @@ public class PhotoAlbum extends BaseActivity {
                 publishProgress(1);
 
                 // 遍历上次发现过的目录
+                logd(getExternalCacheDir().getAbsolutePath());
                 File albumListFile = new File(getCacheDir(), albumListFilePath());
                 BufferedReader reader = null;
                 try {
@@ -99,7 +100,7 @@ public class PhotoAlbum extends BaseActivity {
                     String path;
                     while ((path = reader.readLine()) != null) {
                         String title = null;
-                        if (new File(path).getName().toLowerCase().equals(Consts.DATA_ROOT_DIR))
+                        if (new File(path).getName().toLowerCase().equals(Consts.DATA_ROOT_DIR.toLowerCase()))
                             title = getString(R.string.app_name);
                         loadPhotoInDir(new File(path), title, true);
                     }
@@ -152,7 +153,9 @@ public class PhotoAlbum extends BaseActivity {
                         album.name = title;
                     album.path = dir.getAbsolutePath();
                     album.savePhotoList();
-                    dataSource.albums.add(album);
+                    synchronized (dataSource.albums) {
+                        dataSource.albums.add(album);
+                    }
                     if (updateProgress)
                         publishProgress(1);
                 }
@@ -171,8 +174,10 @@ public class PhotoAlbum extends BaseActivity {
                 BufferedWriter writer = null;
                 try {
                     writer = new BufferedWriter(new FileWriter(albumListFile));
-                    for (Album album : albums) {
-                        writer.write(album.path + "\n");
+                    synchronized (albums) {
+                        for (Album album : albums) {
+                            writer.write(album.path + "\n");
+                        }
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -311,9 +316,9 @@ public class PhotoAlbum extends BaseActivity {
 
             CachedImageButton previewImageButton = (CachedImageButton)
                     rowView.findViewById(R.id.album_preview);
-            setViewHeight(previewImageButton, listView.getColumnWidth());
-            TextView titleLabel = (TextView) rowView.findViewById(R.id.album_title);
-            TextView countLabel = (TextView) rowView.findViewById(R.id.album_count);
+            setViewHeight(previewImageButton, thumbnailSize);
+            final TextView titleLabel = (TextView) rowView.findViewById(R.id.album_title);
+            final TextView countLabel = (TextView) rowView.findViewById(R.id.album_count);
             if (isVideo)
                 previewImageButton.setImageWithVideoPath(album.lastMediaPath,
                         MediaStore.Video.Thumbnails.FULL_SCREEN_KIND, false, 0);
@@ -321,6 +326,19 @@ public class PhotoAlbum extends BaseActivity {
                 previewImageButton.setImageWithPath(album.lastMediaPath, thumbnailSize, false, 0);
             titleLabel.setText(album.name);
             countLabel.setText(album.count + (isVideo ? "个" : "张"));
+            final View labelGroup = rowView.findViewById(R.id.album_info_group);
+            labelGroup.post(new Runnable() {
+                @Override
+                public void run() {
+                    int titleLabelWidth = titleLabel.getMeasuredWidth();
+                    int countLabelWidth = countLabel.getMeasuredWidth();
+                    if (titleLabelWidth + countLabelWidth >
+                            thumbnailSize - labelGroup.getPaddingLeft() - labelGroup.getPaddingRight() - dpToPx(5)) {
+                        titleLabel.setWidth(thumbnailSize - labelGroup.getPaddingLeft() - labelGroup.getPaddingRight()
+                                - countLabelWidth - dpToPx(5));
+                    }
+                }
+            });
             previewImageButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {

@@ -1,13 +1,21 @@
 package me.yaotouwan.screenrecorder;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.res.Configuration;
+import android.hardware.SensorManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.AudioRecord.OnRecordPositionUpdateListener;
 import android.media.MediaRecorder;
+import android.os.AsyncTask;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.OrientationEventListener;
+import android.widget.Toast;
 import me.yaotouwan.util.StreamHelper;
 import me.yaotouwan.util.YTWHelper;
 
@@ -25,13 +33,15 @@ public class SRecorderService extends Service {
     private byte[] audioBuffer;
     private int audioSamplesRead;
     String videoPath;
-    int videoQuality;
-    int screenWidth, screenHeight;
+    int videoWidth, videoHeight, videoBitrate;
+
+    public static final String ACTION_SCREEN_RECORDER_STARTED
+            = "me.yaotouwan.screenrecorder.action.started";
+    public static final String ACTION_SCREEN_RECORDER_STOPPED
+            = "me.yaotouwan.screenrecorder.action.stopped";
 
     // parameters for video
-    int videoEncoderParameterRotate; // 0->Up, 1->Left, 2->Bottom, 3->Right
-    int audioEncoderParameterBitRate; // XXbps, default 64000
-//    boolean showTouches;
+    boolean videoLandscape;
 
 	private native int initRecorder(String filename, int rotation);
 	private native int encodeFrame(byte[] audioBuffer, int audioSamplesSize);
@@ -46,44 +56,26 @@ public class SRecorderService extends Service {
         System.loadLibrary("srecorder");
     }
 
-    public static int getVideoWidthByQuality(int videoQuality) {
-        int w = 360;
-        if (videoQuality == 0) {
-            w = 360;
-        } else if (videoQuality == 1) {
-            w = 540;
-        } else if (videoQuality == -1) {
-            w = 240;
-        }
-        return w;
-    }
-
-    public static String getVideoBitrateByQuality(int videoQuality) {
-        String bitrate = "";
-        if (videoQuality == 0) {
-            bitrate = "800000";
-        } else if (videoQuality == 1) {
-            bitrate = "800000";
-        } else if (videoQuality == -1) {
-            bitrate = "200000";
-        }
-        return bitrate;
-    }
-
     String buildCommandLine() {
-        String bitrate = getVideoBitrateByQuality(videoQuality);
-        double hwratio = screenHeight * 1.0 / screenWidth;
-        int w = getVideoWidthByQuality(videoQuality);
-        int h = (int) (w * hwratio * 1.0 / 2 * 2);
-        String size = w + "x" + h;
-        String firstVideoPath = YTWHelper.correctFilePath(videoPath.substring(0, videoPath.length() - 4));
+        String size = videoWidth + "x" + videoHeight;
+        if (videoLandscape) {
+            size = videoHeight + "x" + videoWidth;
+        }
+        String bitrate = "";
+        if (videoBitrate > 0) {
+            bitrate += videoBitrate;
+        }
+        String firstVideoPath = YTWHelper
+                .correctFilePath(videoPath.substring(0, videoPath.length() - 4));
         String recordScriptPath = YTWHelper.screenrecordScriptPath();
         String cmd = "su -c sh " + recordScriptPath + " " +
-                indicatorFilePath() + " " + size + " " + bitrate + " " + firstVideoPath;
+                indicatorFilePath() + " " + size + " " +
+                bitrate + " " + firstVideoPath;
         return cmd;
     }
 
     boolean startBuildinRecorder() {
+        stopBuildinRecorder();
         String cmd = buildCommandLine();
         logd(cmd);
         prepareRecordScript();
@@ -119,16 +111,13 @@ public class SRecorderService extends Service {
                 }
             }
             p.waitFor();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         } finally {
             if (pbr != null) {
                 try {
                     pbr.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
                 }
             }
         }
@@ -139,11 +128,21 @@ public class SRecorderService extends Service {
     }
     
 	public void startRecordingScreen() {
-        Log.d("Recorder", "start recording screen");
+        logd("start recording screen");
         if (YTWHelper.hasBuildinScreenRecorder()) {
             startBuildinRecorder();
             startAudioRecorder(false);
         } else {
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
+            mOrientationListener = new OrientationListener();
+            registerReceiver(mOrientationListener, filter);
+
+            mRotateListener = new MyOrientationEventListener(this,
+                    SensorManager.SENSOR_DELAY_NORMAL);
+            if (mRotateListener.canDetectOrientation()) {
+                mRotateListener.enable();
+            }
             startAudioRecorder(true);
         }
 	}
@@ -169,7 +168,13 @@ public class SRecorderService extends Service {
                 }
                 public void onMarkerReached(AudioRecord recorder) {
                     inRecordMode = false;
-                    recorder.stop();
+                    try {
+                        recorder.stop();
+                    } catch (IllegalStateException e) {
+                    } finally {
+                        recorder.release();
+                        mAudioRecord = null;
+                    }
                 }
             });
         } else {
@@ -199,10 +204,29 @@ public class SRecorderService extends Service {
                 gotError();
             }
             inRecordMode = true;
-            while (inRecordMode) {
-                audioSamplesRead = mAudioRecord.read(audioBuffer, 0, mAudioBufferSize);
-            }
-            mAudioRecord.stop();
+            new AsyncTask<Void, Void, Boolean>() {
+
+                @Override
+                protected Boolean doInBackground(Void... params) {
+                    while (inRecordMode) {
+                        audioSamplesRead = mAudioRecord.read(audioBuffer, 0, mAudioBufferSize);
+                    }
+                    return true;
+                }
+
+                @Override
+                protected void onPostExecute(Boolean done) {
+                    if (done) {
+                        try {
+                            mAudioRecord.stop();
+                        } catch (IllegalStateException e) {
+                        } finally {
+                            mAudioRecord.release();
+                            mAudioRecord = null;
+                        }
+                    }
+                }
+            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         } else {
             mMediaRecorder.start();
         }
@@ -212,13 +236,22 @@ public class SRecorderService extends Service {
         try {
             if (doInitAudioRecorder(recordVideo)) {
                 if (recordVideo) {
-                    initRecorder(YTWHelper.correctFilePath(videoPath),
-                            videoEncoderParameterRotate);
+                    initRecorder(YTWHelper.correctFilePath(videoPath), 0);
                     doStartAudioRecorder(recordVideo);
+                    sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
                 } else {
                     for (int i=0; i<100; i++) {
                         if (YTWHelper.isBuildinScreenRecorderRunning()) {
-                            doStartAudioRecorder(recordVideo);
+                            try {
+                                doStartAudioRecorder(recordVideo);
+                                logd("started audio recorder");
+                                sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
+                            } catch (IllegalStateException e) {
+                                // todo tell user to restart photo to fix the issue
+                                Toast.makeText(this, "无法启动录音机\n请重启手机重新录制", Toast.LENGTH_LONG).show();
+                                stopBuildinRecorder();
+                                // broadcast
+                            }
                             break;
                         } else {
                             Thread.sleep(100);
@@ -227,7 +260,6 @@ public class SRecorderService extends Service {
                 }
             }
         } catch (IllegalArgumentException e) {
-            // todo tell user to restart photo to fix the issue
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -241,32 +273,124 @@ public class SRecorderService extends Service {
                     mMediaRecorder.stop();
                 } catch (IllegalStateException e) {
                     e.printStackTrace();
+                } finally {
+                    mMediaRecorder.reset();
+                    mMediaRecorder.release();
+                    mMediaRecorder = null;
                 }
+            // test it, may be need delay
+            sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STOPPED));
         } else {
+            unregisterReceiver(mOrientationListener);
+            mOrientationListener.onUpdateOrientation();
+            if (mRotateListener.canDetectOrientation()) {
+                mRotateListener.disable();
+            }
             inRecordMode = false;
             stopRecording();
+            sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STOPPED)
+                    .putExtra("orientation", estimateOrientation()));
         }
     }
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
-        videoPath = intent.getData().getPath();
-        Log.d("Recorder", "start recording screen " + videoPath);
-        videoEncoderParameterRotate = intent.getIntExtra("video_orientation", 0);
-        videoQuality = intent.getIntExtra("video_quality", 0);
-        screenWidth = intent.getIntExtra("screen_width", 0);
-        screenHeight = intent.getIntExtra("screen_height", 0);
-		startRecordingScreen();
+        if (intent != null && intent.getData() != null) {
+            videoPath = intent.getData().getPath();
+            Log.d("Recorder", "start recording screen " + videoPath);
+            videoLandscape = intent.getBooleanExtra("video_landscape", false);
+            videoWidth = intent.getIntExtra("video_width", 0);
+            videoHeight = intent.getIntExtra("video_height", 0);
+            videoBitrate = intent.getIntExtra("video_bitrate", 0);
+
+            startRecordingScreen();
+        }
 		return super.onStartCommand(intent, flags, startId);
     }
     
 	@Override
 	public void onDestroy() {
-		stopRecordingScreen();
+        stopRecordingScreen();
         
 		super.onDestroy();
 	}
-    
+
+    MyOrientationEventListener mRotateListener;
+    class MyOrientationEventListener extends OrientationEventListener {
+
+        long timeAtOrientationLeft;
+        long timeAtOrientationRight;
+
+        public boolean estimateOrientation() {
+            return timeAtOrientationLeft > timeAtOrientationRight;
+        }
+
+        public MyOrientationEventListener(Context context, int rate) {
+            super(context, rate);
+        }
+
+        @Override
+        public void onOrientationChanged(int rotate) {
+            if (rotate < 180) {
+                timeAtOrientationLeft ++;
+            } else {
+                timeAtOrientationRight ++;
+            }
+        }
+    }
+
+
+    OrientationListener mOrientationListener;
+    class OrientationListener extends BroadcastReceiver {
+        long updateTime;
+
+        long timeAtOrientationLandscape;
+        long timeAtOrientationPortrait;
+
+        int orientation;
+
+        public boolean estimateOrientation() {
+            return timeAtOrientationLandscape > timeAtOrientationPortrait;
+        }
+
+        public OrientationListener() {
+            updateTime = System.currentTimeMillis();
+            orientation = getResources().getConfiguration().orientation;
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(Intent.ACTION_CONFIGURATION_CHANGED)) {
+                onUpdateOrientation();
+            }
+        }
+
+        public void onUpdateOrientation() {
+            if (orientation != getResources().getConfiguration().orientation) {
+                long currentTime = System.currentTimeMillis();
+                orientation = getResources().getConfiguration().orientation;
+                if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                    timeAtOrientationPortrait += currentTime - updateTime;
+                } else {
+                    timeAtOrientationLandscape += currentTime - updateTime;
+                }
+                updateTime = currentTime;
+            }
+        }
+    }
+
+    public int estimateOrientation() {
+        if (mOrientationListener.estimateOrientation()) { // is landscape
+            if (mRotateListener.estimateOrientation()) { // is left
+                return 3; // landscape left
+            } else {
+                return 1; // landscape right
+            }
+        } else {
+            return 0; // portrait
+        }
+    }
+
 	@Override
 	public IBinder onBind(Intent intent) {
 		return null;

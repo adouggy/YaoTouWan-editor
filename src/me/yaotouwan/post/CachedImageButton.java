@@ -70,7 +70,7 @@ public class CachedImageButton extends ImageButton {
                         AsyncTask.THREAD_POOL_EXECUTOR, width);
             }
         } else {
-            setImageBitmap(loadBitmap(imagePath, width));
+            setImageBitmap(YTWHelper.decodeBitmapFromPath(imagePath, width));
         }
         return true;
     }
@@ -111,7 +111,7 @@ public class CachedImageButton extends ImageButton {
         protected Bitmap doInBackground(Integer... params) {
             loadedImagePath = imagePath;
             int width = params[0];
-            return loadBitmap(imagePath, width);
+            return YTWHelper.decodeBitmapFromPath(imagePath, width);
         }
 
         @Override
@@ -127,53 +127,54 @@ public class CachedImageButton extends ImageButton {
 //                mAnimation.setDuration(250);
 //                mAnimation.setInterpolator(new LinearInterpolator());
 //                startAnimation(mAnimation);
-            } else {
+            } else if (bitmap != null) {
                 bitmap.recycle();
             }
         }
     }
 
-    public static Bitmap loadBitmap(Context context, String srcPath, int width) {
-        File photoCacheDir = new File(context.getCacheDir(), "select_photo");
-        if (!photoCacheDir.exists()) {
-            if (!photoCacheDir.mkdir())
-                return YTWHelper.decodeBitmapFromPath(srcPath, width);
-        }
-        File cacheFile = new File(photoCacheDir, YTWHelper.md5(srcPath) + "_" + width);
-        if (cacheFile.exists()) {
-            Bitmap bitmap = BitmapFactory.decodeFile(cacheFile.getAbsolutePath());
-            if (bitmap == null) {
-                cacheFile.delete();
-                return YTWHelper.decodeBitmapFromPath(srcPath, width);
-            }
-            return bitmap;
-        } else {
-            Bitmap bitmap = YTWHelper.decodeBitmapFromPath(srcPath, width);
-            if (bitmap == null) {
-                return null;
-            }
-            FileOutputStream cacheStream = null;
-            try {
-                cacheStream = new FileOutputStream(cacheFile);
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, cacheStream);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } finally {
-                if (cacheStream != null) {
-                    try {
-                        cacheStream.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-            return bitmap;
-        }
-    }
+//    public static Bitmap loadBitmap(Context context, String srcPath, int width) {
+//        File photoCacheDir = new File(context.getCacheDir(), "select_photo");
+//        if (!photoCacheDir.exists()) {
+//            if (!photoCacheDir.mkdir())
+//                return YTWHelper.decodeBitmapFromPath(srcPath, width);
+//        }
+//        File cacheFile = new File(photoCacheDir, YTWHelper.md5(srcPath) + "_" + width);
+//        if (cacheFile.exists()) {
+//            Bitmap bitmap = BitmapFactory.decodeFile(cacheFile.getAbsolutePath());
+//            if (bitmap == null) {
+//                cacheFile.delete();
+//                return YTWHelper.decodeBitmapFromPath(srcPath, width);
+//            }
+//            return bitmap;
+//        } else {
+//            Bitmap bitmap = YTWHelper.decodeBitmapFromPath(srcPath, width);
+//            if (bitmap == null) {
+//                return null;
+//            }
+//            FileOutputStream cacheStream = null;
+//            try {
+//                cacheStream = new FileOutputStream(cacheFile);
+//                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, cacheStream);
+//            } catch (FileNotFoundException e) {
+//                e.printStackTrace();
+//            } finally {
+//                if (cacheStream != null) {
+//                    try {
+//                        cacheStream.close();
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
+//            }
+//            return bitmap;
+//        }
+//    }
 
-    Bitmap loadBitmap(String srcPath, int width) {
-        return loadBitmap(getContext(), srcPath, width);
-    }
+//    Bitmap loadBitmap(String srcPath, int width) {
+//        return YTWHelper.decodeBitmapFromPath(srcPath, width);
+//        return loadBitmap(getContext(), srcPath, width);
+//    }
 
     class LoadVideoThumbnailTask extends AsyncTask<Integer, Integer, Bitmap> {
 
@@ -199,7 +200,7 @@ public class CachedImageButton extends ImageButton {
 //                mAnimation.setDuration(250);
 //                mAnimation.setInterpolator(new LinearInterpolator());
 //                startAnimation(mAnimation);
-            } else {
+            } else if (bitmap != null) {
                 bitmap.recycle();
             }
         }

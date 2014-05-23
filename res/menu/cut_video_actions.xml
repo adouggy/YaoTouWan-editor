@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+	<item android:id="@+id/rotate"
+	      android:title="@string/cut_video_rotate"
+	      android:showAsAction="always"
+	      android:onClick="onClickRotateItem"
+	      />
 	<item android:id="@+id/post_action_finish"
 	      android:title="@string/finish"
 	      android:showAsAction="always"

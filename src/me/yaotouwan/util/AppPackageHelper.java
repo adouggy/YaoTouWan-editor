@@ -5,6 +5,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
+import android.os.Environment;
 import android.util.Log;
 import ch.boye.httpclientandroidlib.HttpResponse;
 import ch.boye.httpclientandroidlib.client.ClientProtocolException;
@@ -12,6 +13,7 @@ import ch.boye.httpclientandroidlib.client.HttpClient;
 import ch.boye.httpclientandroidlib.client.methods.HttpPost;
 import ch.boye.httpclientandroidlib.entity.StringEntity;
 import ch.boye.httpclientandroidlib.util.EntityUtils;
+import me.yaotouwan.R;
 import me.yaotouwan.post.HttpClientUtil;
 import ch.boye.httpclientandroidlib.entity.BasicHttpEntity;
 import org.json.JSONArray;
@@ -40,7 +42,7 @@ public class AppPackageHelper {
         public void onComplete(List<Game> packageInfos);
     }
 
-    public void getPackages(final Context ctx, final AppPackageHelperDelegate delegate) {
+    public void loadGames(final Context ctx, final AppPackageHelperDelegate delegate) {
 
         new AsyncTask<Integer, Integer, List<Game>>() {
 
@@ -54,6 +56,11 @@ public class AppPackageHelper {
 
                 if (packs == null) return null;
 
+                List<String> packagePrefixesShouldIgnore = new ArrayList<String>(3);
+                packagePrefixesShouldIgnore.add("android");
+                packagePrefixesShouldIgnore.add("com.android");
+                packagePrefixesShouldIgnore.add("com.google.android");
+
                 for(int i=0; i<packs.size(); i++) {
                     PackageInfo p = packs.get(i);
                     if (p.versionName == null) {
@@ -62,15 +69,15 @@ public class AppPackageHelper {
                     if (p.applicationInfo == null) {
                         continue;
                     }
-                    if (p.applicationInfo.packageName.startsWith("android")) {
-                        continue;
+                    boolean shouldIgnore = false;
+                    for (String packPrefix : packagePrefixesShouldIgnore) {
+                        if (p.applicationInfo.packageName.startsWith(packPrefix)) {
+                            shouldIgnore = true;
+                            break;
+                        }
                     }
-                    if (p.applicationInfo.packageName.startsWith("com.android")) {
+                    if (shouldIgnore)
                         continue;
-                    }
-                    if (p.applicationInfo.packageName.startsWith("com.google.android")) {
-                        continue;
-                    }
                     pkgs.add(p.applicationInfo.packageName);
                 }
                 if (pkgs.size() == 0) return null;
@@ -91,8 +98,8 @@ public class AppPackageHelper {
                     HttpResponse response = httpclient.execute(httpPost);
                     if (response != null) {
                         String responseContent = EntityUtils.toString(response.getEntity());
-                        List<Game> games = new ArrayList<Game>();
                         JSONArray jsonArray = new JSONArray(responseContent);
+                        List<Game> games = new ArrayList<Game>(jsonArray.length()+1);
                         for (int i = 0; i < jsonArray.length(); i++) {
                             JSONObject jobj = jsonArray.getJSONObject(i);
                             String url = jobj.getString("url");
@@ -114,16 +121,26 @@ public class AppPackageHelper {
                                 }
                             }
                         }
+                        Game game = new Game();
+                        game.appname = ctx.getString(R.string.select_game_other_btn);
+                        game.icon = ctx.getResources().getDrawable(R.drawable.ic_launcher);
+                        games.add(game);
+
+                        // save to disk
+                        File cacheFile = new File(ctx.getCacheDir(), "games.json");
+                        JSONArray gamesJSONArray = new JSONArray();
+                        for (Game gameObj : games) {
+                            JSONObject gameJSONObject = new JSONObject();
+                            gameJSONObject.put("appname", gameObj.appname);
+                            if (gameObj.pname != null)
+                                gameJSONObject.put("pname", gameObj.pname);
+                        }
+                        YTWHelper.writeTextContentToFile(gamesJSONArray.toString(), cacheFile);
+
                         return games;
                     }
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
                     return null;
-                } catch (ClientProtocolException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } catch (JSONException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
                 return null;
@@ -131,8 +148,55 @@ public class AppPackageHelper {
 
             @Override
             protected void onPostExecute(List<Game> games) {
-                if (games != null)
-                    delegate.onComplete(games);
+                delegate.onComplete(games);
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
+    public void loadCachedGames(final Context ctx, final AppPackageHelperDelegate delegate) {
+        new AsyncTask<Void, Void, List<Game>>() {
+
+            @Override
+            protected List<Game> doInBackground(Void... params) {
+                File cacheFile = new File(ctx.getCacheDir(), "games.json");
+                String cacheFileContent = YTWHelper.readTextContent(cacheFile.getAbsolutePath());
+                if (cacheFileContent != null) {
+                    try {
+                        JSONArray gamesJSONArray = new JSONArray(cacheFileContent);
+                        PackageManager packageManager = ctx.getPackageManager();
+                        List<Game> games = new ArrayList<Game>(gamesJSONArray.length());
+                        for (int i=0; i<gamesJSONArray.length(); i++) {
+                            JSONObject gameJSONObject = gamesJSONArray.getJSONObject(i);
+                            if (gameJSONObject.has("appname")) {
+                                String appname = (String) gameJSONObject.get("appname");
+                                Game game = new Game();
+                                game.appname = appname;
+                                if (gameJSONObject.has("pname")) {
+                                    String pname = (String) gameJSONObject.get("pname");
+                                    game.pname = pname;
+                                    try {
+                                        PackageInfo pack = packageManager.getPackageInfo(pname, 0);
+                                        game.icon = pack.applicationInfo.loadIcon(packageManager);
+                                    } catch (PackageManager.NameNotFoundException e) {
+                                        continue;
+                                    }
+                                } else {
+                                    game.icon = ctx.getResources().getDrawable(R.drawable.ic_launcher);
+                                }
+                                games.add(game);
+                            }
+                        }
+                        return games;
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                }
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(List<Game> games) {
+                delegate.onComplete(games);
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }

@@ -42,7 +42,7 @@ import java.io.IOException;
 import java.nio.IntBuffer;
 import java.util.*;
 
-public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Callback {
+public class EditVideoActivity extends BaseActivity {
 
     private MediaPlayer mPlayer;
     private RelativeLayout previewGroup;
@@ -51,7 +51,6 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
     private int videoWidth;
     private int videoHeight;
     private int videoDuration;
-    private int rotate;
     private boolean isVideoRotated;
     private ImageView previewImageView;
     private ImageButton playButton;
@@ -64,14 +63,17 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
     Timer updateProgressTimer;
 
     boolean readonly;
+    int rotate;
 
     private native int cutVideo(String srcFilename,
                                 String dstFilename,
                                 double startProgress,
-                                double endProgress);
+                                double endProgress,
+                                int rotate);
     private native int mergeVideo(String srcVideoFilename,
                                   String srcAudioFilename,
-                                  String dstFilename);
+                                  String dstFilename,
+                                  int rotate);
     private native int[] prepareDecoder(String filename);
     private native int[] decodeFrame(double progress, boolean isLarge);
     private native void clearDecoder();
@@ -95,15 +97,24 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         }
 
         previewGroup = (RelativeLayout) findViewById(R.id.preview_group);
-        SurfaceView surface = (SurfaceView) findViewById(R.id.surfaceView);
         previewImageView = (ImageView) findViewById(R.id.preview_image_view);
         playButton = (ImageButton) findViewById(R.id.preview_video_play_btn);
         selector = (CutVideoSelector) findViewById(R.id.cut_video_selector);
 
-        sHolder = surface.getHolder();
-        assert sHolder != null;
-        sHolder.addCallback(this);
-        sHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        SurfaceView surface = (SurfaceView) findViewById(R.id.surfaceView);
+        SurfaceHolder holder = surface.getHolder();
+        assert holder != null;
+        holder.addCallback(new SurfaceHolder.Callback() {
+            @Override
+            public void surfaceCreated(SurfaceHolder holder) {
+                sHolder = holder;
+                if (mPlayer != null) {
+                    mPlayer.setDisplay(holder);
+                }
+            }
+            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {}
+            public void surfaceDestroyed(SurfaceHolder holder) {}
+        });
 
         try {
             Intent intent = getIntent();
@@ -114,10 +125,18 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             if (readonly) {
                 hideView(selector);
             }
+
             draftUri = Uri.parse(intent.getStringExtra("draft_path"));
             videoPath = intent.getData().getPath();
             if (new File(videoPath).exists()) {
-                prepareVideoPlayer();
+                if (intent.hasExtra("rotate")) {
+                    rotate = intent.getIntExtra("rotate", 0) * 90;
+                }
+                if (rotate > 0) {
+                    cutVideo();
+                } else {
+                    prepareVideoPlayer();
+                }
             } else {
                 String p = videoPath.substring(0, videoPath.length()-4);
                 String firstPath = p + "-0.mp4";
@@ -167,7 +186,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
 
     @Override
     public void onBackPressed() {
-        if (mPlayer.isPlaying()) {
+        if (mPlayer != null && mPlayer.isPlaying()) {
             pause();
         } else if (selector.startProgress() > 0 || selector.endProgress() < 1) {
             List<ActionSheetItem> items = new ArrayList<ActionSheetItem>();
@@ -186,7 +205,14 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
     }
 
     void prepareVideoPlayer() {
-        if (!readVideoInfo(getIntent().getData())) {
+        assert videoPath != null;
+        if (videoPath.endsWith(".mp4")) {
+            mDialog = new ProgressDialog(this);
+            mDialog.setMessage(getString(R.string.please_wait));
+            mDialog.setCancelable(false);
+            mDialog.show();
+            new ReadVideoInfoTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, videoPath);
+        } else {
             loge("failed to get video size");
         }
     }
@@ -333,7 +359,9 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
     }
 
     public void onClickFinishMenuItem(MenuItem menuItem) {
-        if (selector.startProgress() == 0 && selector.endProgress() == 1) {
+        if (selector.startProgress() == 0
+                && selector.endProgress() == 1
+                && rotate == 0) {
             Intent intent = new Intent(this, PostActivity.class);
             intent.setData(Uri.parse(videoPath));
             setResult(RESULT_OK, intent);
@@ -346,6 +374,10 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
         }
     }
 
+    public void onClickRotateItem(MenuItem item) {
+
+    }
+
     public class CutVideoTask extends AsyncTask<Integer, Integer, Boolean> {
         public static final String TAG	= "recorder";
         String dstfpath;
@@ -355,19 +387,31 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             dstfpath = YTWHelper.prepareFilePathForVideoSaveWithDraftUri(draftUri);
             cutVideo(srcfpath, dstfpath,
                     selector.startProgress(),
-                    selector.endProgress());
+                    selector.endProgress(),
+                    rotate);
             return true;
         }
 
         protected void onPostExecute(Boolean result) {
             mDialog.dismiss();
-            Intent intent = new Intent();
-            intent.setData(Uri.parse(dstfpath));
-            intent.putExtra("origin_video_path", videoPath);
-            intent.putExtra("video_width", videoWidth);
-            intent.putExtra("video_height", videoHeight);
-            setResult(RESULT_OK, intent);
-            finish();
+            if (result) {
+                if (rotate > 0) {
+                    rotate = 0;
+                    videoPath = dstfpath;
+                    prepareVideoPlayer();
+                } else {
+                    Intent intent = new Intent();
+                    intent.setData(Uri.parse(dstfpath));
+                    intent.putExtra("origin_video_path", videoPath);
+                    intent.putExtra("video_width", videoWidth);
+                    intent.putExtra("video_height", videoHeight);
+                    setResult(RESULT_OK, intent);
+                    finish();
+                }
+            } else {
+                Toast.makeText(EditVideoActivity.this,
+                        "剪辑失败", Toast.LENGTH_LONG).show();
+            }
         }
     }
 
@@ -378,7 +422,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             String srcfpath = videoPath.substring(0, videoPath.length()-4);
             String srcAfPath = videoPath.substring(0, videoPath.length()-4)+"-a.mp4";
             if (new File(srcAfPath).exists())
-                mergeVideo(srcfpath, srcAfPath, videoPath);
+                mergeVideo(srcfpath, srcAfPath, videoPath, rotate);
             else
                 return false;
             // remove old fragment files
@@ -394,18 +438,6 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
                 Toast.makeText(EditVideoActivity.this, "合并文件失败", Toast.LENGTH_LONG).show();
             }
         }
-    }
-
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-    }
-
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-    }
-
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
     }
 
     private IntBuffer makeBuffer(int[] src) {
@@ -431,7 +463,7 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
             if (info == null) {
                 return false;
             }
-            rotate = info[3];
+            int rotate = info[3];
             if (rotate == 0 || rotate == 180) {
                 isVideoRotated = false;
                 videoWidth = info[0];
@@ -529,7 +561,8 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
                 try {
                     mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
                     mPlayer.setDataSource(videoPath);
-                    mPlayer.setDisplay(sHolder);
+                    if (sHolder != null) // created
+                        mPlayer.setDisplay(sHolder);
                     mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
                         @Override
                         public void onPrepared(MediaPlayer mp) {
@@ -613,24 +646,8 @@ public class EditVideoActivity extends BaseActivity implements SurfaceHolder.Cal
     void layoutSurface() {
         View rootViewGroup = getRootViewGroup();
         Point rootSize = new Point(rootViewGroup.getWidth(), rootViewGroup.getHeight());
-//        logd(rootSize.toString());
         Point surfaceSize = YTWHelper.restrictSizeInSize(new Point(videoWidth, videoHeight), rootSize);
-//        logd(surfaceSize.toString());
         setViewSize(previewGroup, surfaceSize.x, surfaceSize.y);
-    }
-
-    boolean readVideoInfo(Uri uri) {
-//        logd("get video size " + uri.getPath());
-        assert uri != null && uri.getPath() != null;
-        if (uri.getPath().endsWith(".mp4")) {
-            mDialog = new ProgressDialog(this);
-            mDialog.setMessage(getString(R.string.please_wait));
-            mDialog.setCancelable(false);
-            mDialog.show();
-            new ReadVideoInfoTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, uri.getPath());
-            return true;
-        }
-        return false;
     }
 
     @Override

@@ -546,7 +546,10 @@ public class BaseActivity extends SherlockActivity {
     public static Point getWindowSize(Activity activity) {
         int width = activity.getWindowManager().getDefaultDisplay().getWidth();
         int height = activity.getWindowManager().getDefaultDisplay().getHeight();
-        return new Point(width, height);
+        if (width > height)
+            return new Point(height, width);
+        else
+            return new Point(width, height);
     }
 
     protected Point getWindowSize() {

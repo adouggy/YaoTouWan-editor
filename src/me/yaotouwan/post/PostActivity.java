@@ -1,6 +1,5 @@
 package me.yaotouwan.post;
 
-import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.*;
 import android.database.Cursor;
@@ -35,8 +34,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.*;
-import java.lang.annotation.*;
-import java.lang.annotation.Annotation;
 import java.util.*;
 
 /**
@@ -407,8 +404,7 @@ public class PostActivity extends BaseActivity {
             if (!drafsDir.exists()) {
                 logd("mkdirs " + drafsDir.mkdirs());
             }
-            String fn = DateFormat.format("yyyyMMdd_HHmmss", new Date()).toString();
-            draftFile = new File(drafsDir, fn + ".json");
+            draftFile = new File(drafsDir, YTWHelper.generateRandomFilename("json"));
         }
 //        String fn = draftFile.getName();
 //        fn = fn.substring(0, fn.length()-5);
@@ -546,6 +542,7 @@ public class PostActivity extends BaseActivity {
     }
 
     private void uploadMedia() {
+        if (true) return;
         if (isUploadingMedia()) {
             Intent intent = new Intent("post_media_updated");
             intent.setData(Uri.parse(draftFile.getAbsolutePath()));
@@ -658,7 +655,7 @@ public class PostActivity extends BaseActivity {
     }
 
     void preloadGameList() {
-        new AppPackageHelper().getPackages(this, new AppPackageHelper.AppPackageHelperDelegate() {
+        new AppPackageHelper().loadGames(this, new AppPackageHelper.AppPackageHelperDelegate() {
             @Override
             public void onComplete(List<AppPackageHelper.Game> games) {
                 gamesInstalled = games;

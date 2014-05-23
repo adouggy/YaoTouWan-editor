@@ -13,6 +13,7 @@
 			android:background="@null"
 			/>
 	<RelativeLayout
+			android:id="@+id/album_info_group"
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
 			android:padding="10dp"
@@ -26,6 +27,7 @@
 				android:layout_alignParentLeft="true"
 				android:textColor="@color/white"
 				android:background="@null"
+		        android:singleLine="true"
 				/>
 		<TextView
 				android:id="@+id/album_count"
