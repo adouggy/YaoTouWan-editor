@@ -78,6 +78,8 @@ public class SelectGameActivity extends BaseActivity
             reloadData();
             preLoadGames = null;
         } else {
+            // todo
+            if (true) return ;
             mProgressDialog = new ProgressDialog(this);
             mProgressDialog.setMessage(getString(R.string.select_game_waiting_tip));
             mProgressDialog.setCancelable(true);

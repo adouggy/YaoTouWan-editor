@@ -403,7 +403,7 @@ int encoder_encode_frame
             audio_samples_local_buffer_length = 0;
         }
 
-        for (; i < audio_samples_count - frame_size; i += frame_size) {
+        for (; i <= audio_samples_count - frame_size; i += frame_size) {
             write_audio_frame(oc, audio_st, flush, audio_samples + i*2, frame_size);
         }
         if (i < audio_samples_count) {

@@ -148,8 +148,8 @@ public class SRecorderService extends Service {
         int sampleRate = 44100 / 2;
         int channelConfig = AudioFormat.CHANNEL_IN_MONO;
         int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-//        mAudioBufferSampleSize = sampleRate / 7;
-        mAudioBufferSampleSize = 3072;
+        mAudioBufferSampleSize = sampleRate / 7;
+//        mAudioBufferSampleSize = 3072;
         mAudioBufferSize = mAudioBufferSampleSize * 2;
         if (mAudioRecord == null)
             mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
@@ -381,7 +381,7 @@ public class SRecorderService extends Service {
             out = new FileOutputStream(sp);
             BufferedWriter writer = StreamHelper.writer(out);
             String content =
-                    "sleep 3\n" +
+//                    "sleep 3\n" +
                     "c=0\n" +
                     "while [ $c -lt 20 ]\n" +
                     "do\n" +
