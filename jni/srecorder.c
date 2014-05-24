@@ -80,13 +80,14 @@ jint Java_me_yaotouwan_screenrecorder_SRecorderService_encodeFrame
  JNIEnv *env,
  jobject this,
  jbyteArray audio_samples_bytearray,
- jsize audio_samples_count
+ jsize audio_samples_count,
+ jfloat audio_gain
 )
 {
     jbyte* audio_samples = (*env)->GetByteArrayElements(env, audio_samples_bytearray, NULL);
     audio_samples_count /= 2;
     
-    int ret = encoder_encode_frame(audio_samples, audio_samples_count);
+    int ret = encoder_encode_frame(audio_samples, audio_samples_count, audio_gain);
     (*env)->ReleaseByteArrayElements(env, audio_samples_bytearray, audio_samples, 0);
     return ret;
 }

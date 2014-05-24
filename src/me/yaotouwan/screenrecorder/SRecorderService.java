@@ -8,6 +8,7 @@ import android.content.IntentFilter;
 import android.content.res.Configuration;
 import android.hardware.SensorManager;
 import android.media.AudioFormat;
+import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.AsyncTask;
@@ -41,7 +42,7 @@ public class SRecorderService extends Service {
     boolean videoLandscape;
 
 	private native int initRecorder(String filename, int rotation, int videoBitrate, boolean recordVideo);
-	private native int encodeFrame(byte[] audioBuffer, int audioSamplesSize);
+	private native int encodeFrame(byte[] audioBuffer, int audioSamplesSize, float audioGain);
 	private native int stopRecording();
 
     int pid;
@@ -149,7 +150,6 @@ public class SRecorderService extends Service {
         int channelConfig = AudioFormat.CHANNEL_IN_MONO;
         int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
         mAudioBufferSampleSize = sampleRate / 7;
-//        mAudioBufferSampleSize = 3072;
         mAudioBufferSize = mAudioBufferSampleSize * 2;
         if (mAudioRecord == null)
             mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
@@ -167,13 +167,6 @@ public class SRecorderService extends Service {
             return false;
         }
         new AsyncTask<Void, Integer, Boolean>() {
-
-            @Override
-            protected void onCancelled() {
-                super.onCancelled();
-                logd("cancelled");
-            }
-
             @Override
             protected Boolean doInBackground(Void[] params) {
                 while (mAudioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
@@ -183,9 +176,15 @@ public class SRecorderService extends Service {
                 return true;
             }
 
+            AudioManager audio;
             @Override
             protected void onProgressUpdate(Integer... values) {
-                encodeFrame(audioBuffer, audioSamplesRead);
+                if (audio == null)
+                    audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                int currentVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC);
+                int maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                float audioGain = maxVolume * 0.95f / currentVolume;
+                encodeFrame(audioBuffer, audioSamplesRead, audioGain);
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         return true;

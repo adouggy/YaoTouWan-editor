@@ -43,6 +43,8 @@ int audio_samples_local_buffer_length = 0;
 int rotation = 0;
 int video_bit_rate = 0;
 
+#define MAX_AUDIO_SAMLE_VALUE 32768
+
 void log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt)
 {
     AVRational *time_base = &fmt_ctx->streams[pkt->stream_index]->time_base;
@@ -147,7 +149,7 @@ void open_audio(AVFormatContext *oc, AVCodec *codec, AVStream *st)
     }
 }
 
-void write_audio_frame(AVFormatContext *oc, AVStream *st, int flush, uint8_t *audio_samples, int audio_samples_count)
+void write_audio_frame(AVFormatContext *oc, AVStream *st, int flush, uint8_t *audio_samples, int audio_samples_count, float audio_gain)
 {
     AVCodecContext *c;
     AVPacket pkt = { 0 };
@@ -155,6 +157,13 @@ void write_audio_frame(AVFormatContext *oc, AVStream *st, int flush, uint8_t *au
     
     av_init_packet(&pkt);
     c = st->codec;
+
+    // gain volume
+    int16_t *audio_samples_16 = (int16_t *)audio_samples;
+    int i;
+    for (i=0; i<audio_samples_count; i++) {
+        audio_samples_16[i] *= audio_gain;
+    }
 
     if (!flush) {
         audio_frame->nb_samples = audio_samples_count;
@@ -384,7 +393,8 @@ int encoder_init_recorder(const char *filename, int rotation_, int video_bit_rat
 int encoder_encode_frame
 (
     char *audio_samples,
-    size_t audio_samples_count
+    size_t audio_samples_count,
+    float audio_gain
 )
 {
     if (recording) {
@@ -398,13 +408,13 @@ int encoder_encode_frame
             memcpy(audio_samples_local_buffer + audio_samples_local_buffer_length,
                    audio_samples,
                    (frame_size - audio_samples_local_buffer_length) * 2);
-            write_audio_frame(oc, audio_st, flush, (uint8_t *)audio_samples_local_buffer, frame_size);
+            write_audio_frame(oc, audio_st, flush, (uint8_t *)audio_samples_local_buffer, frame_size, audio_gain);
             i = frame_size - audio_samples_local_buffer_length;
             audio_samples_local_buffer_length = 0;
         }
 
         for (; i <= audio_samples_count - frame_size; i += frame_size) {
-            write_audio_frame(oc, audio_st, flush, audio_samples + i*2, frame_size);
+            write_audio_frame(oc, audio_st, flush, audio_samples + i*2, frame_size, audio_gain);
         }
         if (i < audio_samples_count) {
             int buffer_left = audio_samples_count - i;
@@ -412,7 +422,7 @@ int encoder_encode_frame
             audio_samples_local_buffer_length += buffer_left;
 
             if (audio_samples_local_buffer_length >= frame_size) {
-                write_audio_frame(oc, audio_st, flush, (uint8_t *)audio_samples_local_buffer, frame_size);
+                write_audio_frame(oc, audio_st, flush, (uint8_t *)audio_samples_local_buffer, frame_size, audio_gain);
                 for (i=0; i<audio_samples_local_buffer_length - frame_size; i++) {
                     audio_samples_local_buffer[i] = audio_samples_local_buffer[i+frame_size];
                 }
@@ -429,6 +439,8 @@ int encoder_encode_frame
 int encoder_stop_recording()
 {
     recording = 0;
+
+    if (oc == NULL) return 0;
 
     av_write_trailer(oc);
 
