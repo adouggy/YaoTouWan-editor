@@ -96,7 +96,7 @@ public class CutVideoSelector extends RelativeLayout {
 
     private List<ImageView> sliceViews;
 
-    public int minSliceCount = 10;
+    public static final int MIN_SLICE_COUNT = 5;
 
     public void addPreview(Bitmap bitmap) {
         ImageView newSliceView = new ImageView(getContext());
@@ -106,7 +106,7 @@ public class CutVideoSelector extends RelativeLayout {
 
         reLayout();
 
-        int sliceWidth = getWidth() / Math.max(sliceViews.size(), minSliceCount);
+        int sliceWidth = getWidth() / Math.max(sliceViews.size(), MIN_SLICE_COUNT);
         int left = sliceWidth * sliceViews.size() - sliceWidth;
         int transX = slicesGroup.getWidth() - left;
 
@@ -115,14 +115,14 @@ public class CutVideoSelector extends RelativeLayout {
         newSliceView.startAnimation(prepareyAnimation);
 
         TranslateAnimation mAnimation = new TranslateAnimation(transX, 0, 0, 0);
-        mAnimation.setDuration(1000 / minSliceCount);
+        mAnimation.setDuration(1000 / MIN_SLICE_COUNT);
         mAnimation.setFillAfter(true);
         mAnimation.setInterpolator(new LinearInterpolator());
         newSliceView.startAnimation(mAnimation);
     }
 
     public void reLayout() {
-        int sliceWidth = getWidth() / Math.max(sliceViews.size(), minSliceCount);
+        int sliceWidth = getWidth() / Math.max(sliceViews.size(), MIN_SLICE_COUNT);
         int sliceHeight = getHeight();
 
         for (ImageView sliceView : sliceViews) {

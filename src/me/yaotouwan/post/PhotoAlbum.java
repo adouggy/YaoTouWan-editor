@@ -123,6 +123,8 @@ public class PhotoAlbum extends BaseActivity {
 
                 for (File file : files) {
                     String title = null;
+                    if (file.getAbsolutePath().equals(YTWHelper.postsDir()))
+                        continue;
                     if (file.getName().toLowerCase().equals(Consts.DATA_ROOT_DIR))
                         title = getString(R.string.app_name);
                     loadPhotoInDir(file, title, true);
@@ -212,6 +214,8 @@ public class PhotoAlbum extends BaseActivity {
     private Album readPhotosAtDir(File dir, Album album) {
         File[] files = dir.listFiles();
         if (files == null) return album;
+
+        logd(YTWHelper.postsDir());
 
         for (File file : files) {
             if (file.isHidden()) continue;

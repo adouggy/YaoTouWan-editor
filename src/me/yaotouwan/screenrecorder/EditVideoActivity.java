@@ -500,7 +500,11 @@ public class EditVideoActivity extends BaseActivity {
             publishProgress(-1);
 
             if (!readonly) {
-                int sliceCount = (getWindowSize().x - dpToPx(10) * 2) * videoHeight / dpToPx(50) / videoWidth;
+                int boxWidith = (getWindowSize().y - dpToPx(10) * 2);
+                int boxHeight = dpToPx(50);
+                int sliceCount = boxWidith / boxHeight;
+                if (sliceCount < CutVideoSelector.MIN_SLICE_COUNT)
+                    sliceCount = CutVideoSelector.MIN_SLICE_COUNT;
                 sliceImages = new LinkedList<Bitmap>();
                 for (int p=0; p<sliceCount; p++) {
                     frameBytes = decodeFrame(p * 1.0 / sliceCount, false);
