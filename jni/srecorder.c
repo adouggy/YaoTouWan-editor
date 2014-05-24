@@ -65,12 +65,14 @@ jint Java_me_yaotouwan_screenrecorder_SRecorderService_initRecorder
  JNIEnv *env,
  jobject this,
  jstring filename_jni,
- jint rotation
+ jint rotation,
+ jint video_bit_rate,
+ jboolean record_video_jni
 )
 {
     const jbyte *filename = (*env)->GetStringUTFChars(env, filename_jni, NULL);
 
-    return encoder_init_recorder(filename, rotation);
+    return encoder_init_recorder(filename, rotation, video_bit_rate, record_video_jni ? 1 : 0);
 }
 
 jint Java_me_yaotouwan_screenrecorder_SRecorderService_encodeFrame
@@ -84,7 +86,9 @@ jint Java_me_yaotouwan_screenrecorder_SRecorderService_encodeFrame
     jbyte* audio_samples = (*env)->GetByteArrayElements(env, audio_samples_bytearray, NULL);
     audio_samples_count /= 2;
     
-    return encoder_encode_frame(audio_samples, audio_samples_count);
+    int ret = encoder_encode_frame(audio_samples, audio_samples_count);
+    (*env)->ReleaseByteArrayElements(env, audio_samples_bytearray, audio_samples, 0);
+    return ret;
 }
 
 jint Java_me_yaotouwan_screenrecorder_SRecorderService_stopRecording

@@ -62,6 +62,7 @@
 
 	    <service android:name=".screenrecorder.SRecorderService"/>
 	    <service android:name=".post.UploadPostMediaService"/>
+	    <service android:name=".post.ThreadService"/>
 
     </application>
 </manifest>

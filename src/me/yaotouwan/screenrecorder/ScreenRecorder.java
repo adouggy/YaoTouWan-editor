@@ -50,8 +50,12 @@ public class ScreenRecorder {
 
     public int getVideoHeightByQuality(int videoQuality) {
         int w = getVideoWidthByQuality(videoQuality);
-        return (int) (w * 1.0 * context.getWindowManager().getDefaultDisplay().getHeight()
-                / context.getWindowManager().getDefaultDisplay().getWidth());
+        int winWidth = context.getWindowManager().getDefaultDisplay().getWidth();
+        int winHeight = context.getWindowManager().getDefaultDisplay().getHeight();
+        if (winWidth < winHeight)
+            return (int) (w * 1.0 * winHeight / winWidth);
+        else
+            return (int) (w * 1.0 * winWidth / winHeight);
     }
 
     public int getVideoBitrateByQuality(int videoQuality) {

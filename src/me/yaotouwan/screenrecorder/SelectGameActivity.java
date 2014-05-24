@@ -112,8 +112,10 @@ public class SelectGameActivity extends BaseActivity
                                 gamesInstalled = games;
                                 reloadData();
 
-                                mProgressDialog.dismiss();
-                                mProgressDialog = null;
+                                if (mProgressDialog != null && mProgressDialog.isShowing()) {
+                                    mProgressDialog.dismiss();
+                                    mProgressDialog = null;
+                                }
                             } else {
                                 new AppPackageHelper().loadCachedGames(SelectGameActivity.this,
                                         new AppPackageHelper.AppPackageHelperDelegate() {

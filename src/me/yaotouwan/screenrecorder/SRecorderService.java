@@ -9,7 +9,6 @@ import android.content.res.Configuration;
 import android.hardware.SensorManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
-import android.media.AudioRecord.OnRecordPositionUpdateListener;
 import android.media.MediaRecorder;
 import android.os.AsyncTask;
 import android.os.IBinder;
@@ -27,9 +26,7 @@ public class SRecorderService extends Service {
 
     private int mAudioBufferSize;
     private int mAudioBufferSampleSize;
-    private AudioRecord mAudioRecord;
-    private MediaRecorder mMediaRecorder;
-    private boolean inRecordMode = false;
+    AudioRecord mAudioRecord;
     private byte[] audioBuffer;
     private int audioSamplesRead;
     String videoPath;
@@ -43,7 +40,7 @@ public class SRecorderService extends Service {
     // parameters for video
     boolean videoLandscape;
 
-	private native int initRecorder(String filename, int rotation);
+	private native int initRecorder(String filename, int rotation, int videoBitrate, boolean recordVideo);
 	private native int encodeFrame(byte[] audioBuffer, int audioSamplesSize);
 	private native int stopRecording();
 
@@ -148,118 +145,81 @@ public class SRecorderService extends Service {
 	}
 
     boolean doInitAudioRecorder(final boolean recordVideo) {
-        if (recordVideo) {
-            int sampleRate = 44100 / 2;
-            int channelConfig = AudioFormat.CHANNEL_IN_MONO;
-            int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-            mAudioBufferSampleSize = sampleRate / 7;
-            mAudioBufferSize = mAudioBufferSampleSize * 2;
+        int sampleRate = 44100 / 2;
+        int channelConfig = AudioFormat.CHANNEL_IN_MONO;
+        int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
+//        mAudioBufferSampleSize = sampleRate / 7;
+        mAudioBufferSampleSize = 3072;
+        mAudioBufferSize = mAudioBufferSampleSize * 2;
+        if (mAudioRecord == null)
             mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
                     sampleRate, channelConfig, audioFormat, mAudioBufferSize);
 
-            if (mAudioRecord == null)
-                return false;
-
-            audioBuffer = new byte[mAudioBufferSize];
-            mAudioRecord.setPositionNotificationPeriod(mAudioBufferSampleSize);
-            mAudioRecord.setRecordPositionUpdateListener(new OnRecordPositionUpdateListener() {
-                public void onPeriodicNotification(AudioRecord recorder) {
-                    encodeFrame(audioBuffer, audioSamplesRead);
-                }
-                public void onMarkerReached(AudioRecord recorder) {
-                    inRecordMode = false;
-                    try {
-                        recorder.stop();
-                    } catch (IllegalStateException e) {
-                    } finally {
-                        recorder.release();
-                        mAudioRecord = null;
-                    }
-                }
-            });
-        } else {
-            try {
-                mMediaRecorder = new MediaRecorder();
-                mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-                mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-                mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-                mMediaRecorder.setAudioSamplingRate(44100/2);
-                mMediaRecorder.setAudioChannels(1);
-                mMediaRecorder.setOutputFile(videoPath.substring(0, videoPath.length()-4) + "-a.mp4");
-                mMediaRecorder.prepare();
-            } catch (Exception e){
-                e.printStackTrace();
-                mMediaRecorder = null;
-                return false;
-            }
-        }
+        audioBuffer = new byte[mAudioBufferSize];
         return true;
     }
 
-    void doStartAudioRecorder(final boolean recordVideo) {
-        if (recordVideo) {
-            mAudioRecord.startRecording();
-            int audioRecordingState = mAudioRecord.getRecordingState();
-            if (audioRecordingState != AudioRecord.RECORDSTATE_RECORDING) {
-                gotError();
-            }
-            inRecordMode = true;
-            new AsyncTask<Void, Void, Boolean>() {
-
-                @Override
-                protected Boolean doInBackground(Void... params) {
-                    while (inRecordMode) {
-                        audioSamplesRead = mAudioRecord.read(audioBuffer, 0, mAudioBufferSize);
-                    }
-                    return true;
-                }
-
-                @Override
-                protected void onPostExecute(Boolean done) {
-                    if (done) {
-                        try {
-                            mAudioRecord.stop();
-                        } catch (IllegalStateException e) {
-                        } finally {
-                            mAudioRecord.release();
-                            mAudioRecord = null;
-                        }
-                    }
-                }
-            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-        } else {
-            mMediaRecorder.start();
+    boolean doStartAudioRecorder(boolean recordVideo) {
+        mAudioRecord.startRecording();
+        if (mAudioRecord.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) {
+            mAudioRecord.stop();
+            mAudioRecord = null;
+            return false;
         }
+        new AsyncTask<Void, Integer, Boolean>() {
+
+            @Override
+            protected void onCancelled() {
+                super.onCancelled();
+                logd("cancelled");
+            }
+
+            @Override
+            protected Boolean doInBackground(Void[] params) {
+                while (mAudioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+                    audioSamplesRead = mAudioRecord.read(audioBuffer, 0, mAudioBufferSize);
+                    publishProgress(1);
+                }
+                return true;
+            }
+
+            @Override
+            protected void onProgressUpdate(Integer... values) {
+                encodeFrame(audioBuffer, audioSamplesRead);
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        return true;
     }
 
-    void startAudioRecorder(final boolean recordVideo) {
+    void startAudioRecorder(boolean recordVideo) {
         try {
             if (doInitAudioRecorder(recordVideo)) {
                 if (recordVideo) {
-                    initRecorder(YTWHelper.correctFilePath(videoPath), 0);
-                    doStartAudioRecorder(recordVideo);
-                    sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
+                    initRecorder(YTWHelper.correctFilePath(videoPath), 0, videoBitrate, recordVideo);
+                    if (doStartAudioRecorder(recordVideo)) {
+                        sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
+                    }
                 } else {
                     for (int i=0; i<100; i++) {
                         if (YTWHelper.isBuildinScreenRecorderRunning()) {
-                            try {
-                                doStartAudioRecorder(recordVideo);
-                                logd("started audio recorder");
+                            String audioFilePath = videoPath.substring(0, videoPath.length() - 4) + "-a.mp4";
+                            initRecorder(YTWHelper.correctFilePath(audioFilePath), 0, 0, recordVideo);
+                            if (doStartAudioRecorder(recordVideo)) {
                                 sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
-                            } catch (IllegalStateException e) {
-                                // todo tell user to restart photo to fix the issue
-                                Toast.makeText(this, "无法启动录音机\n请重启手机重新录制", Toast.LENGTH_LONG).show();
+                            } else {
                                 stopBuildinRecorder();
-                                // broadcast
+                                Toast.makeText(this, "无法启动录音机\n请重启手机重新录制", Toast.LENGTH_LONG).show();
                             }
-                            break;
+                            return;
                         } else {
                             Thread.sleep(100);
                         }
                     }
+                    // todo wait 10s, but buildin recorder not started
                 }
             }
         } catch (IllegalArgumentException e) {
+            e.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -268,28 +228,27 @@ public class SRecorderService extends Service {
     private void stopRecordingScreen() {
         if (pid > 0) {
             stopBuildinRecorder();
-            if (mMediaRecorder != null)
-                try {
-                    mMediaRecorder.stop();
-                } catch (IllegalStateException e) {
-                    e.printStackTrace();
-                } finally {
-                    mMediaRecorder.reset();
-                    mMediaRecorder.release();
-                    mMediaRecorder = null;
-                }
-            // test it, may be need delay
-            sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STOPPED));
         } else {
             unregisterReceiver(mOrientationListener);
             mOrientationListener.onUpdateOrientation();
             if (mRotateListener.canDetectOrientation()) {
                 mRotateListener.disable();
             }
-            inRecordMode = false;
-            stopRecording();
-            sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STOPPED)
-                    .putExtra("orientation", estimateOrientation()));
+        }
+
+        stopRecording();
+        if (mAudioRecord != null
+                && mAudioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+            try {
+                mAudioRecord.stop();
+            } catch (IllegalStateException e) {
+            }
+
+            Intent intent = new Intent().setAction(ACTION_SCREEN_RECORDER_STOPPED);
+            if (!YTWHelper.hasBuildinScreenRecorder()) {
+                intent.putExtra("orientation", estimateOrientation());
+            }
+            sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STOPPED));
         }
     }
 
@@ -395,10 +354,6 @@ public class SRecorderService extends Service {
 	public IBinder onBind(Intent intent) {
 		return null;
 	}
-
-    private void gotError() {
-        Log.i(TAG, "stop by exception");
-    }
     
     public void logd(String msg) {
         Log.d(TAG, msg);
@@ -426,7 +381,7 @@ public class SRecorderService extends Service {
             out = new FileOutputStream(sp);
             BufferedWriter writer = StreamHelper.writer(out);
             String content =
-//                    "su -c settings put system show_touches $5\n" +
+                    "sleep 3\n" +
                     "c=0\n" +
                     "while [ $c -lt 20 ]\n" +
                     "do\n" +

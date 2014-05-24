@@ -165,6 +165,7 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
             screenRecorder.videoLandscape =
                     getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
             screenRecorder.start();
+            isWaitingForStartingRecorder = false;
         }
     }
 

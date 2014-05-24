@@ -19,6 +19,7 @@
     <orderEntry type="module" module-name="lib_drag-sort-listview" />
     <orderEntry type="module" module-name="lib_PhotoView" />
     <orderEntry type="library" name="libs" level="project" />
+    <orderEntry type="module" module-name="YaoTouWan-common" />
   </component>
 </module>
 
