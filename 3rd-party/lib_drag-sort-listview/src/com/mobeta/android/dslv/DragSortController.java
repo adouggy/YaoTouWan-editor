@@ -321,7 +321,7 @@ public class DragSortController extends SimpleFloatViewManager implements View.O
 
     public int viewIdHitPosition(MotionEvent ev, int id) {
         final int x = (int) ev.getX();
-        final int y = (int) ev.getY() + mDslv.getDividerHeight(); // todo jason hsu, 这个是行间距
+        final int y = (int) ev.getY();
 
         int touchPos = mDslv.pointToPosition(x, y); // includes headers/footers
 

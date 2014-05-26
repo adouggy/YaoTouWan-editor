@@ -63,6 +63,7 @@ public class DragSortListView extends ListView {
     public boolean editMode;
     public int editingPosition = -1;
     public boolean pauseSort;
+    public boolean readonly;
     
     
     /**
@@ -2052,6 +2053,8 @@ public class DragSortListView extends ListView {
             height = childHeight;
         }
 
+        Log.d("Drag", "position " + position + ", height " + height);
+
         return height;
     }
 
@@ -2264,6 +2267,9 @@ public class DragSortListView extends ListView {
             return false;
         }
 
+        if (readonly)
+            return false;
+
 //        if (editingPosition == position) {
 //            return false;
 //        }
@@ -2354,7 +2360,8 @@ public class DragSortListView extends ListView {
                 public void run() {
                     View targetView = locateTargetView(position, (int)x, (int)y);
                     if (clickTime > 1) {
-                        mClickListener.doubleClick(position, targetView);
+                        if (!readonly)
+                            mClickListener.doubleClick(position, targetView);
                     } else {
                         mClickListener.click(position, targetView);
                     }
@@ -3158,5 +3165,4 @@ public class DragSortListView extends ListView {
     public DragSortItemView getItemViewAtRow(int row) {
         return (DragSortItemView) getChildAt(row + getHeaderViewsCount() - getFirstVisiblePosition());
     }
-
 }
