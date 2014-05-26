@@ -273,11 +273,11 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_decodeFrame
                     (*env)->SetIntArrayRegion(env, result, 0, image_buffer_size, (int *)video_dst_data[0]);
                     return result;
                 }
+
+                av_frame_unref(frame);
             } else {
                 break;
             }
-            
-            av_frame_unref(frame);
             
         } while (pkt.size > 0);
     }

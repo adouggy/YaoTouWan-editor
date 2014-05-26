@@ -502,7 +502,7 @@ public class EditVideoActivity extends BaseActivity {
             if (!readonly) {
                 int boxWidith = (getWindowSize().y - dpToPx(10) * 2);
                 int boxHeight = dpToPx(50);
-                int sliceCount = boxWidith / boxHeight;
+                int sliceCount = boxWidith / boxHeight * 2;
                 if (sliceCount < CutVideoSelector.MIN_SLICE_COUNT)
                     sliceCount = CutVideoSelector.MIN_SLICE_COUNT;
                 sliceImages = new LinkedList<Bitmap>();

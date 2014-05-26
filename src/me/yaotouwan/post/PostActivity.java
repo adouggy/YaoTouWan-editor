@@ -610,13 +610,15 @@ public class PostActivity extends BaseActivity {
     public void onAppendTextClick(View view) {
         hideSoftKeyboard();
 
-        if (canAppend())
+        if (canAppend()) {
             adapter.appendRow();
-
-        appendedText = true;
-        adapter.editingTextRow = adapter.getCount() - 1;
-        adapter.notifyDataSetChanged();
-        postItemsListView.setSelection(adapter.getCount() - 1);
+            appendedText = true;
+            adapter.editingTextRow = adapter.getCount() - 1;
+            adapter.notifyDataSetChanged();
+            postItemsListView.setSelection(adapter.getCount() - 1);
+        } else {
+            adapter.doEditTextOnPosition(adapter.getCount() - 1);
+        }
     }
 
     boolean canAppend() {
@@ -666,6 +668,20 @@ public class PostActivity extends BaseActivity {
                 gamesInstalled = games;
             }
         });
+    }
+
+    void setToolbarDeleteMode(boolean deleteMode) {
+        if (deleteMode) {
+            hideView(R.id.post_toolbar_button_append_text);
+            hideView(R.id.post_toolbar_button_append_image);
+            hideView(R.id.post_toolbar_button_append_video);
+            showView(R.id.post_toolbar_button_delete);
+        } else {
+            showView(R.id.post_toolbar_button_append_text);
+            showView(R.id.post_toolbar_button_append_image);
+            showView(R.id.post_toolbar_button_append_video);
+            hideView(R.id.post_toolbar_button_delete);
+        }
     }
 
     class JavaScriptInterface {
@@ -1080,10 +1096,7 @@ public class PostActivity extends BaseActivity {
 
             draggingRow = position;
 
-            hideView(R.id.post_toolbar_button_append_text);
-            hideView(R.id.post_toolbar_button_append_image);
-            hideView(R.id.post_toolbar_button_append_video);
-            showView(R.id.post_toolbar_button_delete);
+            setToolbarDeleteMode(true);
         }
 
         @Override
@@ -1106,10 +1119,7 @@ public class PostActivity extends BaseActivity {
 
         @Override
         public void drop(int from, int to) {
-            showView(R.id.post_toolbar_button_append_text);
-            showView(R.id.post_toolbar_button_append_image);
-            showView(R.id.post_toolbar_button_append_video);
-            hideView(R.id.post_toolbar_button_delete);
+            setToolbarDeleteMode(false);
             if (deleting) {
                 YTWHelper.confirm(PostActivity.this, getString(R.string.post_item_delete_row), new DialogInterface.OnClickListener() {
                     @Override
@@ -1118,6 +1128,9 @@ public class PostActivity extends BaseActivity {
                         draggingRow = -1;
                         deleting = false;
                         postItemsListView.pauseSort = false;
+                        if (adapter.getCount() == 0) {
+                            adapter.appendRow();
+                        }
                         notifyDataSetChanged();
                     }
                 });

@@ -4,12 +4,14 @@ import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
@@ -123,8 +125,6 @@ public class PhotoAlbum extends BaseActivity {
 
                 for (File file : files) {
                     String title = null;
-                    if (file.getAbsolutePath().equals(YTWHelper.postsDir()))
-                        continue;
                     if (file.getName().toLowerCase().equals(Consts.DATA_ROOT_DIR))
                         title = getString(R.string.app_name);
                     loadPhotoInDir(file, title, true);
@@ -150,6 +150,7 @@ public class PhotoAlbum extends BaseActivity {
 
                 Album album = readPhotosAtDir(dir, null);
                 if (album != null) {
+                    logd(dir.getAbsolutePath());
                     album.name = dir.getName();
                     if (title != null)
                         album.name = title;
@@ -214,8 +215,6 @@ public class PhotoAlbum extends BaseActivity {
     private Album readPhotosAtDir(File dir, Album album) {
         File[] files = dir.listFiles();
         if (files == null) return album;
-
-        logd(YTWHelper.postsDir());
 
         for (File file : files) {
             if (file.isHidden()) continue;
@@ -320,7 +319,10 @@ public class PhotoAlbum extends BaseActivity {
 
             CachedImageButton previewImageButton = (CachedImageButton)
                     rowView.findViewById(R.id.album_preview);
+            final ImageButton previewImageCover = (ImageButton)
+                    rowView.findViewById(R.id.album_preview_cover);
             setViewHeight(previewImageButton, thumbnailSize);
+            setViewHeight(previewImageCover, thumbnailSize);
             final TextView titleLabel = (TextView) rowView.findViewById(R.id.album_title);
             final TextView countLabel = (TextView) rowView.findViewById(R.id.album_count);
             if (isVideo)
@@ -337,20 +339,30 @@ public class PhotoAlbum extends BaseActivity {
                     int titleLabelWidth = titleLabel.getMeasuredWidth();
                     int countLabelWidth = countLabel.getMeasuredWidth();
                     if (titleLabelWidth + countLabelWidth >
-                            thumbnailSize - labelGroup.getPaddingLeft() - labelGroup.getPaddingRight() - dpToPx(5)) {
+                            thumbnailSize - labelGroup.getPaddingLeft() - labelGroup.getPaddingRight()) {
                         titleLabel.setWidth(thumbnailSize - labelGroup.getPaddingLeft() - labelGroup.getPaddingRight()
-                                - countLabelWidth - dpToPx(5));
+                                - countLabelWidth);
                     }
                 }
             });
-            previewImageButton.setOnClickListener(new View.OnClickListener() {
+            previewImageCover.setOnTouchListener(new View.OnTouchListener() {
                 @Override
-                public void onClick(View v) {
-                    Intent intent = new Intent(PhotoAlbum.this, SelectPhoto.class);
-                    intent.setData(Uri.parse(album.mediaPathListFilePath));
-                    intent.putExtra("photo_count", album.count);
-                    intent.putExtra("video", isVideo);
-                    startActivityForResult(intent, INTENT_REQUEST_CODE_SELECT_PHOTO);
+                public boolean onTouch(View v, MotionEvent event) {
+                    if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                        previewImageCover.setBackgroundColor(Color.parseColor("#55FFFFFF"));
+                    } else if (event.getAction() == MotionEvent.ACTION_UP
+                            || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                        previewImageCover.setBackgroundColor(Color.parseColor("#00000000"));
+                    }
+
+                    if (event.getAction() == MotionEvent.ACTION_UP) {
+                        Intent intent = new Intent(PhotoAlbum.this, SelectPhoto.class);
+                        intent.setData(Uri.parse(album.mediaPathListFilePath));
+                        intent.putExtra("photo_count", album.count);
+                        intent.putExtra("video", isVideo);
+                        startActivityForResult(intent, INTENT_REQUEST_CODE_SELECT_PHOTO);
+                    }
+                    return true;
                 }
             });
 

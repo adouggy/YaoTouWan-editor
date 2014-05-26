@@ -10,6 +10,7 @@
 	<color name="post_background_default">#F4F4F4</color>
 	<color name="post_seperator_default">#DEDEDE</color>
 	<color name="play_video_button_background">#55000000</color>
+	<color name="select_photo_confirm_bg_selected">#55FFFFFF</color>
 	<color name="flag_light_green">#55ccffcc</color>
 	<color name="photo_album_item_title_bg">#57000000</color>
 	<color name="photo_album_bg">#F6F7F7</color>

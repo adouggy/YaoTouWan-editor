@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.*;
 import android.media.ThumbnailUtils;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -30,7 +31,7 @@ public class SelectPhoto extends BaseActivity {
     List<String> photos;
     List<Integer> selectedPhotoIds;
     DataSource dataSource;
-    TextView selectedCountLabel;
+    Button selectedCountLabel;
     int maxSelectionCount;
     boolean isVideo;
     int thumbnailSize;
@@ -106,65 +107,33 @@ public class SelectPhoto extends BaseActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         boolean ret = super.onCreateOptionsMenu(menu);
 
+        final MenuItem menuItem = menu.getItem(0);
         maxSelectionCount = 8;
 
-        final LinearLayout actionView = new LinearLayout(this);
-        actionView.setLayoutParams(new ViewGroup.LayoutParams(
+        selectedCountLabel = new Button(this);
+        selectedCountLabel.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        actionView.setOrientation(LinearLayout.HORIZONTAL);
-        actionView.setPadding(dpToPx(10), 0, dpToPx(10), 0);
-
-        ImageView icon = new ImageView(this);
-        icon.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        actionView.addView(icon);
-        icon.setImageResource(R.drawable.post_action_bar_icon_done);
-
-        TextView label = new TextView(this);
-        label.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        actionView.addView(label);
-        label.setTextColor(Color.WHITE);
-        label.setTextSize(18);
-        label.setGravity(Gravity.CENTER_VERTICAL);
-        selectedCountLabel = label;
+        selectedCountLabel.setCompoundDrawablesWithIntrinsicBounds(
+                R.drawable.post_action_bar_icon_done, 0, 0, 0);
+        selectedCountLabel.setTextSize(18);
+        selectedCountLabel.setTextColor(Color.WHITE);
+        selectedCountLabel.setGravity(Gravity.CENTER_VERTICAL);
+        selectedCountLabel.setPadding(dpToPx(10), 0, dpToPx(10), 0);
 
         int selectedCount = 0;
         if (selectedPhotoIds != null && selectedPhotoIds.size() > 0)
             selectedCount = selectedPhotoIds.size();
         selectedCountLabel.setText(selectedCount + "/" + maxSelectionCount);
-
-        final MenuItem menuItem = menu.getItem(0);
-        icon.setOnTouchListener(new View.OnTouchListener() {
+        selectedCountLabel.setOnClickListener(new View.OnClickListener() {
             @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                if(event.getAction() == MotionEvent.ACTION_DOWN){
-                    actionView.setBackgroundColor(Color.parseColor("#55FFFFFF"));
-                } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                    onFinishClick(menuItem);
-                    actionView.setBackgroundColor(Color.parseColor("#00000000"));
-                } else if (event.getAction() == MotionEvent.ACTION_CANCEL) {
-                    actionView.setBackgroundColor(Color.parseColor("#00000000"));
-                }
-                return true;
+            public void onClick(View v) {
+                onFinishClick(menuItem);
             }
         });
-        label.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                if(event.getAction() == MotionEvent.ACTION_DOWN){
-                    actionView.setBackgroundColor(Color.parseColor("#55FFFFFF"));
-                } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                    onFinishClick(menuItem);
-                    actionView.setBackgroundColor(Color.parseColor("#00000000"));
-                } else if (event.getAction() == MotionEvent.ACTION_CANCEL) {
-                    actionView.setBackgroundColor(Color.parseColor("#00000000"));
-                }
-                return true;
-            }
-        });
+        selectedCountLabel.setBackgroundResource(
+                R.drawable.select_photo_confirm_bg_src);
 
-        menuItem.setActionView(actionView);
+        menuItem.setActionView(selectedCountLabel);
 
         return ret;
     }
@@ -199,10 +168,13 @@ public class SelectPhoto extends BaseActivity {
             View rowView = convertView != null ? convertView : inflater.inflate(R.layout.select_photo_item, null);
             assert rowView != null;
 
-            final CachedImageButton previewImageButton = (CachedImageButton) rowView.findViewById(R.id.photo_preview);
+            final CachedImageButton previewImageButton = (CachedImageButton)
+                    rowView.findViewById(R.id.photo_preview);
+            final ImageButton previewImageCover = (ImageButton)
+                    rowView.findViewById(R.id.photo_preview_cover);
             final ImageView checkbox = (ImageView) rowView.findViewById(R.id.check_box);
-
             setViewHeight(previewImageButton, thumbnailSize);
+            setViewHeight(previewImageCover, thumbnailSize);
             String path = getItem(position);
             if (isVideo) {
                 previewImageButton.setImageWithVideoPath(path,
@@ -212,17 +184,27 @@ public class SelectPhoto extends BaseActivity {
                 previewImageButton.setImageWithPath(path, thumbnailSize, true, 0);
                 hideView(rowView.findViewById(R.id.video_flag));
             }
-            previewImageButton.setOnClickListener(new View.OnClickListener() {
+            previewImageCover.setOnTouchListener(new View.OnTouchListener() {
                 @Override
-                public void onClick(View v) {
-                    if (selectedPhotoIds.contains(position)) {
-                        selectedPhotoIds.remove(Integer.valueOf(position));
-                        hideView(checkbox);
-                    } else if (selectedPhotoIds.size() < maxSelectionCount) {
-                        selectedPhotoIds.add(position);
-                        showView(checkbox);
+                public boolean onTouch(View v, MotionEvent event) {
+                    if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                        previewImageCover.setBackgroundColor(Color.parseColor("#55FFFFFF"));
+                    } else if (event.getAction() == MotionEvent.ACTION_UP
+                            || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                        previewImageCover.setBackgroundColor(Color.parseColor("#00000000"));
                     }
-                    selectedCountLabel.setText(selectedPhotoIds.size() + "/" + maxSelectionCount);
+
+                    if (event.getAction() == MotionEvent.ACTION_UP) {
+                        if (selectedPhotoIds.contains(position)) {
+                            selectedPhotoIds.remove(Integer.valueOf(position));
+                            hideView(checkbox);
+                        } else if (selectedPhotoIds.size() < maxSelectionCount) {
+                            selectedPhotoIds.add(position);
+                            showView(checkbox);
+                        }
+                        selectedCountLabel.setText(selectedPhotoIds.size() + "/" + maxSelectionCount);
+                    }
+                    return true;
                 }
             });
 

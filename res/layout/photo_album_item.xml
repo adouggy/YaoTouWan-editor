@@ -12,6 +12,12 @@
 			android:scaleType="centerCrop"
 			android:background="@null"
 			/>
+	<ImageButton
+			android:id="@+id/album_preview_cover"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:background="@null"
+			/>
 	<RelativeLayout
 			android:id="@+id/album_info_group"
 			android:layout_width="match_parent"
