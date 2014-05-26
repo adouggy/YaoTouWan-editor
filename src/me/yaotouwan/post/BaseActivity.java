@@ -2,6 +2,7 @@ package me.yaotouwan.post;
 
 import android.app.ActionBar;
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -575,5 +576,18 @@ public class BaseActivity extends SherlockActivity {
     protected void setPaddingBottom(View view, int paddingBottom) {
         view.setPadding(view.getPaddingLeft(), view.getPaddingTop(),
                 view.getPaddingRight(), paddingBottom);
+    }
+
+    protected ProgressDialog mProgressDialog;
+    protected void showProgressDialog() {
+        mProgressDialog = ProgressDialog.show(this, null, "", true);
+    }
+    protected void showProgressDialog(int title, int message) {
+        mProgressDialog = ProgressDialog.show(this, getString(title), getString(message), true);
+    }
+    protected void hideProgressDialog() {
+        if (mProgressDialog != null && mProgressDialog.isShowing()) {
+            mProgressDialog.dismiss();
+        }
     }
 }

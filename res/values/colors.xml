@@ -14,4 +14,5 @@
 	<color name="flag_light_green">#55ccffcc</color>
 	<color name="photo_album_item_title_bg">#57000000</color>
 	<color name="photo_album_bg">#F6F7F7</color>
+	<color name="post_toolbar_bg_pressed">#55000000</color>
 </resources>

@@ -248,7 +248,7 @@ public class PostActivity extends BaseActivity {
                                     imagePathForUpload = saveImage(srcBitmap);
                                     jpgFileSize = new File(imagePathForUpload).length();
                                     if (jpgFileSize > MAX_IMAGE_FILE_SIZE) {
-                                        Toast.makeText(this, "图片太大，无法使用", Toast.LENGTH_LONG).show();
+                                        Toast.makeText(PostActivity.this, "图片太大，无法使用", Toast.LENGTH_LONG).show();
                                         continue;
                                     }
                                 }
@@ -547,7 +547,7 @@ public class PostActivity extends BaseActivity {
     }
 
     private void uploadMedia() {
-        if (true) return;
+//        if (true) return;
         if (isUploadingMedia()) {
             Intent intent = new Intent("post_media_updated");
             intent.setData(Uri.parse(draftFile.getAbsolutePath()));
@@ -590,17 +590,6 @@ public class PostActivity extends BaseActivity {
             }
         }
         return null;
-    }
-
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-
-        if (intent != null) {
-            if (intent.getBooleanExtra("crop_video_finish", false)) {
-//                receiveRecordedScreen(intent);
-            }
-        }
     }
 
     String[] getColumnNames() {

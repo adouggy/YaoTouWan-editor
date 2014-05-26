@@ -8,6 +8,7 @@ import android.media.ThumbnailUtils;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.view.*;
 import android.widget.*;
@@ -220,14 +221,14 @@ public class SelectPhoto extends BaseActivity {
 
     public void onFinishClick(MenuItem item) {
         if (selectedPhotoIds.size() > 0) {
-            Intent intent = new Intent();
+            final Intent intent = new Intent();
             intent.putExtra(isVideo ? "selected_video_count" : "selected_photo_count", selectedPhotoIds.size());
-            for (int i=0; i<selectedPhotoIds.size(); i++) {
+            for (int i = 0; i < selectedPhotoIds.size(); i++) {
                 Integer pos = selectedPhotoIds.get(i);
                 String path = photos.get(pos);
                 intent.putExtra((isVideo ? "selected_video_" : "selected_photo_") + i, path);
                 if (isVideo) {
-                    Bitmap thumbnail = CachedImageButton.loadVideoThumbnail(this,
+                    Bitmap thumbnail = CachedImageButton.loadVideoThumbnail(SelectPhoto.this,
                             path, MediaStore.Video.Thumbnails.MINI_KIND);
                     if (thumbnail != null) {
                         intent.putExtra("selected_video_width_" + i, thumbnail.getWidth());
@@ -238,6 +239,13 @@ public class SelectPhoto extends BaseActivity {
             setResult(RESULT_OK, intent);
             finish();
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+//        hideProgressDialog();
+
+        super.onDestroy();
     }
 
     @Override
