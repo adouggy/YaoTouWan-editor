@@ -58,70 +58,6 @@ static struct SwsContext *sws_ctx_small;
 
 static enum AVPixelFormat device_pix_fmt = PIX_FMT_RGBA;
 
-enum {
-    API_MODE_OLD                  = 0, /* old method, deprecated */
-    API_MODE_NEW_API_REF_COUNT    = 1, /* new method, using the frame reference counting */
-    API_MODE_NEW_API_NO_REF_COUNT = 2, /* new method, without reference counting */
-};
-
-static int api_mode = API_MODE_OLD;
-
-static int decode_packet(int *got_frame, int width, int height)
-{
-    int ret = 0;
-    int decoded = pkt.size;
-    
-    *got_frame = 0;
-    
-    if (pkt.stream_index == video_stream_idx) {
-        ret = avcodec_decode_video2(video_dec_ctx, frame, got_frame, &pkt);
-        if (ret < 0) {
-            LOGE("Error decoding video frame (%s)\n", av_err2str(ret));
-            return ret;
-        }
-        
-        if (*got_frame) {
-            if (width == 0 && height == 0) {
-                width = video_dec_ctx->width;
-                height = video_dec_ctx->height;
-            } else if (width == 0) {
-                height = video_dec_ctx->height * 1.0 / video_dec_ctx->width * width;
-            } else if (height == 0) {
-                width = video_dec_ctx->width * 1.0 / video_dec_ctx->height * height;
-            }
-            static struct SwsContext *sws_ctx;
-            if (sws_ctx == NULL) {
-                sws_ctx = sws_getContext(video_dec_ctx->width, video_dec_ctx->height,
-                                         video_dec_ctx->pix_fmt,
-                                         width, height,
-                                         device_pix_fmt,
-                                         SWS_POINT, NULL, NULL, NULL);
-                if (sws_ctx == NULL) {
-                    LOGE("Cannot initialize the conversion context\n");
-                    return -1;
-                }
-            }
-            int decoded_height = sws_scale(sws_ctx,
-                      (const uint8_t **)frame->data,
-                      frame->linesize,
-                      0,
-                      video_dec_ctx->height,
-                      video_dst_data,
-                      video_dst_linesize);
-            return width * height; // end if got image, by jason
-        } else {
-            return 0;
-        }
-    } else {
-        return 0;
-    }
-    
-    if (*got_frame && api_mode == API_MODE_NEW_API_REF_COUNT)
-        av_frame_unref(frame);
-    
-    return decoded;
-}
-
 static int open_codec_context(int *stream_idx,
                               AVFormatContext *fmt_ctx, enum AVMediaType type)
 {
@@ -148,8 +84,7 @@ static int open_codec_context(int *stream_idx,
             return AVERROR(EINVAL);
         }
         
-        if (api_mode == API_MODE_NEW_API_REF_COUNT)
-            av_dict_set(&opts, "refcounted_frames", "1", 0);
+        av_dict_set(&opts, "refcounted_frames", "1", 0);
         if ((ret = avcodec_open2(dec_ctx, dec, &opts)) < 0) {
             LOGE("Failed to open %s codec\n",
                     av_get_media_type_string(type));
@@ -158,147 +93,6 @@ static int open_codec_context(int *stream_idx,
     }
     
     return 0;
-}
-
-int extract_frame(int maxWidth, int maxHeight)
-{
-    av_register_all();
-    
-    // LOGI("1");
-    int err;
-    if ((err = avformat_open_input(&fmt_ctx, src_filename, NULL, NULL)) < 0) {
-        LOGE("Could not open source file %s, error: %s", src_filename, av_err2str(err));
-        return 0;
-    }
-
-    // LOGI("2");
-    if ((err = avformat_find_stream_info(fmt_ctx, NULL)) < 0) {
-        LOGE("Could not find stream information, error: %s", av_err2str(err));
-        return 0;
-    }
-
-    // LOGI("3");
-    if ((err = open_codec_context(&video_stream_idx, fmt_ctx, AVMEDIA_TYPE_VIDEO)) < 0) {
-        LOGE("Could not open codec context, error: %s", av_err2str(err));
-        return 0;
-    }
-
-    video_stream = fmt_ctx->streams[video_stream_idx];
-    // LOGI("4");
-    if (!video_stream) {
-        LOGE("Could not find audio or video stream in the input, aborting");
-        err = 1;
-        goto end;
-    }
-    video_dec_ctx = video_stream->codec;
-    
-    int width = 0;
-    int height = 0;
-    if (maxWidth == 0 && maxHeight == 0) {
-        width = video_dec_ctx->width;
-        height = video_dec_ctx->height;
-    } else if (maxWidth == 0) {
-        height = maxHeight;
-        width = video_dec_ctx->width * 1.0 / video_dec_ctx->height * maxHeight;
-    } else if (maxHeight == 0) {
-        width = maxWidth;
-        height = video_dec_ctx->height * 1.0 / video_dec_ctx->width * maxWidth;
-    }
-
-    int video_dst_bufsize = av_image_alloc(video_dst_data, 
-                                    video_dst_linesize,
-                                    width, height,
-                                    device_pix_fmt, 1);
-    if (video_dst_bufsize < 0) {
-        LOGE("Could not allocate raw video buffer, error: %s", av_err2str(video_dst_bufsize));
-        err = 1;
-        goto end;
-    }
-    
-    // LOGI("5");
-    if (api_mode == API_MODE_OLD)
-        frame = avcodec_alloc_frame();
-    else
-        frame = av_frame_alloc();
-    
-    // LOGI("6");
-    if (!frame) {
-        LOGE("Could not allocate frame");
-        err = AVERROR(ENOMEM);
-        goto end;
-    }
-    
-    // LOGI("7");
-    av_init_packet(&pkt);
-    pkt.data = NULL;
-    pkt.size = 0;
-    
-    if (start_progress > 0) {
-        av_seek_frame(fmt_ctx, video_stream_idx, start_progress * video_stream->duration, 0);
-    }
-    
-    while (av_read_frame(fmt_ctx, &pkt) >= 0) {
-        do {
-            int got_frame = 0;
-            if (pkt.stream_index == video_stream_idx) {
-                if ((err = avcodec_decode_video2(video_dec_ctx, frame, &got_frame, &pkt)) < 0) {
-                    LOGE("Error decoding video frame %s", av_err2str(err));
-                    break;
-                }
-
-                if (got_frame) {
-                    static struct SwsContext *sws_ctx;
-                    if (sws_ctx == NULL) {
-                        sws_ctx = sws_getContext(video_dec_ctx->width, video_dec_ctx->height,
-                                                 video_dec_ctx->pix_fmt,
-                                                 width, height,
-                                                 device_pix_fmt,
-                                                 SWS_POINT, NULL, NULL, NULL);
-                        if (sws_ctx == NULL) {
-                            LOGE("Cannot initialize the conversion context");
-                            break;
-                        }
-                    }
-                    int decoded_height = sws_scale(sws_ctx,
-                              (const uint8_t **)frame->data,
-                              frame->linesize,
-                              0,
-                              video_dec_ctx->height,
-                              video_dst_data,
-                              video_dst_linesize);
-                    if (decoded_height) {
-                        goto end;
-                    }
-                } else {
-                    break;
-                }
-            } else {
-                break;
-            }
-            
-            if (got_frame && api_mode == API_MODE_NEW_API_REF_COUNT)
-                av_frame_unref(frame);
-            
-        } while (pkt.size > 0);
-    }
-    
-end:
-   // LOGI("8");
-    avcodec_close(video_dec_ctx);
-    avcodec_close(audio_dec_ctx);
-    avformat_close_input(&fmt_ctx);
-    if (dst_file)
-        fclose(dst_file);
-    if (api_mode == API_MODE_OLD)
-        avcodec_free_frame(&frame);
-    else
-        av_frame_free(&frame);
-   // LOGI("9");
-
-    if (maxWidth)
-        return height;
-    else
-        return width;
 }
 
 int get_rotate_from_video_stream(AVStream *video_stream) {
@@ -408,10 +202,7 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_prepareDecoder
         return NULL;
     }
 
-    if (api_mode == API_MODE_OLD)
-        frame = avcodec_alloc_frame();
-    else
-        frame = av_frame_alloc();
+    frame = av_frame_alloc();
     
     if (!frame) {
         LOGE("Could not allocate frame");
@@ -445,49 +236,48 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_decodeFrame
         do {
             int got_frame = 0;
             if (pkt.stream_index == video_stream_idx) {
+                if ((pkt.flags & AV_PKT_FLAG_KEY) == 0
+                    || pkt.pts < progress * video_stream->duration) {
+
+                    av_free_packet(&pkt);
+                    break;
+                }
                 if ((err = avcodec_decode_video2(video_dec_ctx, frame, &got_frame, &pkt)) < 0) {
+                    av_free_packet(&pkt);
                     LOGE("Error decoding video frame %s", av_err2str(err));
                     break;
                 }
 
-                if (got_frame) {
-                    if (pkt.flags & AV_PKT_FLAG_KEY == 0) {
-                        break;
-                    }
-
-                    if (pkt.pts < progress * video_stream->duration) {
-                        break;
-                    }
-
-                    uint8_t **video_dst_data = is_large ? video_dst_data_large : video_dst_data_small;
-                    int decoded_height = sws_scale(is_large ? sws_ctx_large : sws_ctx_small,
-                                                  (const uint8_t **)frame->data,
-                                                  frame->linesize,
-                                                  0,
-                                                  video_dec_ctx->height,
-                                                  video_dst_data,
-                                                  is_large ? video_dst_linesize_large : video_dst_linesize_small);
-                    if (decoded_height) {
-                        int image_buffer_size;
-                        if (is_large) {
-                            image_buffer_size = video_dec_ctx->width * video_dec_ctx->height;
-                        } else {
-                            image_buffer_size = width_small * height_small;
-                        }
-
-                        jintArray result = (*env)->NewIntArray(env, image_buffer_size);
-                        (*env)->SetIntArrayRegion(env, result, 0, image_buffer_size, (int *)video_dst_data[0]);
-                        return result;
-                    }
-                } else {
+                av_free_packet(&pkt);
+                if (!got_frame) {
                     break;
+                }
+
+                uint8_t **video_dst_data = is_large ? video_dst_data_large : video_dst_data_small;
+                int decoded_height = sws_scale(is_large ? sws_ctx_large : sws_ctx_small,
+                                              (const uint8_t **)frame->data,
+                                              frame->linesize,
+                                              0,
+                                              video_dec_ctx->height,
+                                              video_dst_data,
+                                              is_large ? video_dst_linesize_large : video_dst_linesize_small);
+                if (decoded_height) {
+                    int image_buffer_size;
+                    if (is_large) {
+                        image_buffer_size = video_dec_ctx->width * video_dec_ctx->height;
+                    } else {
+                        image_buffer_size = width_small * height_small;
+                    }
+
+                    jintArray result = (*env)->NewIntArray(env, image_buffer_size);
+                    (*env)->SetIntArrayRegion(env, result, 0, image_buffer_size, (int *)video_dst_data[0]);
+                    return result;
                 }
             } else {
                 break;
             }
             
-            if (got_frame && api_mode == API_MODE_NEW_API_REF_COUNT)
-                av_frame_unref(frame);
+            av_frame_unref(frame);
             
         } while (pkt.size > 0);
     }
@@ -506,10 +296,7 @@ jintArray Java_me_yaotouwan_screenrecorder_EditVideoActivity_clearDecoder
     avformat_close_input(&fmt_ctx);
     if (dst_file)
         fclose(dst_file);
-    if (api_mode == API_MODE_OLD)
-        avcodec_free_frame(&frame);
-    else
-        av_frame_free(&frame);
+    av_frame_free(&frame);
     av_free(video_dst_data_small[0]);
     av_free(video_dst_data_large[0]);
     sws_freeContext(sws_ctx_small);
@@ -690,7 +477,7 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_cutVideo
                 break;
             }
         }
-        
+
         av_free_packet(&pkt);
     }
     
@@ -842,6 +629,9 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
             }
         }
 
+        frame = av_frame_alloc();
+        av_init_packet(&pkt);
+
         while (1) {
             while (videoTime <= audioTime || audioEnd > 0) {
                 AVStream *video_in_stream = vifmt_ctx->streams[0];
@@ -861,9 +651,7 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
                     pkt.duration = av_rescale_q(pkt.duration, video_in_stream->time_base, video_out_stream->time_base);
                     pkt.stream_index = 0;
                     pkt.pos = -1;
-
                     videoTime += pkt.duration * 1.0 / video_out_stream->time_base.den;
-
                     ret = av_interleaved_write_frame(ofmt_ctx, &pkt);
                     if (ret < 0) {
                         LOGE("write video packet Error muxing packet, %s", av_err2str(ret));
