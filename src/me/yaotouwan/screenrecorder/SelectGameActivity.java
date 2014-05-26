@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import android.widget.*;
 import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuItem;
+import com.actionbarsherlock.view.SubMenu;
 import me.yaotouwan.R;
 import me.yaotouwan.post.BaseActivity;
 import me.yaotouwan.post.RecordScreenActivity;
@@ -50,8 +51,6 @@ public class SelectGameActivity extends BaseActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.select_game);
         setupActionBar(R.string.select_game_title);
-
-        menuResId = R.menu.select_game_actions;
 
         gamesView = (GridView) findViewById(R.id.root_layout);
         int space = dpToPx(20);
@@ -151,20 +150,36 @@ public class SelectGameActivity extends BaseActivity
     public boolean onCreateOptionsMenu(Menu menu) {
         boolean ret = super.onCreateOptionsMenu(menu);
 
-        MenuItem itemVQ = menu.getItem(0);
-        itemVQ.setTitle(R.string.video_encoder_quality_option_title_default);
+        SubMenu subMenu = menu.addSubMenu(0, 1, 3, "更多");
+        MenuItem subMenuItem = subMenu.getItem();
+        subMenuItem.setIcon(R.drawable.actionbar_overflow);
+        subMenuItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
+        subMenu.add(0, 2, 0, getString(R.string.video_encoder_quality_option_title_default));
+        MenuItem menuItemQualityOption = subMenu.getItem(0);
+        menuItemQualityOption.setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
+            @Override
+            public boolean onMenuItemClick(MenuItem item) {
+                onClickVideoQualityOption(item);
+                return true;
+            }
+        });
 
-        MenuItem itemST = menu.getItem(1);
         int showTouches = 0;
         try {
             showTouches = Settings.System.getInt(
                     getContentResolver(), "show_touches");
-        } catch (Settings.SettingNotFoundException e) {
-            e.printStackTrace();
-        }
-        itemST.setTitle(showTouches > 0
+        } catch (Settings.SettingNotFoundException e) {}
+        subMenu.add(0, 3, 0, getString((showTouches > 0
                 ? R.string.video_encoder_show_touches_option_title_on
-                : R.string.video_encoder_show_touches_option_title_off);
+                : R.string.video_encoder_show_touches_option_title_off)));
+        MenuItem menuItemShowTouches = subMenu.getItem(1);
+        menuItemShowTouches.setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
+            @Override
+            public boolean onMenuItemClick(MenuItem item) {
+                onClickShowTouchesOption(item);
+                return true;
+            }
+        });
 
         return ret;
     }

@@ -43,6 +43,7 @@ public class BaseActivity extends SherlockActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        setTheme(R.style.Theme_Styled);
         super.onCreate(savedInstanceState);
 
         setTitleColor(Color.WHITE);
