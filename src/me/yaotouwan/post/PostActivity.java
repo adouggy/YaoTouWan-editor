@@ -211,16 +211,14 @@ public class PostActivity extends BaseActivity {
         public void onReceive(Context context, Intent intent) {
             float progress = intent.getFloatExtra("progress", 0);
             if (progress >= 1) {
-                Toast.makeText(PostActivity.this, "Media Upload Done", Toast.LENGTH_LONG).show();
-                logd("received progress " + progress);
+//                Toast.makeText(PostActivity.this, "Media Upload Done", Toast.LENGTH_LONG).show();
+//                logd("received progress " + progress);
             }
         }
     };
 
     protected void onKeyboardHide() {
         super.onKeyboardHide();
-
-        if (true) return;
 
         titleEditor.clearFocus();
         if (adapter.editingTextRow >= 0) {
@@ -551,8 +549,8 @@ public class PostActivity extends BaseActivity {
 
         saveDraft();
 
-//        setResult(RESULT_OK, new Intent().setData(Uri.parse(draftFile.getAbsolutePath())));
-//        finish();
+        setResult(RESULT_OK, new Intent().setData(Uri.parse(draftFile.getAbsolutePath())));
+        finish();
     }
 
     private void uploadMedia() {
@@ -898,7 +896,6 @@ public class PostActivity extends BaseActivity {
             ViewGroup previewGroup = (ViewGroup) rowView.findViewById(R.id.post_item_preview);
             final WebView webView = (WebView) rowView.findViewById(R.id.video_webview);
             if (webView == null) {
-                logd("fullscreen");
                 return;
             }
             if (webViews == null || !webViews.contains(webView)) {

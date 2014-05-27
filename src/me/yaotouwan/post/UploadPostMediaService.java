@@ -240,7 +240,7 @@ public class UploadPostMediaService extends Service {
                     if (line != null) {
                         line = line.trim();
                         if (line.startsWith("<h1>")) {
-                            String imageId = line.substring(9, 32);
+                            String imageId = line.substring(9, 32+9);
                             return IMAGE_URL_PREFIX + imageId;
                         }
                     }
