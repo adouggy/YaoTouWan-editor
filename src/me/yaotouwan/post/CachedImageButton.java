@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import android.media.ThumbnailUtils;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.provider.MediaStore;
@@ -16,6 +17,7 @@ import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
 import android.view.animation.LinearInterpolator;
 import android.widget.ImageButton;
+import me.yaotouwan.android.util.UniversalImageLoaderUtil;
 import me.yaotouwan.util.YTWHelper;
 
 import java.io.File;
@@ -52,25 +54,33 @@ public class CachedImageButton extends ImageButton {
         if (newImagePath.equals(imagePath)) return false;
         imagePath = newImagePath;
         setImageBitmap(null);
-        if (async) {
-            if (delay > 0) {
-                postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (newImagePath.equals(imagePath)) {
-                            new LoadBitmapTask().executeOnExecutor(
-                                    AsyncTask.THREAD_POOL_EXECUTOR, width);
-                        } else {
-                            Log.d("Cache", "ignored image");
-                        }
-                    }
-                }, delay);
+        if ("http".equals(Uri.parse(imagePath).getScheme())) {
+            if (async) {
+                UniversalImageLoaderUtil.INSTANCE.load(imagePath, this);
             } else {
-                new LoadBitmapTask().executeOnExecutor(
-                        AsyncTask.THREAD_POOL_EXECUTOR, width);
+                UniversalImageLoaderUtil.INSTANCE.loadNoFading(imagePath, this);
             }
         } else {
-            setImageBitmap(YTWHelper.decodeBitmapFromPath(imagePath, width));
+            if (async) {
+                if (delay > 0) {
+                    postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (newImagePath.equals(imagePath)) {
+                                new LoadBitmapTask().executeOnExecutor(
+                                        AsyncTask.THREAD_POOL_EXECUTOR, width);
+                            } else {
+                                Log.d("Cache", "ignored image");
+                            }
+                        }
+                    }, delay);
+                } else {
+                    new LoadBitmapTask().executeOnExecutor(
+                            AsyncTask.THREAD_POOL_EXECUTOR, width);
+                }
+            } else {
+                setImageBitmap(YTWHelper.decodeBitmapFromPath(imagePath, width));
+            }
         }
         return true;
     }

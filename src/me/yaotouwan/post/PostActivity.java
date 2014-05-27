@@ -486,6 +486,9 @@ public class PostActivity extends BaseActivity {
                         if (headerFragment != null) {
                             ((PostHeader) headerFragment).setContent(content);
                         }
+                        if ((footerFragment != null)) {
+                            ((PostFooter) headerFragment).setPostUrl(postUri.toString());
+                        }
                         JSONObject jsonObject = new JSONObject(content);
                         if (jsonObject != null) {
                             if (jsonObject.has("content")) {
@@ -1025,12 +1028,8 @@ public class PostActivity extends BaseActivity {
 
                 previewImageView.setBackgroundColor(Color.WHITE);
                 previewImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                if ("http".equals(Uri.parse(imagePath).getScheme())) {
-                    UniversalImageLoaderUtil.INSTANCE.load(imagePath, previewImageView);
-                } else {
-                    previewImageView.setImageWithPath(imagePath,
-                            postItemsListView.getWidth(), scrolling, 0);
-                }
+                previewImageView.setImageWithPath(imagePath,
+                        postItemsListView.getWidth(), scrolling, 0);
                 Point imgSize = getMediaSize(position);
                 if (readonly) {
                     if (imgSize != null) {
@@ -1494,5 +1493,9 @@ public class PostActivity extends BaseActivity {
 
     public interface PostHeader {
         public void setContent(String content);
+    }
+
+    public interface PostFooter {
+        public void setPostUrl(String postUrl);
     }
 }
