@@ -5,6 +5,7 @@ import android.content.*;
 import android.database.Cursor;
 import android.graphics.*;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.v4.app.Fragment;
@@ -17,6 +18,14 @@ import android.util.Log;
 import android.view.*;
 import android.webkit.*;
 import android.widget.*;
+import ch.boye.httpclientandroidlib.HttpResponse;
+import ch.boye.httpclientandroidlib.client.ClientProtocolException;
+import ch.boye.httpclientandroidlib.client.HttpClient;
+import ch.boye.httpclientandroidlib.client.methods.HttpGet;
+import ch.boye.httpclientandroidlib.client.methods.HttpPost;
+import ch.boye.httpclientandroidlib.client.methods.HttpUriRequest;
+import ch.boye.httpclientandroidlib.entity.mime.HttpMultipartMode;
+import ch.boye.httpclientandroidlib.entity.mime.MultipartEntityBuilder;
 import com.actionbarsherlock.view.MenuItem;
 import com.mobeta.android.dslv.DragSortController;
 import com.mobeta.android.dslv.DragSortListView;
@@ -88,6 +97,12 @@ public class PostActivity extends BaseActivity {
         if (intent.hasExtra("readonly")) {
             readonly = intent.getBooleanExtra("readonly", false);
         }
+        Uri postUri = intent.getData();
+        if (postUri != null) {
+            if (postUri.getScheme().equals("http") || postUri.getScheme().equals("https")) {
+                readonly = true;
+            }
+        }
 
         toolbar = (ViewGroup) findViewById(R.id.post_toolbar);
         postItemsListView = (DragSortListView) findViewById(R.id.post_items);
@@ -121,6 +136,8 @@ public class PostActivity extends BaseActivity {
             } catch (ClassNotFoundException e) {
             }
             fragmentTransaction.commit();
+
+            loadPost(postUri);
         } else {
             View titleContent = getLayoutInflater().inflate(R.layout.post_title, null);
             postItemsListView.addHeaderView(titleContent);
@@ -140,17 +157,16 @@ public class PostActivity extends BaseActivity {
                     }
                 }
             });
+
+            if (postUri != null) {
+                draftFile = new File(postUri.getPath());
+                String JSON = YTWHelper.readTextContent(draftFile.getAbsolutePath());
+                loadDraftFromJSON(JSON);
+            }
+            prepareDraftFile();
         }
 
         adapter = new PostListViewDataSource();
-        Uri draftUri = getIntent().getData();
-        if (draftUri != null) {
-            draftFile = new File(draftUri.getPath());
-        }
-
-        loadDraft();
-        if (!readonly)
-            prepareDraftFile();
 
         postItemsListView.setAdapter(adapter);
         postItemsListView.setDragSortListener(adapter);
@@ -429,14 +445,73 @@ public class PostActivity extends BaseActivity {
         }
     }
 
-    void loadDraft() {
-        if (draftFile != null) {
-            String JSON = YTWHelper.readTextContent(draftFile.getAbsolutePath());
-            loadDraftFromJSON(JSON);
-        } else if (getIntent().hasExtra("content")) {
-            String JSON = getIntent().getStringExtra("content");
-            loadDraftFromJSON(JSON);
+    void loadPost(final Uri postUri) {
+        if (postUri == null) {
+            Toast.makeText(this, "No Uri passed", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
         }
+        if (!HttpClientUtil.checkConnection(this)) {
+            Toast.makeText(this, "没有网络，无法查看文章", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        showProgressDialog();
+        new AsyncTask<Void, Void, String>() {
+            @Override
+            protected String doInBackground(Void[] params) {
+                try {
+                    HttpClient httpclient = HttpClientUtil.createInstance();
+                    HttpGet httpGet = new HttpGet(postUri.toString());
+                    HttpResponse response = httpclient.execute(httpGet);
+                    if (response != null) {
+                        InputStream is = response.getEntity().getContent();
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                        StringBuilder sb = new StringBuilder();
+                        while (reader.ready()) {
+                            String line = reader.readLine();
+                            if (line != null) {
+                                line = line.trim();
+                                sb.append(sb);
+                            }
+                        }
+                        JSONObject jsonObject = new JSONObject(sb.toString());
+                        if (jsonObject != null) {
+                            if (jsonObject.has("text")) {
+                                return jsonObject.getString("text");
+                            }
+                        }
+                    }
+                } catch (ClientProtocolException e) {
+                } catch (IOException e) {
+                } catch (JSONException e) {
+                }
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(String text) {
+                if (text != null) {
+                    try {
+                        JSONArray sections = new JSONArray(text);
+                        if (sections != null) {
+                            loadSections(sections);
+                        }
+                    } catch (JSONException e) {
+                        try {
+                            JSONObject section = new JSONObject();
+                            section.put("text", text);
+                            JSONArray sections = new JSONArray();
+                            sections.put(section);
+                            loadSections(sections);
+                        } catch (JSONException e1) {
+                            e1.printStackTrace();
+                        }
+                    }
+                }
+                hideProgressDialog();
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     void loadDraftFromJSON(String JSON) {
@@ -451,6 +526,14 @@ public class PostActivity extends BaseActivity {
             }
             adapter.removeAll();
             JSONArray sections = draft.getJSONArray("sections");
+            loadSections(sections);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
+    void loadSections(JSONArray sections) {
+        try {
             for (int i=0; i<sections.length(); i++) {
                 adapter.appendRow();
                 JSONObject section = (JSONObject) sections.get(i);
