@@ -487,7 +487,7 @@ public class PostActivity extends BaseActivity {
                             ((PostHeader) headerFragment).setContent(content);
                         }
                         if ((footerFragment != null)) {
-                            ((PostFooter) headerFragment).setPostUrl(postUri.toString());
+                            ((PostFooter) footerFragment).setPostUrl(postUri.toString());
                         }
                         JSONObject jsonObject = new JSONObject(content);
                         if (jsonObject != null) {
