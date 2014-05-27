@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<RelativeLayout
+		xmlns:android="http://schemas.android.com/apk/res/android"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:background="@color/white"
+		>
+	<RelativeLayout android:id="@+id/post_item_preview"
+	                android:layout_width="match_parent"
+	                android:layout_height="wrap_content"
+	                android:background="@color/clear"
+			>
+		<!--这里的预览图-->
+		<me.yaotouwan.post.PreviewImageButton
+				android:id="@+id/post_item_image"
+				android:layout_width="match_parent"
+				android:layout_height="200dp"
+				android:background="@color/black"
+				android:scaleType="centerCrop"
+				android:layout_marginTop="10dp"
+				android:enabled="false"
+				/>
+		<!--视频播放的按钮，放在正中间-->
+		<me.yaotouwan.post.PreviewImageButton
+				android:id="@+id/post_item_video_play_btn"
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+				android:layout_centerVertical="true"
+				android:background="@color/clear"
+				android:src="@drawable/btn_play_video"
+				android:enabled="false"
+				/>
+	</RelativeLayout>
+	<WebView
+			android:id="@+id/video_webview"
+			android:layout_width="match_parent"
+			android:layout_height="300dp"
+			/>
+	<TextView
+			android:id="@+id/post_item_text"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:textColor="@color/black"
+			android:gravity="top"
+			android:background="@color/white"
+			android:textSize="16sp"
+			android:paddingTop="10dp"
+			android:paddingBottom="20dp"
+			android:paddingLeft="10dp"
+			android:paddingRight="10dp"
+			android:enabled="false"
+			android:inputType="textMultiLine"
+			android:isScrollContainer="true"
+			/>
+</RelativeLayout>
