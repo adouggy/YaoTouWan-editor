@@ -75,8 +75,14 @@ public class PostActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        LocalBroadcastManager.getInstance(this).registerReceiver(uploadMediaProgressReceiver,
-                new IntentFilter("upload_post_media_progress"));
+        IntentFilter intentFilter = new IntentFilter("upload_post_media_progress");
+        intentFilter.addCategory(Intent.CATEGORY_DEFAULT);
+        try {
+            intentFilter.addDataType("application/json");
+        } catch (IntentFilter.MalformedMimeTypeException e) {
+            e.printStackTrace();
+        }
+        registerReceiver(uploadMediaProgressReceiver, intentFilter);
 
         setContentView(R.layout.post);
         setupActionBar(R.string.post_title);
@@ -192,7 +198,7 @@ public class PostActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(uploadMediaProgressReceiver);
+        unregisterReceiver(uploadMediaProgressReceiver);
         if (adapter.webViews != null) {
             for (WebView webView : adapter.webViews) {
                 webView.loadData("about:blank", "text/html", "UTF-8");
@@ -206,12 +212,15 @@ public class PostActivity extends BaseActivity {
             float progress = intent.getFloatExtra("progress", 0);
             if (progress >= 1) {
                 Toast.makeText(PostActivity.this, "Media Upload Done", Toast.LENGTH_LONG).show();
+                logd("received progress " + progress);
             }
         }
     };
 
     protected void onKeyboardHide() {
         super.onKeyboardHide();
+
+        if (true) return;
 
         titleEditor.clearFocus();
         if (adapter.editingTextRow >= 0) {
@@ -542,20 +551,22 @@ public class PostActivity extends BaseActivity {
 
         saveDraft();
 
-        setResult(RESULT_OK, new Intent().setData(Uri.parse(draftFile.getAbsolutePath())));
-        finish();
+//        setResult(RESULT_OK, new Intent().setData(Uri.parse(draftFile.getAbsolutePath())));
+//        finish();
     }
 
     private void uploadMedia() {
 //        if (true) return;
-        if (isUploadingMedia()) {
-            Intent intent = new Intent("post_media_updated");
-            intent.setData(Uri.parse(draftFile.getAbsolutePath()));
-            LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
-        } else {
-            Intent intent = new Intent(this, UploadPostMediaService.class);
-            intent.setData(Uri.parse(draftFile.getAbsolutePath()));
-            startService(intent);
+        if (adapter.hasData()) {
+            if (isUploadingMedia()) {
+                Intent intent = new Intent("post_media_updated");
+                intent.setData(Uri.parse(draftFile.getAbsolutePath()));
+                LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+            } else {
+                Intent intent = new Intent(this, UploadPostMediaService.class);
+                intent.setData(Uri.parse(draftFile.getAbsolutePath()));
+                startService(intent);
+            }
         }
     }
 

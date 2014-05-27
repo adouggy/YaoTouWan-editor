@@ -36,13 +36,13 @@ public class UploadPostMediaService extends Service {
 
     @Override
     public void onDestroy() {
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
+        unregisterReceiver(mMessageReceiver);
         super.onDestroy();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
+        registerReceiver(mMessageReceiver,
                 new IntentFilter("post_media_updated"));
 
         postJSONFileUri = intent.getData();
@@ -139,10 +139,11 @@ public class UploadPostMediaService extends Service {
     }
 
     void broadcastProgress(float progress) {
-        Intent intent = new Intent("upload_post_media_progress");
-        intent.setData(postJSONFileUri);
-        intent.putExtra("progress", progress);
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        sendBroadcast(new Intent()
+                .setAction("upload_post_media_progress")
+                .setDataAndType(postJSONFileUri, "application/json")
+                .addCategory(Intent.CATEGORY_DEFAULT)
+                .putExtra("progress", progress));
         Log.d(TAG, "send progress broadcast: " + postJSONFileUri + " -> " + progress);
     }
 
@@ -169,7 +170,7 @@ public class UploadPostMediaService extends Service {
                 intent.putExtra("error_desc", e.description);
                 intent.putExtra("video_path", videoPath);
                 intent.putExtra("game_name", game);
-                LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+                sendBroadcast(intent);
             }
         }
         return null;
