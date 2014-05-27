@@ -5,17 +5,13 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
-import android.os.Environment;
-import android.util.Log;
 import ch.boye.httpclientandroidlib.HttpResponse;
-import ch.boye.httpclientandroidlib.client.ClientProtocolException;
 import ch.boye.httpclientandroidlib.client.HttpClient;
 import ch.boye.httpclientandroidlib.client.methods.HttpPost;
 import ch.boye.httpclientandroidlib.entity.StringEntity;
 import ch.boye.httpclientandroidlib.util.EntityUtils;
 import me.yaotouwan.R;
 import me.yaotouwan.post.HttpClientUtil;
-import ch.boye.httpclientandroidlib.entity.BasicHttpEntity;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -123,7 +119,7 @@ public class AppPackageHelper {
                         }
                         Game game = new Game();
                         game.appname = ctx.getString(R.string.select_game_other_btn);
-                        game.icon = ctx.getResources().getDrawable(R.drawable.ic_launcher);
+                        game.icon = ctx.getResources().getDrawable(R.drawable.ic_other_game);
                         games.add(game);
 
                         // save to disk
@@ -181,7 +177,7 @@ public class AppPackageHelper {
                                         continue;
                                     }
                                 } else {
-                                    game.icon = ctx.getResources().getDrawable(R.drawable.ic_launcher);
+                                    game.icon = ctx.getResources().getDrawable(R.drawable.ic_other_game);
                                 }
                                 games.add(game);
                             }
