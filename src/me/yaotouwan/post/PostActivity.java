@@ -26,11 +26,14 @@ import ch.boye.httpclientandroidlib.client.methods.HttpPost;
 import ch.boye.httpclientandroidlib.client.methods.HttpUriRequest;
 import ch.boye.httpclientandroidlib.entity.mime.HttpMultipartMode;
 import ch.boye.httpclientandroidlib.entity.mime.MultipartEntityBuilder;
+import ch.boye.httpclientandroidlib.util.EntityUtils;
 import com.actionbarsherlock.view.MenuItem;
 import com.mobeta.android.dslv.DragSortController;
 import com.mobeta.android.dslv.DragSortListView;
 import com.mobeta.android.dslv.SimpleDragSortCursorAdapter;
 import me.yaotouwan.R;
+import me.yaotouwan.android.util.MyConstants;
+import me.yaotouwan.android.util.UniversalImageLoaderUtil;
 import me.yaotouwan.screenrecorder.EditVideoActivity;
 import me.yaotouwan.screenrecorder.Root;
 import me.yaotouwan.screenrecorder.SelectGameActivity;
@@ -75,6 +78,8 @@ public class PostActivity extends BaseActivity {
     WebView youkuWebView;
     ViewGroup youkuWebViewParent;
     int youkuWebViewIndex = -1;
+    Fragment headerFragment;
+    Fragment footerFragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -113,8 +118,8 @@ public class PostActivity extends BaseActivity {
             hideView(toolbar);
             postItemsListView.setDividerHeight(dpToPx(15));
 
-            View headerView = getLayoutInflater().inflate(R.layout.read_post_header, getRootViewGroup());
-            View footerView = getLayoutInflater().inflate(R.layout.read_post_footer, getRootViewGroup());
+            View headerView = getLayoutInflater().inflate(R.layout.read_post_header, null);
+            View footerView = getLayoutInflater().inflate(R.layout.read_post_footer, null);
             postItemsListView.addHeaderView(headerView);
             postItemsListView.addFooterView(footerView);
 
@@ -125,9 +130,9 @@ public class PostActivity extends BaseActivity {
             String footerFragmentClassName = getIntent()
                     .getStringExtra("read_post_footer_fragment_class_name");
             try {
-                Fragment headerFragment =
+                headerFragment =
                         (Fragment) Class.forName(headerFragmentClassName).newInstance();
-                Fragment footerFragment =
+                footerFragment =
                         (Fragment) Class.forName(footerFragmentClassName).newInstance();
                 fragmentTransaction.replace(R.id.read_post_header, headerFragment);
                 fragmentTransaction.replace(R.id.read_post_footer, footerFragment);
@@ -465,20 +470,17 @@ public class PostActivity extends BaseActivity {
                     HttpGet httpGet = new HttpGet(postUri.toString());
                     HttpResponse response = httpclient.execute(httpGet);
                     if (response != null) {
-                        InputStream is = response.getEntity().getContent();
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                        StringBuilder sb = new StringBuilder();
-                        while (reader.ready()) {
-                            String line = reader.readLine();
-                            if (line != null) {
-                                line = line.trim();
-                                sb.append(sb);
-                            }
+                        String content = EntityUtils.toString(response.getEntity());
+                        if (headerFragment != null) {
+                            ((PostHeader) headerFragment).setContent(content);
                         }
-                        JSONObject jsonObject = new JSONObject(sb.toString());
+                        JSONObject jsonObject = new JSONObject(content);
                         if (jsonObject != null) {
-                            if (jsonObject.has("text")) {
-                                return jsonObject.getString("text");
+                            if (jsonObject.has("content")) {
+                                JSONObject contentObj = jsonObject.getJSONObject("content");
+                                if (contentObj.has("text")) {
+                                    return contentObj.getString("text");
+                                }
                             }
                         }
                     }
@@ -544,7 +546,12 @@ public class PostActivity extends BaseActivity {
                 }
                 if (section.has("image_src")) {
                     String imagePath = section.getString("image_src");
-                    adapter.updateImage(i, imagePath, width, height);
+                    if ("yaotouwan".equals(Uri.parse(imagePath).getScheme())) {
+                        String imageUrlString = MyConstants.IMAGE_GET_URL + "/" + Uri.parse(imagePath).getHost();
+                        adapter.updateImage(i, imageUrlString, width, height);
+                    } else {
+                        adapter.updateImage(i, imagePath, width, height);
+                    }
                 }
                 if (section.has("video_src")) {
                     String videoPath = section.getString("video_src");
@@ -1014,8 +1021,12 @@ public class PostActivity extends BaseActivity {
 
                 previewImageView.setBackgroundColor(Color.WHITE);
                 previewImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                previewImageView.setImageWithPath(imagePath,
-                        postItemsListView.getWidth(), scrolling, 0);
+                if ("http".equals(Uri.parse(imagePath).getScheme())) {
+                    UniversalImageLoaderUtil.INSTANCE.load(imagePath, previewImageView);
+                } else {
+                    previewImageView.setImageWithPath(imagePath,
+                            postItemsListView.getWidth(), scrolling, 0);
+                }
                 Point imgSize = getMediaSize(position);
                 if (readonly) {
                     if (imgSize != null) {
@@ -1475,5 +1486,9 @@ public class PostActivity extends BaseActivity {
             if (editingTextRow >= 0)
                 updateText(editingTextRow, s.toString());
         }
+    }
+
+    public interface PostHeader {
+        public void setContent(String content);
     }
 }
