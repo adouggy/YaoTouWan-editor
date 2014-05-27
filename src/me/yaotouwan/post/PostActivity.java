@@ -471,6 +471,18 @@ public class PostActivity extends BaseActivity {
                     HttpResponse response = httpclient.execute(httpGet);
                     if (response != null) {
                         String content = EntityUtils.toString(response.getEntity());
+                        return content;
+                    }
+                } catch (ClientProtocolException e) {
+                } catch (IOException e) {
+                }
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(String content) {
+                try {
+                    if (content != null) {
                         if (headerFragment != null) {
                             ((PostHeader) headerFragment).setContent(content);
                         }
@@ -479,39 +491,31 @@ public class PostActivity extends BaseActivity {
                             if (jsonObject.has("content")) {
                                 JSONObject contentObj = jsonObject.getJSONObject("content");
                                 if (contentObj.has("text")) {
-                                    return contentObj.getString("text");
+                                    String text = contentObj.getString("text");
+                                    try {
+                                        JSONArray sections = new JSONArray(text);
+                                        if (sections != null) {
+                                            loadSections(sections);
+                                        }
+                                    } catch (JSONException e) {
+                                        try {
+                                            JSONObject section = new JSONObject();
+                                            section.put("text", text);
+                                            JSONArray sections = new JSONArray();
+                                            sections.put(section);
+                                            loadSections(sections);
+                                        } catch (JSONException e1) {
+                                            e1.printStackTrace();
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                } catch (ClientProtocolException e) {
-                } catch (IOException e) {
+                    hideProgressDialog();
                 } catch (JSONException e) {
-                }
-                return null;
-            }
 
-            @Override
-            protected void onPostExecute(String text) {
-                if (text != null) {
-                    try {
-                        JSONArray sections = new JSONArray(text);
-                        if (sections != null) {
-                            loadSections(sections);
-                        }
-                    } catch (JSONException e) {
-                        try {
-                            JSONObject section = new JSONObject();
-                            section.put("text", text);
-                            JSONArray sections = new JSONArray();
-                            sections.put(section);
-                            loadSections(sections);
-                        } catch (JSONException e1) {
-                            e1.printStackTrace();
-                        }
-                    }
                 }
-                hideProgressDialog();
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
