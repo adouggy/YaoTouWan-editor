@@ -24,6 +24,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.RelativeLayout;
 import com.actionbarsherlock.app.SherlockActivity;
+import com.actionbarsherlock.app.SherlockFragmentActivity;
 import com.actionbarsherlock.view.*;
 import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuInflater;
@@ -33,7 +34,7 @@ import me.yaotouwan.util.YTWHelper;
 /**
  * Created by jason on 14-3-18.
  */
-public class BaseActivity extends SherlockActivity {
+public class BaseActivity extends SherlockFragmentActivity {
 
     protected int defaultAnimationDuration = 200;
 

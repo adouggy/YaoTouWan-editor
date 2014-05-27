@@ -11,10 +11,11 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.*;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import com.actionbarsherlock.view.MenuItem;
 import me.yaotouwan.R;
 import me.yaotouwan.util.YTWHelper;
 

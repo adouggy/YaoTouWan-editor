@@ -4,17 +4,13 @@ import android.app.ActivityManager;
 import android.content.*;
 import android.database.Cursor;
 import android.graphics.*;
-import android.media.AudioFormat;
-import android.media.AudioRecord;
-import android.media.MediaRecorder;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
 import android.provider.MediaStore;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.LocalBroadcastManager;
 import android.text.*;
-import android.text.format.DateFormat;
 import android.text.method.LinkMovementMethod;
 import android.text.style.*;
 import android.util.Log;
@@ -94,45 +90,45 @@ public class PostActivity extends BaseActivity {
         }
 
         toolbar = (ViewGroup) findViewById(R.id.post_toolbar);
-        if (readonly)
-            hideView(toolbar);
-
         postItemsListView = (DragSortListView) findViewById(R.id.post_items);
         ((DragSortController)postItemsListView.mFloatViewManager).dragModeShadowImage
                 = R.drawable.post_item_drag_mode_bg;
+
         if (readonly) {
+            hideView(toolbar);
             postItemsListView.setDividerHeight(dpToPx(15));
-        }
 
-        View titleContent = getLayoutInflater().inflate(R.layout.post_title, null);
-        postItemsListView.addHeaderView(titleContent);
+            View headerView = getLayoutInflater().inflate(R.layout.read_post_header, getRootViewGroup());
+            View footerView = getLayoutInflater().inflate(R.layout.read_post_footer, getRootViewGroup());
+            postItemsListView.addHeaderView(headerView);
+            postItemsListView.addFooterView(footerView);
 
-        View footer = getLayoutInflater().inflate(R.layout.post_footer, null);
-        postItemsListView.addFooterView(footer);
-        if (readonly) {
-            hideView(R.id.footer_sep);
-            hideView(R.id.footer_sep);
-            showView(R.id.footer_readonly);
+            FragmentTransaction fragmentTransaction =
+                    getSupportFragmentManager().beginTransaction();
+            Fragment headerFragment = null;
+            Fragment footerFragment = null;
+            fragmentTransaction.replace(R.id.read_post_header, headerFragment);
+            fragmentTransaction.replace(R.id.read_post_footer, footerFragment);
+            fragmentTransaction.commit();
         } else {
+            View titleContent = getLayoutInflater().inflate(R.layout.post_title, null);
+            postItemsListView.addHeaderView(titleContent);
+
+            View footer = getLayoutInflater().inflate(R.layout.post_footer, null);
+            postItemsListView.addFooterView(footer);
             showView(R.id.footer_sep);
             showView(R.id.footer_sep);
             hideView(R.id.footer_readonly);
-        }
 
-        titleEditor = (EditText) findViewById(R.id.post_title);
-        titleEditor.setEnabled(!readonly);
-        if (readonly) {
-            titleEditor.setBackgroundColor(Color.WHITE);
-            titleEditor.setSingleLine(false);
-
-            ViewGroup titleGroup = (ViewGroup) findViewById(R.id.post_title_group);
-            titleGroup.setPadding(0, dpToPx(20), 0, dpToPx(20));
-            hideView(R.id.title_seperator1);
-            hideView(R.id.title_seperator2);
-            hideView(R.id.title_seperator3);
-            hideView(R.id.title_seperator4);
-            hideView(R.id.title_seperator5);
-            hideView(R.id.title_seperator6);
+            titleEditor = (EditText) findViewById(R.id.post_title);
+            titleEditor.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                @Override
+                public void onFocusChange(View v, boolean hasFocus) {
+                    if (hasFocus) {
+                        hideView(toolbar);
+                    }
+                }
+            });
         }
 
         adapter = new PostListViewDataSource();
@@ -140,8 +136,10 @@ public class PostActivity extends BaseActivity {
         if (draftUri != null) {
             draftFile = new File(draftUri.getPath());
         }
+
         loadDraft();
-        prepareDraftFile();
+        if (!readonly)
+            prepareDraftFile();
 
         postItemsListView.setAdapter(adapter);
         postItemsListView.setDragSortListener(adapter);
@@ -418,18 +416,20 @@ public class PostActivity extends BaseActivity {
             }
             draftFile = new File(drafsDir, YTWHelper.generateRandomFilename("json"));
         }
-//        String fn = draftFile.getName();
-//        fn = fn.substring(0, fn.length()-5);
-//        draftDir = new File(draftFile.getParent(), fn);
-//        if (!draftDir.exists()) {
-//            draftDir.mkdirs();
-//        }
     }
 
     void loadDraft() {
-        if (draftFile == null) return;
-        try {
+        if (draftFile != null) {
             String JSON = YTWHelper.readTextContent(draftFile.getAbsolutePath());
+            loadDraftFromJSON(JSON);
+        } else if (getIntent().hasExtra("content")) {
+            String JSON = getIntent().getStringExtra("content");
+            loadDraftFromJSON(JSON);
+        }
+    }
+
+    void loadDraftFromJSON(String JSON) {
+        try {
             if (JSON == null) return;
             draft = new JSONObject(JSON);
             if (draft.has("title")) {
