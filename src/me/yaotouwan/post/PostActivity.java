@@ -105,10 +105,21 @@ public class PostActivity extends BaseActivity {
 
             FragmentTransaction fragmentTransaction =
                     getSupportFragmentManager().beginTransaction();
-            Fragment headerFragment = null;
-            Fragment footerFragment = null;
-            fragmentTransaction.replace(R.id.read_post_header, headerFragment);
-            fragmentTransaction.replace(R.id.read_post_footer, footerFragment);
+            String headerFragmentClassName = getIntent()
+                    .getStringExtra("read_post_header_fragment_class_name");
+            String footerFragmentClassName = getIntent()
+                    .getStringExtra("read_post_footer_fragment_class_name");
+            try {
+                Fragment headerFragment =
+                        (Fragment) Class.forName(headerFragmentClassName).newInstance();
+                Fragment footerFragment =
+                        (Fragment) Class.forName(footerFragmentClassName).newInstance();
+                fragmentTransaction.replace(R.id.read_post_header, headerFragment);
+                fragmentTransaction.replace(R.id.read_post_footer, footerFragment);
+            } catch (InstantiationException e) {
+            } catch (IllegalAccessException e) {
+            } catch (ClassNotFoundException e) {
+            }
             fragmentTransaction.commit();
         } else {
             View titleContent = getLayoutInflater().inflate(R.layout.post_title, null);
