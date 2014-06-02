@@ -27,6 +27,8 @@ import ch.boye.httpclientandroidlib.client.methods.HttpUriRequest;
 import ch.boye.httpclientandroidlib.entity.mime.HttpMultipartMode;
 import ch.boye.httpclientandroidlib.entity.mime.MultipartEntityBuilder;
 import ch.boye.httpclientandroidlib.util.EntityUtils;
+import com.actionbarsherlock.view.*;
+import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuItem;
 import com.mobeta.android.dslv.DragSortController;
 import com.mobeta.android.dslv.DragSortListView;
@@ -73,6 +75,7 @@ public class PostActivity extends BaseActivity {
     List<AppPackageHelper.Game> gamesInstalled;
     boolean readonly;
     boolean appendedText;
+    boolean scrollingToEditor;
     String youkuPlayerHTML;
     boolean youkuFullscreen;
     WebView youkuWebView;
@@ -96,7 +99,6 @@ public class PostActivity extends BaseActivity {
 
         setContentView(R.layout.post);
         setupActionBar(R.string.post_title);
-        menuResId = R.menu.post_actions;
 
         Intent intent = getIntent();
         if (intent.hasExtra("readonly")) {
@@ -144,6 +146,7 @@ public class PostActivity extends BaseActivity {
 
             loadPost(postUri);
         } else {
+            menuResId = R.menu.post_actions;
             View titleContent = getLayoutInflater().inflate(R.layout.post_title, null);
             postItemsListView.addHeaderView(titleContent);
 
@@ -264,6 +267,21 @@ public class PostActivity extends BaseActivity {
         }
     }
 
+    @Override
+    protected void onKeyboardShow() {
+        super.onKeyboardShow();
+
+        if (scrollingToEditor && adapter.editingTextRow >= 0) {
+            scrollingToEditor = false;
+            postItemsListView.post(new Runnable() {
+                @Override
+                public void run() {
+                    postItemsListView.setSelection(adapter.editingTextRow + 1);
+                }
+            });
+        }
+    }
+
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
         super.onActivityResult(requestCode, resultCode, data);
@@ -302,7 +320,7 @@ public class PostActivity extends BaseActivity {
                         @Override
                         public void run() {
                             if (adapter.getCount() - count >= 0) {
-                                postItemsListView.setSelection(adapter.getCount() - count);
+                                postItemsListView.smoothScrollToPosition(adapter.getCount() - count + 1);
                             }
                         }
                     });
@@ -324,7 +342,7 @@ public class PostActivity extends BaseActivity {
                         @Override
                         public void run() {
                             if (adapter.getCount() - count >= 0) {
-                                postItemsListView.setSelection(adapter.getCount() - count);
+                                postItemsListView.smoothScrollToPosition(adapter.getCount() - count + 1);
                             }
                         }
                     });
@@ -662,7 +680,7 @@ public class PostActivity extends BaseActivity {
     }
 
     private void uploadMedia() {
-        if (true) return;
+//        if (true) return;
         if (adapter.hasData()) {
             if (isUploadingMedia()) {
                 Intent intent = new Intent("post_media_updated");
@@ -718,13 +736,11 @@ public class PostActivity extends BaseActivity {
 
         if (canAppend()) {
             adapter.appendRow();
-            appendedText = true;
-            adapter.editingTextRow = adapter.getCount() - 1;
-            adapter.notifyDataSetChanged();
-            postItemsListView.setSelection(adapter.getCount() - 1);
-        } else {
-            adapter.doEditTextOnPosition(adapter.getCount() - 1);
         }
+        appendedText = true;
+        adapter.editingTextRow = adapter.getCount() - 1;
+        adapter.notifyDataSetChanged();
+        postItemsListView.smoothScrollToPosition(adapter.editingTextRow + 1);
     }
 
     boolean canAppend() {
@@ -947,7 +963,8 @@ public class PostActivity extends BaseActivity {
         }
 
         boolean hasDataAtRow(int row) {
-            if (!cursor.isNull(row, text_col_idx)) return true;
+            if (!cursor.isNull(row, text_col_idx)
+                    && getText(row).length() > 0) return true;
             if (!cursor.isNull(row, image_path_col_idx)) return true;
             if (!cursor.isNull(row, video_path_col_idx)) return true;
             return false;
@@ -1103,13 +1120,16 @@ public class PostActivity extends BaseActivity {
             if (!readonly) {
                 if (imagePath != null) {
                     textEditor.setHint(R.string.post_image_desc_hint);
+                    textView.setHint(R.string.post_image_desc_hint);
                 } else if (videoPath != null) {
                     textEditor.setHint(R.string.post_video_desc_hint);
+                    textView.setHint(R.string.post_video_desc_hint);
                 } else {
                     if (getCount() == 1) {
                         minLines = 5;
                     }
                     textEditor.setHint(R.string.post_section_hint);
+                    textView.setHint(R.string.post_section_hint);
                 }
             }
             textEditor.setMinLines(minLines);
@@ -1122,6 +1142,7 @@ public class PostActivity extends BaseActivity {
                 if (!isSoftKeyboardShown) {
                     if (appendedText) {
                         appendedText = false;
+                        scrollingToEditor = true;
                         textEditor.post(new Runnable() {
                             @Override
                             public void run() {
@@ -1161,23 +1182,12 @@ public class PostActivity extends BaseActivity {
                     }
                 });
             } else {
-                textView.setTextColor(Color.BLACK);
-                if (getCount() == 1 && text == null) {
-                    textView.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            applyStyle(textView, getString(R.string.post_section_hint), style);
-                            textView.setTextColor(Color.GRAY);
-                        }
-                    });
-                } else {
-                    textView.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            applyStyle(textView, text, style);
-                        }
-                    });
-                }
+                textView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        applyStyle(textView, text, style);
+                    }
+                });
             }
             if (editingTextRow == position) {
                 textEditor.addTextChangedListener(adapter);
@@ -1471,11 +1481,13 @@ public class PostActivity extends BaseActivity {
             }
             editingTextRow = position;
             View rowView = postItemsListView.getItemViewAtRow(position);
-            hideView(rowView.findViewById(R.id.drag_handle));
-            rowView.findViewById(R.id.post_item_text).setEnabled(true);
-            rowView.findViewById(R.id.post_item_text).requestFocus();
-            hideView(toolbar);
-            showSoftKeyboard(true);
+            if (rowView != null) {
+                hideView(rowView.findViewById(R.id.drag_handle));
+                rowView.findViewById(R.id.post_item_text).setEnabled(true);
+                rowView.findViewById(R.id.post_item_text).requestFocus();
+                hideView(toolbar);
+                showSoftKeyboard(true);
+            }
         }
 
         boolean scrolling;
@@ -1545,8 +1557,14 @@ public class PostActivity extends BaseActivity {
 
         @Override
         public void afterTextChanged(Editable s) {
-            if (editingTextRow >= 0)
-                updateText(editingTextRow, s.toString());
+            if (editingTextRow >= 0) {
+                String text = s.toString();
+                if (text != null && text.length() > 0) {
+                    updateText(editingTextRow, s.toString());
+                } else {
+                    updateText(editingTextRow, null);
+                }
+            }
         }
     }
 
