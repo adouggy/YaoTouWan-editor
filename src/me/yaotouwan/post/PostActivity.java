@@ -51,6 +51,7 @@ import org.json.JSONObject;
 import java.io.*;
 import java.util.*;
 
+
 /**
  * Created by jason on 14-3-18.
  */
@@ -900,7 +901,7 @@ public class PostActivity extends BaseActivity {
         }
 
         boolean toggleTextStyle(int pos, int style) {
-            Integer oldStyle = (Integer) cursor.getValue(pos, text_style_col_idx);
+            Integer oldStyle = (Integer) getTextStyle(pos);
             if (oldStyle == style) {
                 cursor.updateRowAtColumn(pos, text_style_col_idx, 0);
                 return false;
@@ -1173,7 +1174,7 @@ public class PostActivity extends BaseActivity {
             }
 
             textEditor.removeTextChangedListener(adapter);
-            final Integer style = (Integer) this.cursor.getValue(position, text_style_col_idx);
+            final Integer style = (Integer) getTextStyle(position);
             if (editingTextRow == position) {
                 textEditor.post(new Runnable() {
                     @Override
@@ -1395,7 +1396,7 @@ public class PostActivity extends BaseActivity {
                 assert italicBtn != null;
                 assert quoteBtn != null;
 
-                Integer style = (Integer) cursor.getValue(position, text_style_col_idx);
+                Integer style = (Integer) getTextStyle(position);
                 headBtn.setSelected(style == TEXT_STYLE_HEAD);
                 boldBtn.setSelected(style == TEXT_STYLE_BOLD);
                 italicBtn.setSelected(style == TEXT_STYLE_ITALIC);
