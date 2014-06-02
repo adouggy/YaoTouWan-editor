@@ -61,15 +61,30 @@
 				android:paddingBottom="20dp"
 				android:paddingLeft="10dp"
 				android:paddingRight="10dp"
-				android:enabled="false"
+				android:enabled="true"
 				android:inputType="textMultiLine"
 				android:isScrollContainer="true"
+				/>
+		<me.yaotouwan.post.ReadText
+				android:id="@+id/post_item_text_readonly"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:textColor="@color/black"
+				android:gravity="top"
+				android:background="@color/white"
+				android:textSize="16sp"
+				android:paddingTop="10dp"
+				android:paddingBottom="20dp"
+				android:paddingLeft="10dp"
+				android:paddingRight="10dp"
+				android:inputType="textMultiLine"
+		        android:enabled="false"
 				/>
 	</LinearLayout>
 
 	<ImageView
 			android:id="@id/drag_handle"
-			android:background="@color/clear"
+			android:background="@null"
 			android:layout_width="match_parent"
 			android:layout_height="match_parent"
 			android:scaleType="fitXY"

@@ -662,7 +662,7 @@ public class PostActivity extends BaseActivity {
     }
 
     private void uploadMedia() {
-//        if (true) return;
+        if (true) return;
         if (adapter.hasData()) {
             if (isUploadingMedia()) {
                 Intent intent = new Intent("post_media_updated");
@@ -894,9 +894,13 @@ public class PostActivity extends BaseActivity {
             }
         }
 
-        void applyStyle(EditText editor, String text, int style) {
+        void applyStyle(View view, String text, int style) {
             if (text == null) {
-                editor.setText(text);
+                if (view instanceof TextView) {
+                    ((TextView) view).setText(text);
+                } else if (view instanceof EditText) {
+                    ((EditText) view).setText(text);
+                }
                 return;
             }
 
@@ -915,9 +919,14 @@ public class PostActivity extends BaseActivity {
                 styledText.setSpan(new QuoteSpan(Color.GRAY), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             }
 
-            editor.setText(styledText);
-            editor.setMovementMethod(LinkMovementMethod.getInstance());
-//            editor.getPaint().setFakeBoldText(true);
+            if (view instanceof TextView) {
+                ((TextView) view).setText(styledText);
+                ((TextView) view).setMovementMethod(LinkMovementMethod.getInstance());
+            } else if (view instanceof EditText) {
+                ((EditText) view).setText(styledText);
+                ((TextView) view).setMovementMethod(LinkMovementMethod.getInstance());
+            }
+
         }
 
         void removeRow(int pos) {
@@ -982,8 +991,9 @@ public class PostActivity extends BaseActivity {
 
         @Override
         public void bindView(final View rowView, Context context, Cursor cursor) {
-            final me.yaotouwan.post.TextEditor textEditor = (me.yaotouwan.post.TextEditor) rowView.findViewById(R.id.post_item_text);
-            textEditor.setEnabled(!readonly);
+            final TextEditor textEditor = (TextEditor) rowView.findViewById(R.id.post_item_text);
+
+            final ReadText textView = (ReadText) rowView.findViewById(R.id.post_item_text_readonly);
 
             final int position = cursor.getPosition();
 
@@ -1016,9 +1026,9 @@ public class PostActivity extends BaseActivity {
                 webView.addJavascriptInterface(new JavaScriptInterface(), "Android");
             }
             if (postItemsListView.editingPosition == position) {
-                textEditor.setBackgroundDrawable(new EditModeBGDrawable(PostActivity.this, 0));
+                textView.setBackgroundDrawable(new EditModeBGDrawable(PostActivity.this, 0));
             } else {
-                textEditor.setBackgroundColor(Color.WHITE);
+                textView.setBackgroundColor(Color.WHITE);
             }
 
             if (imagePath != null) {
@@ -1103,11 +1113,11 @@ public class PostActivity extends BaseActivity {
                 }
             }
             textEditor.setMinLines(minLines);
+            textView.setMinLines(minLines);
 
             if (editingTextRow == position) {
                 hideView(dragHandle);
                 textEditor.setFocuable(true);
-                textEditor.setEnabled(true);
                 textEditor.requestFocus();
                 if (!isSoftKeyboardShown) {
                     if (appendedText) {
@@ -1128,53 +1138,102 @@ public class PostActivity extends BaseActivity {
                 textEditor.setFocuable(false);
             } else {
                 showView(dragHandle);
-                textEditor.setEnabled(false);
-                textEditor.clearFocus();
                 textEditor.removeTextChangedListener(this);
+            }
+            if (editingTextRow == position) {
+                showView(textEditor);
+                hideView(textView);
+            } else {
+                hideView(textEditor);
+                showView(textView);
             }
             if (readonly && previewImageView.getVisibility() == View.GONE) {
                 hideView(dragHandle);
             }
 
             textEditor.removeTextChangedListener(adapter);
-            Integer style = (Integer) this.cursor.getValue(position, text_style_col_idx);
-            applyStyle(textEditor, text, style);
-            if (readonly && (text == null || text.length() == 0)) {
-                hideView(textEditor);
+            final Integer style = (Integer) this.cursor.getValue(position, text_style_col_idx);
+            if (editingTextRow == position) {
+                textEditor.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        applyStyle(textEditor, text, style);
+                    }
+                });
             } else {
-                showView(textEditor);
+                textView.setTextColor(Color.BLACK);
+                if (getCount() == 1 && text == null) {
+                    textView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            applyStyle(textView, getString(R.string.post_section_hint), style);
+                            textView.setTextColor(Color.GRAY);
+                        }
+                    });
+                } else {
+                    textView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            applyStyle(textView, text, style);
+                        }
+                    });
+                }
             }
             if (editingTextRow == position) {
                 textEditor.addTextChangedListener(adapter);
+                if (text != null && text.length() > 0)
+                    textEditor.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            textEditor.setSelection(text.length());
+                        }
+                    });
+                else
+                    textEditor.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            textEditor.setSelection(0);
+                        }
+                    });
+            }
+            if (readonly && (text == null || text.length() == 0)) {
+                hideView(textView);
+            }
+
+            if (readonly && (imagePath != null || videoPath != null)) {
+                textView.setTextSize(14);
+            } else {
+                textView.setTextSize(16);
             }
 
             if (editingTextRow == position) {
-                if (text != null && text.length() > 0)
-                    textEditor.setSelection(text.length());
-                else
-                    textEditor.setSelection(0);
-            }
-            if (readonly && (imagePath != null || videoPath != null)) {
-                textEditor.setTextSize(14);
-            } else {
-                textEditor.setTextSize(16);
-            }
-
-            textEditor.post(new Runnable() {
-                @Override
-                public void run() {
-                    if (textEditor.getMeasuredHeight() > 0
-                            && dragHandle.getVisibility() != View.GONE) {
-                        setViewHeight(dragHandle, textEditor.getMeasuredHeight());
+                textEditor.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (textEditor.getMeasuredHeight() > 0
+                                && dragHandle.getVisibility() != View.GONE) {
+                            setViewHeight(dragHandle, textEditor.getMeasuredHeight());
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                textView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (textView.getMeasuredHeight() > 0
+                                && dragHandle.getVisibility() != View.GONE) {
+                            setViewHeight(dragHandle, textView.getMeasuredHeight());
+                        }
+                    }
+                });
+            }
 
             if (readonly) {
                 previewGroup.setPadding(0, 0, 0, 0);
                 previewImageView.setPadding(0, 0, 0, 0);
                 webView.setPadding(0, 0, 0, 0);
                 textEditor.setPadding(0, 0, 0, 0);
+                textView.setPadding(0, 0, 0, 0);
             }
         }
 
@@ -1184,9 +1243,9 @@ public class PostActivity extends BaseActivity {
                 for (int i=0; i<postItemsListView.getChildCount(); i++) {
                     View rowView = postItemsListView.getChildAt(i);
                     if (rowView != null) {
-                        View textEditor = rowView.findViewById(R.id.post_item_text);
-                        if (textEditor != null) {
-                            textEditor.setBackgroundColor(Color.WHITE);
+                        View textView = rowView.findViewById(R.id.post_item_text_readonly);
+                        if (textView != null) {
+                            textView.setBackgroundColor(Color.WHITE);
                         }
                     }
                 }
