@@ -58,6 +58,33 @@ int fb_pix_fmt(FBInfo *fb) {
         } else if (fb_bpp(fb) == 4) {
             pix_fmt = PIX_FMT_BGRA;
         }
+//        int ao = fb->alpha_offset;
+//        int ro = fb->red_offset;
+//        int go = fb->green_offset;
+//        int bo = fb->blue_offset;
+//        if (fb_bpp(fb) == 2)
+//            return PIX_FMT_RGB565;
+//        if (fb_bpp(fb) == 3)
+//            return PIX_FMT_RGB24;
+//
+//        /* TODO: validate */
+//        if (ao == 0 && ro == 8)
+//            pix_fmt = PIX_FMT_ARGB;
+//
+//        if (ao == 0 && ro == 24 && go == 16 && bo == 8)
+//            pix_fmt = PIX_FMT_RGBA;
+//
+//        if (ao == 0 && bo == 8)
+//            pix_fmt = PIX_FMT_ABGR;
+//
+//        if (ro == 0)
+//            pix_fmt = PIX_FMT_RGBA;
+//
+//        if (bo == 0)
+//            pix_fmt = PIX_FMT_BGRA;
+//
+//        /* fallback */
+//        return PIX_FMT_ABGR;
     }
 	return pix_fmt;
 }

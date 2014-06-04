@@ -26,7 +26,6 @@ public class SRecorderService extends Service {
 	public static final String TAG = "SRecorderService";
 
     private int mAudioBufferSize;
-    private int mAudioBufferSampleSize;
     AudioRecord mAudioRecord;
     private byte[] audioBuffer;
     private int audioSamplesRead;
@@ -124,9 +123,49 @@ public class SRecorderService extends Service {
         logd("kill ss with pid " + pid);
         pid = 0;
     }
+
+    private void stopQihoo() {
+        BufferedReader pbr = null;
+        try {
+            Process p = Runtime.getRuntime().exec("su -c ps");
+            pbr = StreamHelper.reader(p.getInputStream());
+            while (pbr.ready()) {
+                String line = pbr.readLine();
+                if (line == null) return;
+                logd(line);
+                if (line.contains("com.qihoo")) {
+                    String[] parts = line.split("\\s+");
+                    if (parts.length > 1) {
+                        String pidStr = parts[1];
+                        try {
+                            int aPid = Integer.parseInt(pidStr);
+                            stopBuildinRecorder("su -c \"kill -9 " + aPid + " \"");
+                            logd("stop qihoo with pid " + aPid);
+                        } catch (NumberFormatException e) {
+                        }
+                    }
+                }
+            }
+            logd("read ps end");
+            p.waitFor();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (pbr != null) {
+                try {
+                    pbr.close();
+                } catch (IOException e) {
+                }
+            }
+        }
+    }
     
 	public void startRecordingScreen() {
         logd("start recording screen");
+
+        // stop qihoo first
+        stopQihoo();
+
         if (YTWHelper.hasBuildinScreenRecorder()) {
             startBuildinRecorder();
             startAudioRecorder(false);
@@ -147,13 +186,16 @@ public class SRecorderService extends Service {
 
     boolean doInitAudioRecorder(final boolean recordVideo) {
         int sampleRate = 44100 / 2;
-        int channelConfig = AudioFormat.CHANNEL_IN_MONO;
+        int channelConfig = AudioFormat.CHANNEL_CONFIGURATION_MONO;
         int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-        mAudioBufferSampleSize = sampleRate / 7;
-        mAudioBufferSize = mAudioBufferSampleSize * 2;
+        mAudioBufferSize = sampleRate / 7 * 2;
+        int bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+        if (bufferSize <= mAudioBufferSize) {
+            bufferSize = mAudioBufferSize;
+        }
         if (mAudioRecord == null)
             mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
-                    sampleRate, channelConfig, audioFormat, mAudioBufferSize);
+                    sampleRate, channelConfig, audioFormat, bufferSize);
 
         audioBuffer = new byte[mAudioBufferSize];
         return true;
@@ -161,6 +203,7 @@ public class SRecorderService extends Service {
 
     boolean doStartAudioRecorder(boolean recordVideo) {
         mAudioRecord.startRecording();
+        logd("start audio recorder... done");
         if (mAudioRecord.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) {
             mAudioRecord.stop();
             mAudioRecord = null;
@@ -169,8 +212,10 @@ public class SRecorderService extends Service {
         new AsyncTask<Void, Integer, Boolean>() {
             @Override
             protected Boolean doInBackground(Void[] params) {
+                logd("start read audio samples");
                 while (mAudioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
                     audioSamplesRead = mAudioRecord.read(audioBuffer, 0, mAudioBufferSize);
+                    logd("read audio samples " + audioSamplesRead);
                     publishProgress(1);
                 }
                 return true;
@@ -184,6 +229,7 @@ public class SRecorderService extends Service {
                 int currentVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC);
                 int maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
                 float audioGain = maxVolume * 0.95f / currentVolume;
+                logd("encode frame");
                 encodeFrame(audioBuffer, audioSamplesRead, audioGain);
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);

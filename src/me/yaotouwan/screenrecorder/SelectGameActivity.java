@@ -360,7 +360,7 @@ public class SelectGameActivity extends BaseActivity
 
     public void startGame() {
         isWaitingForStartRecorder = true;
-        if (packetName == null) {
+        if (packetName == null || packetName.length() == 0) {
             moveTaskToBack(true);
         } else {
             Intent gameIntent = getPackageManager()

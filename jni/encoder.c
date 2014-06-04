@@ -234,75 +234,73 @@ void write_video_frame(AVFormatContext *oc, AVStream *st, int flush)
     if (!flush) {
         if (fb_open(&fb) == 0) {
             if (sws_ctx == NULL) {
-                if (rotation == 0 || rotation == 2) {
-                    sws_ctx = sws_getContext(fb_width(&fb), fb_height(&fb),
-                                             fb_pix_fmt(&fb),
-                                             c->width, c->height,
-                                             c->pix_fmt,
-                                             SWS_POINT, NULL, NULL, NULL);
-                } else if (rotation == 1 || rotation == 3) {
-                    sws_ctx = sws_getContext(fb_height(&fb), fb_width(&fb),
-                                             fb_pix_fmt(&fb),
-                                             c->width, c->height,
-                                             c->pix_fmt,
-                                             SWS_POINT, NULL, NULL, NULL);
-                }
+                sws_ctx = sws_getContext(fb_width(&fb), fb_height(&fb),
+                                                         fb_pix_fmt(&fb),
+                                                         c->width, c->height,
+                                                         c->pix_fmt,
+                                                         SWS_POINT, NULL, NULL, NULL);
                 if (sws_ctx == NULL) {
                     LOGE("Cannot initialize the conversion context\n");
                     return;
                 }
+                LOGE("fb->vi.xres = %u", fb.vi.xres);
+                LOGE("fb->vi.yres = %u", fb.vi.yres);
+                LOGE("fb->vi.xres_virtual = %u", fb.vi.xres_virtual);
+                LOGE("fb->vi.yres_virtual = %u", fb.vi.yres_virtual);
+                LOGE("fb->vi.xoffset = %u", fb.vi.xoffset);
+                LOGE("fb->vi.yoffset = %u", fb.vi.yoffset);
+                LOGE("fb->vi.bits_per_pixel = %u", fb.vi.bits_per_pixel);
+                LOGE("fb->vi.grayscale = %u", fb.vi.grayscale);
+
+                LOGE("fb->vi.pixclock = %u", fb.vi.pixclock);
+                LOGE("fb->vi.left_margin = %u", fb.vi.left_margin);
+                LOGE("fb->vi.right_margin = %u", fb.vi.right_margin);
+                LOGE("fb->vi.upper_margin = %u", fb.vi.upper_margin);
+                LOGE("fb->vi.lower_margin = %u", fb.vi.lower_margin);
+                LOGE("fb->vi.hsync_len = %u", fb.vi.hsync_len);
+                LOGE("fb->vi.vsync_len = %u", fb.vi.vsync_len);
+                LOGE("fb->vi.sync = %u", fb.vi.sync);
+                LOGE("fb->vi.vmode = %u", fb.vi.vmode);
+                LOGE("fb->vi.rotate = %u", fb.vi.rotate);
+
+                LOGE("fb->fi.smem_len = %u", fb.fi.smem_len);
+                LOGE("fb->fi.type = %u", fb.fi.type);
+                LOGE("fb->fi.type_aux = %u", fb.fi.type_aux);
+                LOGE("fb->fi.visual = %u", fb.fi.visual);
+                LOGE("fb->fi.xpanstep = %u", fb.fi.xpanstep);
+                LOGE("fb->fi.ypanstep = %u", fb.fi.ypanstep);
+                LOGE("fb->fi.ywrapstep = %u", fb.fi.ywrapstep);
+                LOGE("fb->fi.line_length = %u", fb.fi.line_length);
+                LOGE("fb->fi.mmio_start = %lu", fb.fi.mmio_start);
+                LOGE("fb->fi.mmio_len = %u", fb.fi.mmio_len);
+                LOGE("fb->fi.accel = %u", fb.fi.accel);
             }
             
-            // assume fb_bpp == 4
             const uint8_t *inData[1];
 
             static uint32_t *bits = NULL;
-            int n = 0;
-            if (rotation) {
+            int linesize = fb.fi.line_length;
+            if (linesize > fb_width(&fb) * fb_bpp(&fb)) {
+                int diffHeight = ceilf((linesize / fb_bpp(&fb) - fb_width(&fb)) * fb_height(&fb) / fb_width(&fb));
+                int n = 0;
                 if (bits == NULL) {
                     bits = (uint32_t *)malloc(fb_size(&fb));
                 }
-            }
-            if (rotation == 0) {
-                inData[0] = fb.bits;
-            } else if (rotation == 1) {
                 int x = 0;
-                for (; x < fb_width(&fb); x ++) {
-                    int y = fb_height(&fb) - 1;
-                    for (; y >= 0; y --) {
-                        bits[n++] = ((uint32_t *)fb.bits)[y * fb_width(&fb) + x];
-                    }
-                }
-                inData[0] = (uint8_t *)bits;
-            } else if (rotation == 2) {
-                int x = fb_width(&fb) * fb_height(&fb) - 1;
-                for (; x >= 0; x --) {
-                    bits[n++] = ((uint32_t *)fb.bits)[x];
-                }
-                inData[0] = (uint8_t *)bits;
-            } else if (rotation == 3) {
-                int x = fb_width(&fb) - 1;
-                for (; x >= 0; x --) {
+                for (; x < fb_height(&fb) - diffHeight; x ++) {
                     int y = 0;
-                    for (; y < fb_height(&fb); y ++) {
-                        bits[n++] = ((uint32_t *)fb.bits)[y * fb_width(&fb) + x];
+                    for (; y < fb_width(&fb); y ++) {
+                        bits[n++] = ((uint32_t *)fb.bits)[x * fb.fi.line_length/fb_bpp(&fb) + y];
                     }
                 }
                 inData[0] = (uint8_t *)bits;
+            } else {
+                inData[0] = fb.bits;
             }
-            
+
             int inLinesize[1];
-            if (rotation == 0 || rotation == 2) {
-                inLinesize[0] = fb_bpp(&fb) * fb_width(&fb);
-            } else if (rotation == 1 || rotation == 3) {
-                inLinesize[0] = fb_bpp(&fb) * fb_height(&fb);
-            }
-            int height = 0;
-            if (rotation == 0 || rotation == 2) {
-                height = fb_height(&fb);
-            } else if (rotation == 1 || rotation == 3) {
-                height = fb_width(&fb);
-            }
+            inLinesize[0] = fb_bpp(&fb) * fb_width(&fb);
+            int height = fb_height(&fb);
             sws_scale(sws_ctx,
                       inData,
                       inLinesize,
