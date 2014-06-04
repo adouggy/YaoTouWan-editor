@@ -162,14 +162,6 @@ public class PostActivity extends BaseActivity {
             hideView(R.id.footer_readonly);
 
             titleEditor = (EditText) findViewById(R.id.post_title);
-            titleEditor.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-                @Override
-                public void onFocusChange(View v, boolean hasFocus) {
-                    if (hasFocus) {
-                        hideView(toolbar);
-                    }
-                }
-            });
 
             if (postUri != null) {
                 draftFile = new File(postUri.getPath());
@@ -261,9 +253,8 @@ public class PostActivity extends BaseActivity {
         titleEditor.clearFocus();
         if (adapter.editingTextRow >= 0) {
             adapter.editingTextRow = -1;
+            adapter.notifyDataSetChanged();
         }
-        if (!readonly)
-            showView(toolbar);
 
         if (finishButtonClicked) {
             onFinishClick(null);
@@ -275,6 +266,10 @@ public class PostActivity extends BaseActivity {
     @Override
     protected void onKeyboardShow() {
         super.onKeyboardShow();
+
+        if (adapter.editingTextRow >= 0) {
+            adapter.notifyDataSetChanged();
+        }
 
         if (scrollingToEditor && adapter.editingTextRow >= 0) {
             scrollingToEditor = false;
@@ -576,12 +571,7 @@ public class PostActivity extends BaseActivity {
                 }
                 if (section.has("image_src")) {
                     String imagePath = section.getString("image_src");
-                    if ("yaotouwan".equals(Uri.parse(imagePath).getScheme())) {
-                        String imageUrlString = MyConstants.IMAGE_GET_URL + "/" + Uri.parse(imagePath).getHost();
-                        adapter.updateImage(i, imageUrlString, width, height);
-                    } else {
-                        adapter.updateImage(i, imagePath, width, height);
-                    }
+                    adapter.updateImage(i, imagePath, width, height);
                 }
                 if (section.has("video_src")) {
                     String videoPath = section.getString("video_src");
@@ -630,7 +620,7 @@ public class PostActivity extends BaseActivity {
     }
 
     // read file as json string, used for sending to api, stored in db.
-    // image url will be online image url, like http://yaotouwan.me/image/<image_id>
+    // image url will be online image url, like yaotouwan://<image_id>
     // video url will be youku video id, like youku://<video_id>
     public static String readPostContentForSend(Uri postJSONFileUri) {
         try {
@@ -671,6 +661,12 @@ public class PostActivity extends BaseActivity {
     }
 
     public void onFinishClick(MenuItem menuItem) {
+        if (titleEditor.getVisibility() == View.VISIBLE
+                && titleEditor.getText() == null || titleEditor.getText().length() <= 0) {
+            Toast.makeText(this, R.string.post_title_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+
         if (!finishButtonClicked && isSoftKeyboardShown) {
             hideSoftKeyboard();
             finishButtonClicked = true;
@@ -1272,10 +1268,9 @@ public class PostActivity extends BaseActivity {
                 postItemsListView.editMode = false;
                 editTargetView = null;
             }
-
             draggingRow = position;
-
             setToolbarDeleteMode(true);
+            hideSoftKeyboard();
         }
 
         @Override
@@ -1488,9 +1483,14 @@ public class PostActivity extends BaseActivity {
             View rowView = postItemsListView.getItemViewAtRow(position);
             if (rowView != null) {
                 hideView(rowView.findViewById(R.id.drag_handle));
-                rowView.findViewById(R.id.post_item_text).setEnabled(true);
-                rowView.findViewById(R.id.post_item_text).requestFocus();
-                hideView(toolbar);
+                TextEditor textEditor = (TextEditor) rowView.findViewById(R.id.post_item_text);
+                showView(textEditor);
+                textEditor.setEnabled(true);
+                textEditor.requestFocus();
+                if (textEditor.getText() != null) {
+                    textEditor.setSelection(textEditor.getText().toString().length());
+                }
+                hideView(rowView.findViewById(R.id.post_item_text_readonly));
                 showSoftKeyboard(true);
             }
         }

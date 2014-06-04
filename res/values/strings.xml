@@ -89,6 +89,7 @@
 	<string name="post_editor_preview_desc">预览</string>
 	<string name="post_editor_action_done">完成</string>
 	<string name="post_editor_action_save">保存</string>
+	<string name="post_title_required">标题不能为空</string>
 
 	<string name="photo_album_title">照片</string>
 	<string name="select_photo_title">选照片</string>

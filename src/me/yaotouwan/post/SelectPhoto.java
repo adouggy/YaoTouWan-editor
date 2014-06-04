@@ -74,7 +74,7 @@ public class SelectPhoto extends BaseActivity {
                     while ((path = reader.readLine()) != null) {
                         photos.add(path);
                     }
-                    Collections.reverse(photos);
+//                    Collections.reverse(photos);
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 } catch (IOException e) {
@@ -182,7 +182,7 @@ public class SelectPhoto extends BaseActivity {
                         MediaStore.Video.Thumbnails.MINI_KIND, false, 0);
                 showView(rowView.findViewById(R.id.video_flag));
             } else {
-                previewImageButton.setImageWithPath(path, thumbnailSize, true, 0);
+                previewImageButton.setImageWithPath(path, thumbnailSize, true, 200);
                 hideView(rowView.findViewById(R.id.video_flag));
             }
             previewImageCover.setOnTouchListener(new View.OnTouchListener() {
