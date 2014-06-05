@@ -75,13 +75,15 @@ public class ReadPostActivity extends BaseActivity {
 
         postItemsListView = (ListView) findViewById(R.id.post_items);
         adapter = new PostListViewDataSource();
-        postItemsListView.setAdapter(adapter);
-        postItemsListView.setOnScrollListener(adapter);
+      
 
         View headerView = getLayoutInflater().inflate(R.layout.read_post_header, null);
         View footerView = getLayoutInflater().inflate(R.layout.read_post_footer, null);
         postItemsListView.addHeaderView(headerView);
         postItemsListView.addFooterView(footerView);
+        
+        postItemsListView.setAdapter(adapter);
+        postItemsListView.setOnScrollListener(adapter);
 
 //        FragmentTransaction fragmentTransaction =
 //                getSupportFragmentManager().beginTransaction();
