@@ -67,12 +67,13 @@ jint Java_me_yaotouwan_screenrecorder_SRecorderService_initRecorder
  jstring filename_jni,
  jint rotation,
  jint video_bit_rate,
+ jint video_fps,
  jboolean record_video_jni
 )
 {
     const jbyte *filename = (*env)->GetStringUTFChars(env, filename_jni, NULL);
 
-    return encoder_init_recorder(filename, rotation, video_bit_rate, record_video_jni ? 1 : 0);
+    return encoder_init_recorder(filename, rotation, video_bit_rate, video_fps, record_video_jni ? 1 : 0);
 }
 
 jint Java_me_yaotouwan_screenrecorder_SRecorderService_encodeFrame

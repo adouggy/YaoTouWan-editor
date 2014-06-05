@@ -96,6 +96,9 @@ public class AppPackageHelper {
                     if (response != null) {
                         String responseContent = EntityUtils.toString(response.getEntity());
                         JSONArray jsonArray = new JSONArray(responseContent);
+                        JSONObject jo = new JSONObject();
+                        jo.put("url", "http://www.appchina.com/app/vo.threes.exclaim/");
+                        jsonArray.put(jo);
                         List<Game> games = new ArrayList<Game>(jsonArray.length()+1);
                         for (int i = 0; i < jsonArray.length(); i++) {
                             JSONObject jobj = jsonArray.getJSONObject(i);

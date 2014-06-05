@@ -31,8 +31,6 @@ import java.util.List;
 public class SelectGameActivity extends BaseActivity
         implements ScreenRecorder.ScreenRecorderListener {
 
-    ProgressDialog mProgressDialog;
-
     private static final int INTENT_REQUEST_CODE_RECORD_SCREEN = 1;
     private static final int INTENT_REQUEST_CODE_CUT_VIDEO = 2;
 
@@ -69,8 +67,36 @@ public class SelectGameActivity extends BaseActivity
 
         draftUri = getIntent().getData();
         screenRecorder = new ScreenRecorder(this, this);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        logd("onStart");
         screenRecorder.videoPath = YTWHelper
                 .prepareFilePathForVideoSaveWithDraftUri(draftUri);
+        // try to stop recorder
+        if (!YTWHelper.hasBuildinScreenRecorder()) {
+            if (screenRecorder.stop()) {
+                showProgressDialog(R.string.stopping_screen_recorder);
+                if (preLoadGames != null) {
+                    gamesInstalled = preLoadGames;
+                    reloadData();
+                    preLoadGames = null;
+                }
+                new Handler(getMainLooper()).postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mProgressDialog != null && mProgressDialog.isShowing()) {
+                            logd("force stop recorder");
+                            onStoppedScreenRecorder();
+                        }
+                    }
+                }, 3000);
+                return;
+            }
+        }
 
         if (preLoadGames != null) {
             gamesInstalled = preLoadGames;
@@ -312,15 +338,6 @@ public class SelectGameActivity extends BaseActivity
     }
 
     @Override
-    protected void onRestart() {
-        super.onRestart();
-
-        if (!YTWHelper.hasBuildinScreenRecorder()) {
-            screenRecorder.stop();
-        }
-    }
-
-    @Override
     protected void onDestroy() {
         super.onDestroy();
 
@@ -380,6 +397,7 @@ public class SelectGameActivity extends BaseActivity
     }
 
     public void onStoppedScreenRecorder() {
+        hideProgressDialog();
         startActivityForResult(new Intent(this, EditVideoActivity.class)
                         .setData(Uri.parse(screenRecorder.videoPath))
                         .putExtra("draft_path", draftUri.getPath())

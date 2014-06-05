@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.provider.Settings;
+import android.util.Log;
 import me.yaotouwan.R;
 import me.yaotouwan.util.YTWHelper;
 
@@ -60,7 +61,7 @@ public class ScreenRecorder {
 
     public int getVideoBitrateByQuality(int videoQuality) {
         if (videoQuality == 0) {
-            return 800000;
+            return 400000;
         } else if (videoQuality == 1) {
             return 800000;
         } else if (videoQuality == -1) {
@@ -73,12 +74,6 @@ public class ScreenRecorder {
         if (YTWHelper.isLowMemory(context)) {
             YTWHelper.alert(context,
                     context.getString(R.string.low_memory_alert_for_recording_screen));
-            return;
-        }
-
-        if (!YTWHelper.hasBuildinScreenRecorder() && !YTWHelper.checkFBPermission()) {
-            YTWHelper.alert(context,
-                    context.getString(R.string.root_permission_needed));
             return;
         }
 
@@ -114,11 +109,15 @@ public class ScreenRecorder {
         context.startService(recordIntent);
     }
 
-    public void stop() {
+    public boolean stop() {
+        Log.d("Recorder", "recorder stop");
         if (isRecordingServiceRunning()) {
+            Log.d("Recorder", "stop service");
             Intent recordIntent = new Intent(context, SRecorderService.class);
             context.stopService(recordIntent);
+            return true;
         }
+        return false;
     }
 
     private void waitForRecordingServiceStop() {

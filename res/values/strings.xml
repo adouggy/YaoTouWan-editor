@@ -97,6 +97,7 @@
 	<string name="video_album_title">视频</string>
 	<string name="select_video_title">选视频</string>
 	<string name="please_wait">请稍后…</string>
+	<string name="stopping_screen_recorder">正在完成录制游戏…</string>
 
 
 	<string name="action_settings">Settings</string>

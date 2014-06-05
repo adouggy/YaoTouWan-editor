@@ -62,7 +62,7 @@ int write_frame(AVFormatContext *fmt_ctx, const AVRational *time_base, AVStream 
     pkt->dts = av_rescale_q_rnd(pkt->dts, *time_base, st->time_base, AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX);
     pkt->duration = av_rescale_q(pkt->duration, *time_base, st->time_base);
     pkt->stream_index = st->index;
-    
+
     return av_interleaved_write_frame(fmt_ctx, pkt);
 }
 
@@ -172,13 +172,13 @@ void write_audio_frame(AVFormatContext *oc, AVStream *st, int flush, uint8_t *au
                                  audio_samples, audio_samples_count*2, 0);
         samples_count += audio_samples_count;
     }
-    
+
     ret = avcodec_encode_audio2(c, &pkt, flush ? NULL : audio_frame, &got_packet);
     if (ret < 0) {
         LOGE("Error encoding audio frame: %s\n", av_err2str(ret));
         exit(1);
     }
-    
+
     if (!got_packet) {
         return;
     }
@@ -282,16 +282,14 @@ void write_video_frame(AVFormatContext *oc, AVStream *st, int flush)
             int linesize = fb.fi.line_length;
             if (linesize > fb_width(&fb) * fb_bpp(&fb)) {
                 int diffHeight = ceilf((linesize / fb_bpp(&fb) - fb_width(&fb)) * fb_height(&fb) / fb_width(&fb));
-                int n = 0;
                 if (bits == NULL) {
                     bits = (uint32_t *)malloc(fb_size(&fb));
                 }
-                int x = 0;
-                for (; x < fb_height(&fb) - diffHeight; x ++) {
-                    int y = 0;
-                    for (; y < fb_width(&fb); y ++) {
-                        bits[n++] = ((uint32_t *)fb.bits)[x * fb.fi.line_length/fb_bpp(&fb) + y];
-                    }
+                int line = 0;
+                for (; line < fb_height(&fb) - diffHeight; line ++) {
+                    memcpy(bits + line * fb_width(&fb),
+                           fb.bits + line * fb.fi.line_length,
+                           fb_width(&fb) * sizeof(uint32_t));
                 }
                 inData[0] = (uint8_t *)bits;
             } else {
@@ -342,13 +340,15 @@ void close_video(AVFormatContext *oc, AVStream *st)
     av_frame_free(&video_frame);
 }
 
-int encoder_init_recorder(const char *filename, int rotation_, int video_bit_rate_, int record_video)
+int encoder_init_recorder(const char *filename, int rotation_, int video_bit_rate_, int video_fps, int record_video)
 {
     recording = 1;
     rotation = rotation_;
     video_bit_rate = video_bit_rate_;
+    video_frame_rate = video_fps;
     av_register_all();
-    
+    LOGE("record_video = %d", record_video);
+
     avformat_alloc_output_context2(&oc, NULL, NULL, filename);
     if (!oc)
         return 1;
@@ -395,25 +395,35 @@ int encoder_encode_frame
     float audio_gain
 )
 {
+    LOGE("0");
     if (recording) {
+        LOGE("1");
         int frame_size = audio_st->codec->frame_size;
         if (audio_samples_local_buffer == NULL) {
             audio_samples_local_buffer = (int16_t *)malloc(frame_size * sizeof(int16_t) * 2);
         }
+        LOGE("2");
 
         int i = 0;
         if (audio_samples_local_buffer_length > 0) {
+        LOGE("21");
             memcpy(audio_samples_local_buffer + audio_samples_local_buffer_length,
                    audio_samples,
                    (frame_size - audio_samples_local_buffer_length) * 2);
+        LOGE("22");
             write_audio_frame(oc, audio_st, flush, (uint8_t *)audio_samples_local_buffer, frame_size, audio_gain);
+        LOGE("23");
             i = frame_size - audio_samples_local_buffer_length;
+        LOGE("24");
             audio_samples_local_buffer_length = 0;
+        LOGE("25");
         }
+        LOGE("3");
 
         for (; i <= audio_samples_count - frame_size; i += frame_size) {
             write_audio_frame(oc, audio_st, flush, audio_samples + i*2, frame_size, audio_gain);
         }
+        LOGE("4");
         if (i < audio_samples_count) {
             int buffer_left = audio_samples_count - i;
             memcpy(audio_samples_local_buffer + audio_samples_local_buffer_length, audio_samples + i * 2, buffer_left * 2);
@@ -427,10 +437,12 @@ int encoder_encode_frame
                 audio_samples_local_buffer_length -= frame_size;
             }
         }
+        LOGE("5");
         if (video_st) {
             write_video_frame(oc, video_st, flush);
         }
     }
+    LOGE("6");
     return recording;
 }
 

@@ -98,7 +98,8 @@ public class BaseActivity extends SherlockFragmentActivity {
     }
 
     public void logd(String msg) {
-        Log.d("Yaotouwan_" + this.getLocalClassName().toString(), msg);
+        String [] strs = this.getLocalClassName().split("\\.");
+        Log.d("Yaotouwan_" + strs[strs.length-1], msg);
     }
 
     public void loge(String msg) {
@@ -583,8 +584,11 @@ public class BaseActivity extends SherlockFragmentActivity {
     protected void showProgressDialog() {
         mProgressDialog = ProgressDialog.show(this, null, "", true);
     }
-    protected void showProgressDialog(int title, int message) {
-        mProgressDialog = ProgressDialog.show(this, getString(title), getString(message), true);
+    protected void showProgressDialog(int message) {
+        mProgressDialog = new ProgressDialog(this);
+        mProgressDialog.setMessage(getString(message));
+        mProgressDialog.setCancelable(false);
+        mProgressDialog.show();
     }
     protected void hideProgressDialog() {
         if (mProgressDialog != null && mProgressDialog.isShowing()) {

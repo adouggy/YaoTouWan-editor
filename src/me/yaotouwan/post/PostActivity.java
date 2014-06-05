@@ -46,6 +46,7 @@ import me.yaotouwan.screenrecorder.YoukuUploader;
 import me.yaotouwan.uicommon.ActionSheet;
 import me.yaotouwan.uicommon.ActionSheetItem;
 import me.yaotouwan.util.AppPackageHelper;
+import me.yaotouwan.util.StreamHelper;
 import me.yaotouwan.util.YTWHelper;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -182,6 +183,41 @@ public class PostActivity extends BaseActivity {
         listenKeyboard();
 
         preloadGameList();
+    }
+
+    private void stopQihoo() {
+        BufferedReader pbr = null;
+        try {
+            Process p = Runtime.getRuntime().exec("ps");
+            pbr = StreamHelper.reader(p.getInputStream());
+            while (pbr.ready()) {
+                String line = pbr.readLine();
+                if (line == null) return;
+                logd(line);
+                if (line.contains("com.qihoo")) {
+                    String[] parts = line.split("\\s+");
+                    if (parts.length > 1) {
+                        String pidStr = parts[1];
+                        try {
+                            int aPid = Integer.parseInt(pidStr);
+                            YTWHelper.runRootCommand("kill -9 " + aPid);
+                        } catch (NumberFormatException e) {
+                        }
+                    }
+                }
+            }
+            logd("read ps end");
+            p.waitFor();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (pbr != null) {
+                try {
+                    pbr.close();
+                } catch (IOException e) {
+                }
+            }
+        }
     }
 
     @Override
@@ -636,20 +672,22 @@ public class PostActivity extends BaseActivity {
                 if (section.has("image_src")) {
                     String imagePath = section.getString("image_src");
                     String imagePathHash = YTWHelper.md5(imagePath);
-                    if (!urlMap.has(imagePathHash)) {
+                    if (urlMap.has(imagePathHash)) {
                         Log.d("Post", "post image not sent");
-                        return null;
+                        section.put("image_src", urlMap.get(imagePathHash));
+                    } else {
+                        section.put("image_src", imagePath);
                     }
-                    section.put("image_src", urlMap.get(imagePathHash));
                 }
                 if (section.has("video_src")) {
                     String videoPath = section.getString("video_src");
                     String videoPathHash = YTWHelper.md5(videoPath);
-                    if (!urlMap.has(videoPathHash)) {
+                    if (urlMap.has(videoPathHash)) {
                         Log.d("Post", "post video not sent");
-                        return null;
+                        section.put("video_src", urlMap.get(videoPathHash));
+                    } else {
+                        section.put("video_src", videoPath);
                     }
-                    section.put("video_src", urlMap.get(videoPathHash));
                 }
             }
             post.remove("url_map");
@@ -761,10 +799,11 @@ public class PostActivity extends BaseActivity {
                 new ActionSheetItem.ActionSheetItemOnClickListener() {
                     @Override
                     public void onClick() {
-                        if (!Root.isDeviceRooted()) {
+                        if (!YTWHelper.isFBCanRW() && !YTWHelper.chmodFB()) {
                             Toast.makeText(PostActivity.this, R.string.root_permission_needed, Toast.LENGTH_LONG).show();
                             return;
                         }
+//                        stopQihoo();
                         SelectGameActivity.preLoadGames = gamesInstalled;
                         Intent intent = new Intent(PostActivity.this, SelectGameActivity.class);
                         intent.setData(Uri.parse(draftFile.getAbsolutePath()));

@@ -8,7 +8,7 @@ import java.io.InputStream;
 public class Root {
     
     public static boolean isDeviceRooted() {
-        return checkRootMethod1() || checkRootMethod2() || checkRootMethod3() || new ShellCommand().canSU();
+        return new ShellCommand().canSU();
     }
     
     public static boolean checkRootMethod1() {

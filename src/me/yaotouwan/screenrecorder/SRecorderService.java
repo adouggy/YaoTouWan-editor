@@ -20,6 +20,8 @@ import me.yaotouwan.util.StreamHelper;
 import me.yaotouwan.util.YTWHelper;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SRecorderService extends Service {
 
@@ -27,10 +29,15 @@ public class SRecorderService extends Service {
 
     private int mAudioBufferSize;
     AudioRecord mAudioRecord;
-    private byte[] audioBuffer;
+    private List<byte[]> audioBuffers;
+    private int audioBufferWriteOffset;
+    private int audioBufferReadOffset;
     private int audioSamplesRead;
     String videoPath;
     int videoWidth, videoHeight, videoBitrate;
+    boolean isRecording;
+    boolean isEncoding;
+    private int videoFPS = 7;
 
     public static final String ACTION_SCREEN_RECORDER_STARTED
             = "me.yaotouwan.screenrecorder.action.started";
@@ -40,7 +47,7 @@ public class SRecorderService extends Service {
     // parameters for video
     boolean videoLandscape;
 
-	private native int initRecorder(String filename, int rotation, int videoBitrate, boolean recordVideo);
+	private native int initRecorder(String filename, int rotation, int videoBitrate, int videoFPS, boolean recordVideo);
 	private native int encodeFrame(byte[] audioBuffer, int audioSamplesSize, float audioGain);
 	private native int stopRecording();
 
@@ -123,48 +130,9 @@ public class SRecorderService extends Service {
         logd("kill ss with pid " + pid);
         pid = 0;
     }
-
-    private void stopQihoo() {
-        BufferedReader pbr = null;
-        try {
-            Process p = Runtime.getRuntime().exec("su -c ps");
-            pbr = StreamHelper.reader(p.getInputStream());
-            while (pbr.ready()) {
-                String line = pbr.readLine();
-                if (line == null) return;
-                logd(line);
-                if (line.contains("com.qihoo")) {
-                    String[] parts = line.split("\\s+");
-                    if (parts.length > 1) {
-                        String pidStr = parts[1];
-                        try {
-                            int aPid = Integer.parseInt(pidStr);
-                            stopBuildinRecorder("su -c \"kill -9 " + aPid + " \"");
-                            logd("stop qihoo with pid " + aPid);
-                        } catch (NumberFormatException e) {
-                        }
-                    }
-                }
-            }
-            logd("read ps end");
-            p.waitFor();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (pbr != null) {
-                try {
-                    pbr.close();
-                } catch (IOException e) {
-                }
-            }
-        }
-    }
     
 	public void startRecordingScreen() {
         logd("start recording screen");
-
-        // stop qihoo first
-        stopQihoo();
 
         if (YTWHelper.hasBuildinScreenRecorder()) {
             startBuildinRecorder();
@@ -188,8 +156,8 @@ public class SRecorderService extends Service {
         int sampleRate = 44100 / 2;
         int channelConfig = AudioFormat.CHANNEL_CONFIGURATION_MONO;
         int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-        mAudioBufferSize = sampleRate / 7 * 2;
-        int bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+        mAudioBufferSize = sampleRate / videoFPS * 2;
+        int bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat) * 4;
         if (bufferSize <= mAudioBufferSize) {
             bufferSize = mAudioBufferSize;
         }
@@ -197,7 +165,11 @@ public class SRecorderService extends Service {
             mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
                     sampleRate, channelConfig, audioFormat, bufferSize);
 
-        audioBuffer = new byte[mAudioBufferSize];
+        audioBuffers = new ArrayList<byte[]>(5);
+        for (int i=0; i<5; i++) {
+            byte[] audioBuffer = new byte[mAudioBufferSize];
+            audioBuffers.add(audioBuffer);
+        }
         return true;
     }
 
@@ -209,30 +181,74 @@ public class SRecorderService extends Service {
             mAudioRecord = null;
             return false;
         }
-        new AsyncTask<Void, Integer, Boolean>() {
-            @Override
-            protected Boolean doInBackground(Void[] params) {
-                logd("start read audio samples");
-                while (mAudioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
-                    audioSamplesRead = mAudioRecord.read(audioBuffer, 0, mAudioBufferSize);
-                    logd("read audio samples " + audioSamplesRead);
-                    publishProgress(1);
-                }
-                return true;
-            }
 
+        isRecording = true;
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                logd("start read audio samples");
+                while (isRecording) {
+                    if (mAudioRecord.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) {
+                        break;
+                    }
+                    audioSamplesRead = mAudioRecord.read(
+                            audioBuffers.get(audioBufferWriteOffset % audioBuffers.size()), 0, mAudioBufferSize);
+                    audioBufferWriteOffset ++;
+                    logd("read audio samples " + audioBufferWriteOffset + "/" + audioSamplesRead);
+                    synchronized (audioBuffers) {
+                        audioBuffers.notifyAll();
+                    }
+                }
+                mAudioRecord.stop();
+                synchronized (mAudioRecord) {
+                    mAudioRecord.notify();
+                }
+                logd("end reading audio samples");
+            }
+        }).start();
+
+        new Thread(new Runnable() {
             AudioManager audio;
             @Override
-            protected void onProgressUpdate(Integer... values) {
-                if (audio == null)
-                    audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-                int currentVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC);
-                int maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-                float audioGain = maxVolume * 0.95f / currentVolume;
-                logd("encode frame");
-                encodeFrame(audioBuffer, audioSamplesRead, audioGain);
+            public void run() {
+                isEncoding = true;
+                logd("start to encode frames");
+                while (isRecording) {
+                    synchronized (audioBuffers) {
+                        try {
+                            audioBuffers.wait(1000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                            break;
+                        }
+                    }
+                    if (audio == null)
+                        audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                    int currentVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC);
+                    int maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                    float audioGain = maxVolume * 0.95f / currentVolume;
+
+                    // use loop to consume all missed audio samples
+                    while (audioBufferReadOffset < audioBufferWriteOffset && isRecording) {
+                        if (audioBufferReadOffset < audioBufferWriteOffset - videoFPS) { // give up too many missed
+                            audioBufferReadOffset = audioBufferWriteOffset - videoFPS;
+                        }
+                        logd("encode frame");
+                        encodeFrame(audioBuffers.get(audioBufferReadOffset % audioBuffers.size()), audioSamplesRead, audioGain);
+                        audioBufferReadOffset ++;
+                        logd("encode frame " + audioBufferReadOffset);
+                    }
+                }
+                stopRecording();
+                synchronized (audioBuffers) {
+                    audioBuffers.notify();
+                }
+                isEncoding = false;
+
+                logd("end encode frame");
             }
-        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        }).start();
         return true;
     }
 
@@ -240,7 +256,8 @@ public class SRecorderService extends Service {
         try {
             if (doInitAudioRecorder(recordVideo)) {
                 if (recordVideo) {
-                    initRecorder(YTWHelper.correctFilePath(videoPath), 0, videoBitrate, recordVideo);
+                    logd("bitrate = " + videoBitrate);
+                    initRecorder(YTWHelper.correctFilePath(videoPath), 0, videoBitrate, videoFPS, recordVideo);
                     if (doStartAudioRecorder(recordVideo)) {
                         sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
                     }
@@ -248,7 +265,7 @@ public class SRecorderService extends Service {
                     for (int i=0; i<100; i++) {
                         if (YTWHelper.isBuildinScreenRecorderRunning()) {
                             String audioFilePath = videoPath.substring(0, videoPath.length() - 4) + "-a.mp4";
-                            initRecorder(YTWHelper.correctFilePath(audioFilePath), 0, 0, recordVideo);
+                            initRecorder(YTWHelper.correctFilePath(audioFilePath), 0, 0, 0, recordVideo);
                             if (doStartAudioRecorder(recordVideo)) {
                                 sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
                             } else {
@@ -281,19 +298,37 @@ public class SRecorderService extends Service {
             }
         }
 
-        stopRecording();
-        if (mAudioRecord != null
-                && mAudioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
-            try {
-                mAudioRecord.stop();
-            } catch (IllegalStateException e) {
+        isRecording = false;
+        logd("stopRecording " + mAudioRecord);
+        try {
+            logd("wait audio thread stop");
+            synchronized (mAudioRecord) { // wait audio thread stop
+                mAudioRecord.wait();
             }
-
+            logd("waited audio thread stop");
+            if (isEncoding) {
+                logd("wait video thread stop");
+                synchronized (audioBuffers) { // wait video thread stop
+                    audioBuffers.wait();
+                }
+                logd("waited video thread stop");
+            } else {
+                logd("video recorder has stopped");
+            }
+        } catch (IllegalStateException e) {
+            logd(e.toString());
+            e.printStackTrace();
+        } catch (Exception e) {
+            logd(e.toString());
+            e.printStackTrace();
+        } finally {
+            logd("send broad cast");
             Intent intent = new Intent().setAction(ACTION_SCREEN_RECORDER_STOPPED);
             if (!YTWHelper.hasBuildinScreenRecorder()) {
                 intent.putExtra("orientation", estimateOrientation());
             }
-            sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STOPPED));
+            sendBroadcast(intent);
+            logd("screen recoder done.");
         }
     }
 
@@ -301,7 +336,7 @@ public class SRecorderService extends Service {
 	public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && intent.getData() != null) {
             videoPath = intent.getData().getPath();
-            Log.d("Recorder", "start recording screen " + videoPath);
+            logd("start recording screen " + videoPath);
             videoLandscape = intent.getBooleanExtra("video_landscape", false);
             videoWidth = intent.getIntExtra("video_width", 0);
             videoHeight = intent.getIntExtra("video_height", 0);
@@ -311,7 +346,7 @@ public class SRecorderService extends Service {
         }
 		return super.onStartCommand(intent, flags, startId);
     }
-    
+
 	@Override
 	public void onDestroy() {
         stopRecordingScreen();
@@ -325,7 +360,7 @@ public class SRecorderService extends Service {
         long timeAtOrientationLeft;
         long timeAtOrientationRight;
 
-        public boolean estimateOrientation() {
+        public boolean estimateOrientation() { // is left
             return timeAtOrientationLeft > timeAtOrientationRight;
         }
 
@@ -335,10 +370,12 @@ public class SRecorderService extends Service {
 
         @Override
         public void onOrientationChanged(int rotate) {
+//            logd("rotate = " + rotate);
+            if (rotate < 0) return;
             if (rotate < 180) {
-                timeAtOrientationLeft ++;
-            } else {
                 timeAtOrientationRight ++;
+            } else {
+                timeAtOrientationLeft ++;
             }
         }
     }
@@ -371,6 +408,7 @@ public class SRecorderService extends Service {
 
         public void onUpdateOrientation() {
             if (orientation != getResources().getConfiguration().orientation) {
+                logd("update orientation");
                 long currentTime = System.currentTimeMillis();
                 orientation = getResources().getConfiguration().orientation;
                 if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
@@ -378,6 +416,7 @@ public class SRecorderService extends Service {
                 } else {
                     timeAtOrientationLandscape += currentTime - updateTime;
                 }
+                logd("timeAtOrientationPortrait = " + timeAtOrientationPortrait + ", timeAtOrientationLandscape = " + timeAtOrientationLandscape);
                 updateTime = currentTime;
             }
         }
@@ -399,11 +438,11 @@ public class SRecorderService extends Service {
 	public IBinder onBind(Intent intent) {
 		return null;
 	}
-    
+
     public void logd(String msg) {
-        Log.d(TAG, msg);
+        Log.d("Yaotouwan_" + getClass().getSimpleName().toString(), msg);
     }
-      
+
     String indicatorFilePath() {
         return new File(new File(videoPath).getParent(), ".record").getAbsolutePath();
     }

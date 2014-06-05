@@ -27,6 +27,8 @@ import java.util.Date;
 public class YTWHelper {
 
     public static boolean runRootCommand(String command) {
+        if (!Root.isDeviceRooted())
+            return false;
         Process process = null;
         DataOutputStream os = null;
         try {
@@ -51,19 +53,24 @@ public class YTWHelper {
         return true;
     }
 
-    public static boolean checkFBPermission() {
-        if (Root.isDeviceRooted()) {
-            try {
-                File fbFile = new File("/dev/graphics/fb0");
-                if (!fbFile.canRead() || !fbFile.canWrite()) {
-                    return runRootCommand("chmod 666 /dev/graphics/fb0");
-                } else {
-                    return true;
-                }
-            } catch (Exception exception) {
-                return false;
+    public static boolean isFBCanRW() {
+        try {
+            File fbFile = new File("/dev/graphics/fb0");
+            return fbFile.canRead() && fbFile.canWrite();
+        } catch (Exception exception) {
+            return false;
+        }
+    }
+
+    public static boolean chmodFB() {
+        try {
+            File fbFile = new File("/dev/graphics/fb0");
+            if (!fbFile.canRead() || !fbFile.canWrite()) {
+                return runRootCommand("chmod 666 /dev/graphics/fb0");
+            } else {
+                return true;
             }
-        } else {
+        } catch (Exception exception) {
             return false;
         }
     }
@@ -123,6 +130,27 @@ public class YTWHelper {
         File draftMediaDir = new File(draftMediaDirPath);
         if (!draftMediaDir.exists()) {
             draftMediaDir.mkdirs();
+        }
+        Log.d("Yaotouwan", draftMediaDir.getAbsolutePath());
+        String[] files = draftMediaDir.list(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String filename) {
+                Log.d("Yaotouwan", filename);
+                return filename.endsWith(".mp4");
+            }
+        });
+        Log.d("Yaotouwan", "files " + files);
+        if (files.length > 0) {
+            for (String file : files) {
+                if (file.contains("-0.mp4")) {
+                    return new File(draftMediaDir, file.replace("-0", "")).getAbsolutePath();
+                } else if (file.contains("-a.mp4")) {
+                    return new File(draftMediaDir, file.replace("-a", "")).getAbsolutePath();
+                }
+            }
+        }
+        if (files.length > 0) {
+            return new File(draftMediaDir, files[0]).getAbsolutePath();
         }
         return new File(draftMediaDir, generateRandomFilename("mp4")).getAbsolutePath();
     }

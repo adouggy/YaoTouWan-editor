@@ -23,5 +23,6 @@ void open_audio(AVFormatContext *oc, AVCodec *codec, AVStream *st);
 AVStream *add_stream(AVFormatContext *oc, AVCodec **codec, enum AVCodecID codec_id);
 int write_frame(AVFormatContext *fmt_ctx, const AVRational *time_base, AVStream *st, AVPacket *pkt);
 void log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt);
+int encoder_init_recorder(const char *filename, int rotation, int video_bit_rate, int video_fps, int record_video);
 int encoder_encode_frame(char *audio_samples, size_t audio_samples_count, float audio_gain);
 int encoder_stop_recording();
