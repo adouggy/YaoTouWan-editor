@@ -21,6 +21,7 @@ import me.yaotouwan.util.YTWHelper;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -77,16 +78,23 @@ public class PhotoAlbum extends BaseActivity {
 
                 // 遍历常用目录
                 File rootDir = Environment.getExternalStorageDirectory();
-                File dir = Environment.getExternalStoragePublicDirectory(
+                File dir;
+
+                dir = new File(Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DCIM), "Screenshots");
+                loadPhotoInDir(dir, "屏幕截图", false);
+
+                dir = Environment.getExternalStoragePublicDirectory(
                         Environment.DIRECTORY_DCIM);
                 loadPhotoInDir(dir, "相机交卷", false);
+
+                dir = new File(Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_PICTURES), "Screenshots");
+                loadPhotoInDir(dir, "屏幕截图", false);
 
                 dir = Environment.getExternalStoragePublicDirectory(
                         Environment.DIRECTORY_PICTURES);
                 loadPhotoInDir(dir, "我的相册", false);
-
-                dir = new File(rootDir, "Pictures/Screenshots");
-                loadPhotoInDir(dir, "屏幕截图", false);
 
                 dir = new File(rootDir, "我的相机");
                 loadPhotoInDir(dir, "我的相机", false);
@@ -155,6 +163,9 @@ public class PhotoAlbum extends BaseActivity {
                     if (title != null)
                         album.name = title;
                     album.path = dir.getAbsolutePath();
+                    if (album != null && album.mediaPathList != null && album.mediaPathList.size() > 0) {
+                        album.lastMediaPath = album.mediaPathList.getFirst();
+                    }
                     album.savePhotoList();
                     synchronized (dataSource.albums) {
                         dataSource.albums.add(album);
@@ -239,11 +250,15 @@ public class PhotoAlbum extends BaseActivity {
                         album = new Album();
                     }
                     album.count ++;
-                    album.mediaPathList.add(file.getAbsolutePath());
-                    if (album.lastMediaPath == null
-                            || file.lastModified() > new File(album.lastMediaPath).lastModified()) {
-                        album.lastMediaPath = file.getAbsolutePath();
+                    String newPath = file.getAbsolutePath();
+                    int i = 0;
+                    for (; i<album.mediaPathList.size(); i++) {
+                        String path = album.mediaPathList.get(i);
+                        if (file.lastModified() > new File(path).lastModified()) {
+                            break;
+                        }
                     }
+                    album.mediaPathList.add(i, newPath);
                 }
             }
         }
@@ -255,7 +270,7 @@ public class PhotoAlbum extends BaseActivity {
         String path;
         int count;
         String lastMediaPath;
-        List<String> mediaPathList = new ArrayList<String>();
+        LinkedList<String> mediaPathList = new LinkedList<String>();
         String mediaPathListFilePath; // 临时存储媒体文件列表的文本文件
 
         void savePhotoList() {

@@ -48,6 +48,7 @@ public class CachedImageButton extends ImageButton {
         return setImageWithPath(newImagePath, width, async, 0);
     }
     public boolean setImageWithPath(final String newImagePath, final int width, boolean async, int delay) {
+        if (newImagePath == null) return false;
         if (videoPath == null && newImagePath.equals(imagePath))
             return false;
         videoPath = null;
@@ -87,6 +88,7 @@ public class CachedImageButton extends ImageButton {
 
     private String videoPath;
     public boolean setImageWithVideoPath(final String newVideoPath, final int sizeKind, boolean async, int delay) {
+        if (newVideoPath == null) return false;
         if (imagePath == null && newVideoPath.equals(videoPath))
          return false;
         imagePath = null;

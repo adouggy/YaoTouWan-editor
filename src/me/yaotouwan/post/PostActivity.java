@@ -11,31 +11,34 @@ import android.provider.MediaStore;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.LocalBroadcastManager;
-import android.text.*;
+import android.text.Editable;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.TextWatcher;
 import android.text.method.LinkMovementMethod;
-import android.text.style.*;
+import android.text.style.QuoteSpan;
+import android.text.style.RelativeSizeSpan;
+import android.text.style.StyleSpan;
+import android.text.style.TypefaceSpan;
 import android.util.Log;
-import android.view.*;
-import android.webkit.*;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 import android.widget.*;
 import ch.boye.httpclientandroidlib.HttpResponse;
 import ch.boye.httpclientandroidlib.client.ClientProtocolException;
 import ch.boye.httpclientandroidlib.client.HttpClient;
 import ch.boye.httpclientandroidlib.client.methods.HttpGet;
-import ch.boye.httpclientandroidlib.client.methods.HttpPost;
-import ch.boye.httpclientandroidlib.client.methods.HttpUriRequest;
-import ch.boye.httpclientandroidlib.entity.mime.HttpMultipartMode;
-import ch.boye.httpclientandroidlib.entity.mime.MultipartEntityBuilder;
 import ch.boye.httpclientandroidlib.util.EntityUtils;
-import com.actionbarsherlock.view.*;
-import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuItem;
 import com.mobeta.android.dslv.DragSortController;
 import com.mobeta.android.dslv.DragSortListView;
 import com.mobeta.android.dslv.SimpleDragSortCursorAdapter;
 import me.yaotouwan.R;
 import me.yaotouwan.android.util.MyConstants;
-import me.yaotouwan.android.util.UniversalImageLoaderUtil;
 import me.yaotouwan.screenrecorder.EditVideoActivity;
 import me.yaotouwan.screenrecorder.Root;
 import me.yaotouwan.screenrecorder.SelectGameActivity;
@@ -49,7 +52,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -158,14 +162,6 @@ public class PostActivity extends BaseActivity {
             hideView(R.id.footer_readonly);
 
             titleEditor = (EditText) findViewById(R.id.post_title);
-            titleEditor.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-                @Override
-                public void onFocusChange(View v, boolean hasFocus) {
-                    if (hasFocus) {
-                        hideView(toolbar);
-                    }
-                }
-            });
 
             if (postUri != null) {
                 draftFile = new File(postUri.getPath());
@@ -257,9 +253,8 @@ public class PostActivity extends BaseActivity {
         titleEditor.clearFocus();
         if (adapter.editingTextRow >= 0) {
             adapter.editingTextRow = -1;
+            adapter.notifyDataSetChanged();
         }
-        if (!readonly)
-            showView(toolbar);
 
         if (finishButtonClicked) {
             onFinishClick(null);
@@ -271,6 +266,10 @@ public class PostActivity extends BaseActivity {
     @Override
     protected void onKeyboardShow() {
         super.onKeyboardShow();
+
+        if (adapter.editingTextRow >= 0) {
+            adapter.notifyDataSetChanged();
+        }
 
         if (scrollingToEditor && adapter.editingTextRow >= 0) {
             scrollingToEditor = false;
@@ -572,12 +571,7 @@ public class PostActivity extends BaseActivity {
                 }
                 if (section.has("image_src")) {
                     String imagePath = section.getString("image_src");
-                    if ("yaotouwan".equals(Uri.parse(imagePath).getScheme())) {
-                        String imageUrlString = MyConstants.IMAGE_GET_URL + "/" + Uri.parse(imagePath).getHost();
-                        adapter.updateImage(i, imageUrlString, width, height);
-                    } else {
-                        adapter.updateImage(i, imagePath, width, height);
-                    }
+                    adapter.updateImage(i, imagePath, width, height);
                 }
                 if (section.has("video_src")) {
                     String videoPath = section.getString("video_src");
@@ -626,7 +620,7 @@ public class PostActivity extends BaseActivity {
     }
 
     // read file as json string, used for sending to api, stored in db.
-    // image url will be online image url, like http://yaotouwan.me/image/<image_id>
+    // image url will be online image url, like yaotouwan://<image_id>
     // video url will be youku video id, like youku://<video_id>
     public static String readPostContentForSend(Uri postJSONFileUri) {
         try {
@@ -667,6 +661,12 @@ public class PostActivity extends BaseActivity {
     }
 
     public void onFinishClick(MenuItem menuItem) {
+        if (titleEditor.getVisibility() == View.VISIBLE
+                && titleEditor.getText() == null || titleEditor.getText().length() <= 0) {
+            Toast.makeText(this, R.string.post_title_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+
         if (!finishButtonClicked && isSoftKeyboardShown) {
             hideSoftKeyboard();
             finishButtonClicked = true;
@@ -1268,10 +1268,9 @@ public class PostActivity extends BaseActivity {
                 postItemsListView.editMode = false;
                 editTargetView = null;
             }
-
             draggingRow = position;
-
             setToolbarDeleteMode(true);
+            hideSoftKeyboard();
         }
 
         @Override
@@ -1484,9 +1483,14 @@ public class PostActivity extends BaseActivity {
             View rowView = postItemsListView.getItemViewAtRow(position);
             if (rowView != null) {
                 hideView(rowView.findViewById(R.id.drag_handle));
-                rowView.findViewById(R.id.post_item_text).setEnabled(true);
-                rowView.findViewById(R.id.post_item_text).requestFocus();
-                hideView(toolbar);
+                TextEditor textEditor = (TextEditor) rowView.findViewById(R.id.post_item_text);
+                showView(textEditor);
+                textEditor.setEnabled(true);
+                textEditor.requestFocus();
+                if (textEditor.getText() != null) {
+                    textEditor.setSelection(textEditor.getText().toString().length());
+                }
+                hideView(rowView.findViewById(R.id.post_item_text_readonly));
                 showSoftKeyboard(true);
             }
         }

@@ -56,6 +56,7 @@ public class AppPackageHelper {
                 packagePrefixesShouldIgnore.add("android");
                 packagePrefixesShouldIgnore.add("com.android");
                 packagePrefixesShouldIgnore.add("com.google.android");
+                packagePrefixesShouldIgnore.add("com.qihoo");
 
                 for(int i=0; i<packs.size(); i++) {
                     PackageInfo p = packs.get(i);
