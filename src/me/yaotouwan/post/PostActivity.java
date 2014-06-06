@@ -186,13 +186,12 @@ public class PostActivity extends BaseActivity {
     }
 
     private void stopQihoo() {
-        BufferedReader pbr = null;
-        try {
-            Process p = Runtime.getRuntime().exec("ps");
-            pbr = StreamHelper.reader(p.getInputStream());
-            while (pbr.ready()) {
-                String line = pbr.readLine();
-                if (line == null) return;
+        Root.CommandResult result = Root.INSTANCE.runCMD(false, "ps");
+        if (result.success()) {
+            String out = result.stdout;
+            String[] lines = out.split("\n");
+            for (int i=0; i<lines.length; i++) {
+                String line = lines[i];
                 logd(line);
                 if (line.contains("com.qihoo")) {
                     String[] parts = line.split("\\s+");
@@ -200,21 +199,10 @@ public class PostActivity extends BaseActivity {
                         String pidStr = parts[1];
                         try {
                             int aPid = Integer.parseInt(pidStr);
-                            YTWHelper.runRootCommand("kill -9 " + aPid);
+                            Root.INSTANCE.runCMD(true, "kill -9 " + aPid);
                         } catch (NumberFormatException e) {
                         }
                     }
-                }
-            }
-            logd("read ps end");
-            p.waitFor();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (pbr != null) {
-                try {
-                    pbr.close();
-                } catch (IOException e) {
                 }
             }
         }
@@ -803,7 +791,7 @@ public class PostActivity extends BaseActivity {
                             Toast.makeText(PostActivity.this, R.string.root_permission_needed, Toast.LENGTH_LONG).show();
                             return;
                         }
-//                        stopQihoo();
+                        stopQihoo();
                         SelectGameActivity.preLoadGames = gamesInstalled;
                         Intent intent = new Intent(PostActivity.this, SelectGameActivity.class);
                         intent.setData(Uri.parse(draftFile.getAbsolutePath()));
