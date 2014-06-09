@@ -4,6 +4,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import android.graphics.Bitmap;
+import android.os.Message;
+import android.util.Log;
+import android.webkit.*;
 import me.yaotouwan.R;
 import me.yaotouwan.android.util.MyConstants;
 import me.yaotouwan.screenrecorder.YoukuUploader;
@@ -35,8 +39,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.webkit.JavascriptInterface;
-import android.webkit.WebView;
 import android.widget.AbsListView;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
@@ -407,21 +409,14 @@ public class ReadPostActivity extends BaseActivity {
 				webView.getSettings().setJavaScriptEnabled(true);
 				webView.getSettings().setAppCacheEnabled(true);
 				webView.addJavascriptInterface(new JavaScriptInterface(), "Android");
+                webView.setWebChromeClient(new WebChromeClient() {});
 			}
 
 			if (imagePath != null) {
 				showView(previewImageView);
 				hideView(webView);
 
-				if ("yaotouwan".equals(Uri.parse(imagePath).getScheme())) {
-					String imageUrlString = MyConstants.IMAGE_GET_URL + "/" + Uri.parse(imagePath).getHost();
-					previewImageView.setImageWithPath(imageUrlString, /*
-																	 * postItemsListView
-																	 * .
-																	 * getWidth(
-																	 * )
-																	 */width, scrolling, 0);
-				}
+                previewImageView.setImageWithPath(imagePath, width, scrolling, 0);
 				Point imgSize = getMediaSize(position);
 				if (imgSize != null) {
 					if (imgSize.x > imgSize.y * 2) {
@@ -429,10 +424,7 @@ public class ReadPostActivity extends BaseActivity {
 					} else if (imgSize.y > imgSize.x * 2) {
 						imgSize.y = imgSize.x * 2;
 					}
-					setViewHeight(previewImageView, /*
-													 * postItemsListView.getWidth
-													 * ()
-													 */width * imgSize.y / imgSize.x);
+					setViewHeight(previewImageView, width * imgSize.y / imgSize.x);
 				}
 				previewImageView.setOnClickListener(new View.OnClickListener() {
 					@Override
@@ -450,16 +442,16 @@ public class ReadPostActivity extends BaseActivity {
 				showView(webView);
 
 				if ("youku".equals(Uri.parse(videoPath).getScheme())) {
-
 					if (youkuPlayerHTML == null) {
 						youkuPlayerHTML = YTWHelper.readAssertsTextContent(mContext, "youku_player.html");
 					}
 					String videoTag = youkuPlayerHTML;
-					String videoID = videoPath.replace("youku://", "");
+					String videoID = Uri.parse(videoPath).getHost();
 					videoTag = videoTag.replace("{youku_video_id}", videoID);
 					videoTag = videoTag.replace("{youku_client_id}", YoukuUploader.CLIENT_ID);
 					videoTag = videoTag.replace("{position}", position + "");
 					webView.loadData(videoTag, "text/html", "UTF-8");
+                    Log.d("ReadPostActivity", videoTag);
 					setViewHeight(webView, width * 3 / 4);
 				}
 			} else {

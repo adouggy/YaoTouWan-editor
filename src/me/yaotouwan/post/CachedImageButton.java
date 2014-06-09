@@ -55,7 +55,7 @@ public class CachedImageButton extends ImageButton {
         if (newImagePath.equals(imagePath)) return false;
         imagePath = newImagePath;
         setImageBitmap(null);
-        if ("http".equals(Uri.parse(imagePath).getScheme())) {
+        if ("http".equals(Uri.parse(imagePath).getScheme()) || "yaotouwan".equals(Uri.parse(imagePath).getScheme())) {
             if (async) {
                 UniversalImageLoaderUtil.INSTANCE.load(imagePath, this);
             } else {
