@@ -56,6 +56,41 @@ void log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt)
          pkt->stream_index);
 }
 
+void log_fb(FBInfo fb)
+{
+    LOGE("fb->vi.xres = %u", fb.vi.xres);
+    LOGE("fb->vi.yres = %u", fb.vi.yres);
+    LOGE("fb->vi.xres_virtual = %u", fb.vi.xres_virtual);
+    LOGE("fb->vi.yres_virtual = %u", fb.vi.yres_virtual);
+    LOGE("fb->vi.xoffset = %u", fb.vi.xoffset);
+    LOGE("fb->vi.yoffset = %u", fb.vi.yoffset);
+    LOGE("fb->vi.bits_per_pixel = %u", fb.vi.bits_per_pixel);
+    LOGE("fb->vi.grayscale = %u", fb.vi.grayscale);
+
+    LOGE("fb->vi.pixclock = %u", fb.vi.pixclock);
+    LOGE("fb->vi.left_margin = %u", fb.vi.left_margin);
+    LOGE("fb->vi.right_margin = %u", fb.vi.right_margin);
+    LOGE("fb->vi.upper_margin = %u", fb.vi.upper_margin);
+    LOGE("fb->vi.lower_margin = %u", fb.vi.lower_margin);
+    LOGE("fb->vi.hsync_len = %u", fb.vi.hsync_len);
+    LOGE("fb->vi.vsync_len = %u", fb.vi.vsync_len);
+    LOGE("fb->vi.sync = %u", fb.vi.sync);
+    LOGE("fb->vi.vmode = %u", fb.vi.vmode);
+    LOGE("fb->vi.rotate = %u", fb.vi.rotate);
+
+    LOGE("fb->fi.smem_len = %u", fb.fi.smem_len);
+    LOGE("fb->fi.type = %u", fb.fi.type);
+    LOGE("fb->fi.type_aux = %u", fb.fi.type_aux);
+    LOGE("fb->fi.visual = %u", fb.fi.visual);
+    LOGE("fb->fi.xpanstep = %u", fb.fi.xpanstep);
+    LOGE("fb->fi.ypanstep = %u", fb.fi.ypanstep);
+    LOGE("fb->fi.ywrapstep = %u", fb.fi.ywrapstep);
+    LOGE("fb->fi.line_length = %u", fb.fi.line_length);
+    LOGE("fb->fi.mmio_start = %lu", fb.fi.mmio_start);
+    LOGE("fb->fi.mmio_len = %u", fb.fi.mmio_len);
+    LOGE("fb->fi.accel = %u", fb.fi.accel);
+}
+
 int write_frame(AVFormatContext *fmt_ctx, const AVRational *time_base, AVStream *st, AVPacket *pkt)
 {
     pkt->pts = av_rescale_q_rnd(pkt->pts, *time_base, st->time_base, AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX);
@@ -232,6 +267,7 @@ void write_video_frame(AVFormatContext *oc, AVStream *st, int flush)
     AVCodecContext *c = st->codec;
     
     if (!flush) {
+        LOGI("open fb");
         if (fb_open(&fb) == 0) {
             if (sws_ctx == NULL) {
                 sws_ctx = sws_getContext(fb_width(&fb), fb_height(&fb),
@@ -243,37 +279,7 @@ void write_video_frame(AVFormatContext *oc, AVStream *st, int flush)
                     LOGE("Cannot initialize the conversion context\n");
                     return;
                 }
-                LOGE("fb->vi.xres = %u", fb.vi.xres);
-                LOGE("fb->vi.yres = %u", fb.vi.yres);
-                LOGE("fb->vi.xres_virtual = %u", fb.vi.xres_virtual);
-                LOGE("fb->vi.yres_virtual = %u", fb.vi.yres_virtual);
-                LOGE("fb->vi.xoffset = %u", fb.vi.xoffset);
-                LOGE("fb->vi.yoffset = %u", fb.vi.yoffset);
-                LOGE("fb->vi.bits_per_pixel = %u", fb.vi.bits_per_pixel);
-                LOGE("fb->vi.grayscale = %u", fb.vi.grayscale);
-
-                LOGE("fb->vi.pixclock = %u", fb.vi.pixclock);
-                LOGE("fb->vi.left_margin = %u", fb.vi.left_margin);
-                LOGE("fb->vi.right_margin = %u", fb.vi.right_margin);
-                LOGE("fb->vi.upper_margin = %u", fb.vi.upper_margin);
-                LOGE("fb->vi.lower_margin = %u", fb.vi.lower_margin);
-                LOGE("fb->vi.hsync_len = %u", fb.vi.hsync_len);
-                LOGE("fb->vi.vsync_len = %u", fb.vi.vsync_len);
-                LOGE("fb->vi.sync = %u", fb.vi.sync);
-                LOGE("fb->vi.vmode = %u", fb.vi.vmode);
-                LOGE("fb->vi.rotate = %u", fb.vi.rotate);
-
-                LOGE("fb->fi.smem_len = %u", fb.fi.smem_len);
-                LOGE("fb->fi.type = %u", fb.fi.type);
-                LOGE("fb->fi.type_aux = %u", fb.fi.type_aux);
-                LOGE("fb->fi.visual = %u", fb.fi.visual);
-                LOGE("fb->fi.xpanstep = %u", fb.fi.xpanstep);
-                LOGE("fb->fi.ypanstep = %u", fb.fi.ypanstep);
-                LOGE("fb->fi.ywrapstep = %u", fb.fi.ywrapstep);
-                LOGE("fb->fi.line_length = %u", fb.fi.line_length);
-                LOGE("fb->fi.mmio_start = %lu", fb.fi.mmio_start);
-                LOGE("fb->fi.mmio_len = %u", fb.fi.mmio_len);
-                LOGE("fb->fi.accel = %u", fb.fi.accel);
+                log_fb(fb);
             }
 
 //            LOGE("fb->fi.line_length = %u, color_width %d", fb.fi.line_length, fb_width(&fb) * fb_bpp(&fb));
@@ -325,7 +331,7 @@ void write_video_frame(AVFormatContext *oc, AVStream *st, int flush)
     } else {
         ret = 0;
     }
-    
+
     if (ret < 0) {
         LOGE("Error while writing video frame: %s\n", av_err2str(ret));
         exit(1);

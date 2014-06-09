@@ -45,8 +45,10 @@ public class UploadPostMediaService extends Service {
         registerReceiver(mMessageReceiver,
                 new IntentFilter("post_media_updated"));
 
-        postJSONFileUri = intent.getData();
-        uploadMedia();
+        if (intent != null) {
+            postJSONFileUri = intent.getData();
+            uploadMedia();
+        }
 
         return super.onStartCommand(intent, flags, startId);
     }

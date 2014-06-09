@@ -48,10 +48,6 @@ public class RecordScreenService4KitKat extends SRecorderService {
     // parameters for video
     boolean videoLandscape;
 
-    private native int initRecorder(String filename, int rotation, int videoBitrate, int videoFPS, boolean recordVideo);
-    private native int encodeFrame(byte[] audioBuffer, int audioSamplesSize, float audioGain);
-    private native int stopRecording();
-
     int pid;
 
     private native int startBuildinRecorder(String command);
@@ -133,10 +129,8 @@ public class RecordScreenService4KitKat extends SRecorderService {
     }
 
     public void startRecordingScreen() {
-        logd("start recording screen");
-
         startBuildinRecorder();
-        startAudioRecorder(false);
+        startAudioRecorder();
     }
 
     boolean doInitAudioRecorder() {
