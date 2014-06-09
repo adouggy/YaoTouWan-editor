@@ -275,23 +275,23 @@ void write_video_frame(AVFormatContext *oc, AVStream *st, int flush)
                 LOGE("fb->fi.mmio_len = %u", fb.fi.mmio_len);
                 LOGE("fb->fi.accel = %u", fb.fi.accel);
             }
-            
-            const uint8_t *inData[1];
 
-            static uint32_t *bits = NULL;
+//            LOGE("fb->fi.line_length = %u, color_width %d", fb.fi.line_length, fb_width(&fb) * fb_bpp(&fb));
+            const uint8_t *inData[1];
+            static uint8_t *bits = NULL;
             int linesize = fb.fi.line_length;
             if (linesize > fb_width(&fb) * fb_bpp(&fb)) {
                 int diffHeight = ceilf((linesize / fb_bpp(&fb) - fb_width(&fb)) * fb_height(&fb) / fb_width(&fb));
                 if (bits == NULL) {
-                    bits = (uint32_t *)malloc(fb_size(&fb));
+                    bits = (uint8_t *)malloc(fb_size(&fb));
                 }
                 int line = 0;
                 for (; line < fb_height(&fb) - diffHeight; line ++) {
-                    memcpy(bits + line * fb_width(&fb),
+                    memcpy(bits + line * fb_width(&fb) * fb_bpp(&fb),
                            fb.bits + line * fb.fi.line_length,
-                           fb_width(&fb) * sizeof(uint32_t));
+                           fb_width(&fb) * fb_bpp(&fb));
                 }
-                inData[0] = (uint8_t *)bits;
+                inData[0] = bits;
             } else {
                 inData[0] = fb.bits;
             }
@@ -347,7 +347,7 @@ int encoder_init_recorder(const char *filename, int rotation_, int video_bit_rat
     video_bit_rate = video_bit_rate_;
     video_frame_rate = video_fps;
     av_register_all();
-    LOGE("record_video = %d", record_video);
+    LOGI("record_video = %d", record_video);
 
     avformat_alloc_output_context2(&oc, NULL, NULL, filename);
     if (!oc)
@@ -379,7 +379,8 @@ int encoder_init_recorder(const char *filename, int rotation_, int video_bit_rat
     
     ret = avformat_write_header(oc, NULL);
     if (ret < 0) {
-        LOGE("Error occurred when opening output file: %s\n",
+        LOGE("Error occurred when opening output file %s: %s\n",
+             filename,
              av_err2str(ret));
         return 1;
     }
@@ -395,35 +396,26 @@ int encoder_encode_frame
     float audio_gain
 )
 {
-    LOGE("0");
+//    LOGI("Encode a frame by FFMPEG");
     if (recording) {
-        LOGE("1");
         int frame_size = audio_st->codec->frame_size;
         if (audio_samples_local_buffer == NULL) {
             audio_samples_local_buffer = (int16_t *)malloc(frame_size * sizeof(int16_t) * 2);
         }
-        LOGE("2");
 
         int i = 0;
         if (audio_samples_local_buffer_length > 0) {
-        LOGE("21");
             memcpy(audio_samples_local_buffer + audio_samples_local_buffer_length,
                    audio_samples,
                    (frame_size - audio_samples_local_buffer_length) * 2);
-        LOGE("22");
             write_audio_frame(oc, audio_st, flush, (uint8_t *)audio_samples_local_buffer, frame_size, audio_gain);
-        LOGE("23");
             i = frame_size - audio_samples_local_buffer_length;
-        LOGE("24");
             audio_samples_local_buffer_length = 0;
-        LOGE("25");
         }
-        LOGE("3");
 
         for (; i <= audio_samples_count - frame_size; i += frame_size) {
             write_audio_frame(oc, audio_st, flush, audio_samples + i*2, frame_size, audio_gain);
         }
-        LOGE("4");
         if (i < audio_samples_count) {
             int buffer_left = audio_samples_count - i;
             memcpy(audio_samples_local_buffer + audio_samples_local_buffer_length, audio_samples + i * 2, buffer_left * 2);
@@ -437,12 +429,10 @@ int encoder_encode_frame
                 audio_samples_local_buffer_length -= frame_size;
             }
         }
-        LOGE("5");
         if (video_st) {
             write_video_frame(oc, video_st, flush);
         }
     }
-    LOGE("6");
     return recording;
 }
 

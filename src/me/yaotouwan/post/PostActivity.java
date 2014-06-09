@@ -192,7 +192,7 @@ public class PostActivity extends BaseActivity {
             String[] lines = out.split("\n");
             for (int i=0; i<lines.length; i++) {
                 String line = lines[i];
-                logd(line);
+//                logd(line);
                 if (line.contains("com.qihoo")) {
                     String[] parts = line.split("\\s+");
                     if (parts.length > 1) {
