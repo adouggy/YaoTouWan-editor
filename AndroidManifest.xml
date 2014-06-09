@@ -17,4 +17,8 @@
 
 	<uses-feature android:name="android.hardware.camera" />
 	<uses-feature android:name="android.hardware.camera.autofocus" />
+	<application>
+		<service android:name=".screenrecorder.RecordScreenService4MIUI"/>
+		<service android:name=".screenrecorder.RecordScreenService4KitKat"/>
+	</application>
 </manifest>

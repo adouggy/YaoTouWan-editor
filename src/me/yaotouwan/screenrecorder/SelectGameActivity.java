@@ -67,6 +67,8 @@ public class SelectGameActivity extends BaseActivity
 
         draftUri = getIntent().getData();
         screenRecorder = new ScreenRecorder(this, this);
+        screenRecorder.videoPath = YTWHelper
+                .prepareFilePathForVideoSaveWithDraftUri(draftUri);
     }
 
     @Override
@@ -74,8 +76,6 @@ public class SelectGameActivity extends BaseActivity
         super.onStart();
 
         logd("onStart");
-        screenRecorder.videoPath = YTWHelper
-                .prepareFilePathForVideoSaveWithDraftUri(draftUri);
         // try to stop recorder
         if (!YTWHelper.hasBuildinScreenRecorder()) {
             if (screenRecorder.stop()) {

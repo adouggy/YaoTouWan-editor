@@ -11,7 +11,6 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
-import android.os.AsyncTask;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.OrientationEventListener;
@@ -23,9 +22,12 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SRecorderService extends Service {
+/**
+ * Created by jason on 14-6-9.
+ */
+public class RecordScreenService4KitKat extends SRecorderService {
 
-	public static final String TAG = "SRecorderService";
+    public static final String TAG = "SRecorderService";
 
     private int mAudioBufferSize;
     AudioRecord mAudioRecord;
@@ -37,7 +39,6 @@ public class SRecorderService extends Service {
     int videoWidth, videoHeight, videoBitrate;
     boolean isRecording;
     boolean isEncoding;
-    private int videoFPS = 7;
 
     public static final String ACTION_SCREEN_RECORDER_STARTED
             = "me.yaotouwan.screenrecorder.action.started";
@@ -47,9 +48,9 @@ public class SRecorderService extends Service {
     // parameters for video
     boolean videoLandscape;
 
-	private native int initRecorder(String filename, int rotation, int videoBitrate, int videoFPS, boolean recordVideo);
-	private native int encodeFrame(byte[] audioBuffer, int audioSamplesSize, float audioGain);
-	private native int stopRecording();
+    private native int initRecorder(String filename, int rotation, int videoBitrate, int videoFPS, boolean recordVideo);
+    private native int encodeFrame(byte[] audioBuffer, int audioSamplesSize, float audioGain);
+    private native int stopRecording();
 
     int pid;
 
@@ -130,40 +131,22 @@ public class SRecorderService extends Service {
         logd("kill ss with pid " + pid);
         pid = 0;
     }
-    
-	public void startRecordingScreen() {
+
+    public void startRecordingScreen() {
         logd("start recording screen");
 
-        if (YTWHelper.hasBuildinScreenRecorder()) {
-            startBuildinRecorder();
-            startAudioRecorder(false);
-        } else {
-            IntentFilter filter = new IntentFilter();
-            filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
-            mOrientationListener = new OrientationListener();
-            registerReceiver(mOrientationListener, filter);
+        startBuildinRecorder();
+        startAudioRecorder(false);
+    }
 
-            mRotateListener = new MyOrientationEventListener(this,
-                    SensorManager.SENSOR_DELAY_NORMAL);
-            if (mRotateListener.canDetectOrientation()) {
-                mRotateListener.enable();
-            }
-            startAudioRecorder(true);
-        }
-	}
-
-    boolean doInitAudioRecorder(final boolean recordVideo) {
+    boolean doInitAudioRecorder() {
         int sampleRate = 44100 / 2;
         int channelConfig = AudioFormat.CHANNEL_IN_MONO;
         int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-        mAudioBufferSize = sampleRate / videoFPS * 2;
-        int bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat) * 4;
-        if (bufferSize <= mAudioBufferSize) {
-            bufferSize = mAudioBufferSize;
-        }
+        mAudioBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat) * 4;
         if (mAudioRecord == null)
             mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
-                    sampleRate, channelConfig, audioFormat, bufferSize);
+                    sampleRate, channelConfig, audioFormat, mAudioBufferSize);
 
         audioBuffers = new ArrayList<byte[]>(5);
         for (int i=0; i<5; i++) {
@@ -234,9 +217,6 @@ public class SRecorderService extends Service {
 
                     // use loop to consume all missed audio samples
                     while (audioBufferReadOffset < audioBufferWriteOffset && isRecording) {
-                        if (audioBufferReadOffset < audioBufferWriteOffset - videoFPS) { // give up too many missed
-                            audioBufferReadOffset = audioBufferWriteOffset - videoFPS;
-                        }
 //                        logd("encode frame");
                         encodeFrame(audioBuffers.get(audioBufferReadOffset % audioBuffers.size()), audioSamplesRead, audioGain);
                         audioBufferReadOffset ++;
@@ -255,33 +235,25 @@ public class SRecorderService extends Service {
         return true;
     }
 
-    void startAudioRecorder(boolean recordVideo) {
+    void startAudioRecorder() {
         try {
-            if (doInitAudioRecorder(recordVideo)) {
-                if (recordVideo) {
-                    logd("bitrate = " + videoBitrate);
-                    initRecorder(YTWHelper.correctFilePath(videoPath), 0, videoBitrate, videoFPS, recordVideo);
-                    if (doStartAudioRecorder()) {
-                        sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
-                    }
-                } else {
-                    for (int i=0; i<100; i++) {
-                        if (YTWHelper.isBuildinScreenRecorderRunning()) {
-                            String audioFilePath = videoPath.substring(0, videoPath.length() - 4) + "-a.mp4";
-                            initRecorder(YTWHelper.correctFilePath(audioFilePath), 0, 0, 0, recordVideo);
-                            if (doStartAudioRecorder()) {
-                                sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
-                            } else {
-                                stopBuildinRecorder();
-                                Toast.makeText(this, "无法启动录音机\n请重启手机重新录制", Toast.LENGTH_LONG).show();
-                            }
-                            return;
+            if (doInitAudioRecorder()) {
+                for (int i=0; i<100; i++) {
+                    if (YTWHelper.isBuildinScreenRecorderRunning()) {
+                        String audioFilePath = videoPath.substring(0, videoPath.length() - 4) + "-a.mp4";
+                        initRecorder(YTWHelper.correctFilePath(audioFilePath), 0, 0, 0, false);
+                        if (doStartAudioRecorder()) {
+                            sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
                         } else {
-                            Thread.sleep(100);
+                            stopBuildinRecorder();
+                            Toast.makeText(this, "无法启动录音机\n请重启手机重新录制", Toast.LENGTH_LONG).show();
                         }
+                        return;
+                    } else {
+                        Thread.sleep(100);
                     }
-                    // todo wait 10s, but buildin recorder not started
                 }
+                // todo wait 10s, but buildin recorder not started
             }
         } catch (IllegalArgumentException e) {
             e.printStackTrace();
@@ -335,8 +307,8 @@ public class SRecorderService extends Service {
         }
     }
 
-	@Override
-	public int onStartCommand(Intent intent, int flags, int startId) {
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && intent.getData() != null) {
             videoPath = intent.getData().getPath();
             logd("start recording screen " + videoPath);
@@ -347,15 +319,15 @@ public class SRecorderService extends Service {
 
             startRecordingScreen();
         }
-		return super.onStartCommand(intent, flags, startId);
+        return super.onStartCommand(intent, flags, startId);
     }
 
-	@Override
-	public void onDestroy() {
+    @Override
+    public void onDestroy() {
         stopRecordingScreen();
-        
-		super.onDestroy();
-	}
+
+        super.onDestroy();
+    }
 
     MyOrientationEventListener mRotateListener;
     class MyOrientationEventListener extends OrientationEventListener {
@@ -437,10 +409,10 @@ public class SRecorderService extends Service {
         }
     }
 
-	@Override
-	public IBinder onBind(Intent intent) {
-		return null;
-	}
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
 
     public void logd(String msg) {
         Log.d("Yaotouwan_" + getClass().getSimpleName().toString(), msg);
@@ -470,13 +442,13 @@ public class SRecorderService extends Service {
             String content =
 //                    "sleep 3\n" +
                     "c=0\n" +
-                    "while [ $c -lt 20 ]\n" +
-                    "do\n" +
-                    "\tif [ -e $1 ]; then\n" +
-                    "\t\t/system/bin/screenrecord  --size $2  --bit-rate $3 $4-${c}.mp4\n" +
-                    "\tfi\n" +
-                    "\tlet c=c+1\n" +
-                    "done\n";
+                            "while [ $c -lt 20 ]\n" +
+                            "do\n" +
+                            "\tif [ -e $1 ]; then\n" +
+                            "\t\t/system/bin/screenrecord  --size $2  --bit-rate $3 $4-${c}.mp4\n" +
+                            "\tfi\n" +
+                            "\tlet c=c+1\n" +
+                            "done\n";
             writer.write(content);
             writer.flush();
         } catch (FileNotFoundException e) {

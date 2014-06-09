@@ -26,33 +26,6 @@ import java.util.Date;
  */
 public class YTWHelper {
 
-    public static boolean runRootCommand(String command) {
-        if (!Root.isDeviceRooted())
-            return false;
-        Process process = null;
-        DataOutputStream os = null;
-        try {
-            process = Runtime.getRuntime().exec("su");
-            os = new DataOutputStream(process.getOutputStream());
-            os.writeBytes(command + "\n");
-            os.writeBytes("exit\n");
-            os.flush();
-            process.waitFor();
-            Log.d("Helper", "su process completed");
-        } catch (Exception e) {
-            return false;
-        } finally {
-            try {
-                if (os != null) {
-                    os.close();
-                }
-                process.destroy();
-            } catch (Exception e) {
-            }
-        }
-        return true;
-    }
-
     public static boolean isFBCanRW() {
         try {
             File fbFile = new File("/dev/graphics/fb0");
@@ -66,7 +39,7 @@ public class YTWHelper {
         try {
             File fbFile = new File("/dev/graphics/fb0");
             if (!fbFile.canRead() || !fbFile.canWrite()) {
-                return runRootCommand("chmod 666 /dev/graphics/fb0");
+                return Root.INSTANCE.runCMD(true, "chmod 666 /dev/graphics/fb0").success();
             } else {
                 return true;
             }
