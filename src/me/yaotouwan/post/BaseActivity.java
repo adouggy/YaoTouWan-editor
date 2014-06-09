@@ -141,8 +141,8 @@ public class BaseActivity extends SherlockFragmentActivity {
     }
 
     public void hideActionBar() {
-        if (getActionBar() != null) {
-            getActionBar().hide();
+        if (getSupportActionBar() != null) {
+        	getSupportActionBar().hide();
         }
     }
 
@@ -164,8 +164,8 @@ public class BaseActivity extends SherlockFragmentActivity {
     }
 
     public void showActionBar() {
-        if (getActionBar() != null) {
-            getActionBar().show();
+        if (getSupportActionBar() != null) {
+        	getSupportActionBar().show();
         }
     }
 

@@ -281,10 +281,10 @@ public class ReadPostActivity extends BaseActivity {
 		static final int		TEXT_STYLE_ITALIC	= 3;
 		static final int		TEXT_STYLE_QUOTE	= 4;
 
-		boolean					youkuFullscreen;
-		WebView					youkuWebView;
-		ViewGroup				youkuWebViewParent;
-		int						youkuWebViewIndex	= -1;
+		public boolean					youkuFullscreen;
+		public WebView					youkuWebView;
+		public ViewGroup				youkuWebViewParent;
+		public int						youkuWebViewIndex	= -1;
 
 		public PostViewHelper(Activity ctx, JSONArray data, int width, ListView listview) {
 			mContext = ctx;
