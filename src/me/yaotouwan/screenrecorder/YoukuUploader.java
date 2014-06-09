@@ -3,6 +3,7 @@ package me.yaotouwan.screenrecorder;
 import android.util.Log;
 import ch.boye.httpclientandroidlib.HttpResponse;
 import ch.boye.httpclientandroidlib.client.ClientProtocolException;
+import ch.boye.httpclientandroidlib.client.entity.UrlEncodedFormEntity;
 import ch.boye.httpclientandroidlib.client.methods.HttpGet;
 import ch.boye.httpclientandroidlib.client.methods.HttpPost;
 import ch.boye.httpclientandroidlib.entity.ByteArrayEntity;
@@ -19,9 +20,8 @@ import java.net.URLEncoder;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.zip.CRC32;
 
 /**
@@ -36,8 +36,12 @@ public class YoukuUploader {
 
     public static final String CLIENT_ID = "2780bc1482be4fd7"; // Youku OpenAPI client_id
     public static final String CLIENT_SECRET = "763deedf075ea67cb2c9c111b80ef779"; //Youku OpenAPI client_secret
-    public static final String ACCESS_TOKEN = "ae71097668c9397221aa7096a1e9fc44";
+    public static final String ACCESS_TOKEN = "c8bed2af457c4d388b60b114095711bd";
     public static final String REFRESH_TOKEN = "85a2a457e8c924bba2a664af8f5dda12";
+    // https://openapi.youku.com/v2/oauth2/authorize?client_id=2780bc1482be4fd7&response_type=code&redirect_uri=http://yaotouwan.me
+    // http://yaotouwan.me/?code=559fdbd0b3dd9379b9e7deff541b73ba&state=
+    // http://yaotouwan.me/?code=c8bed2af457c4d388b60b114095711bd&state=
+    public static final String REDIRECT_URI = "http://yaotouwan.me";
 
     private String refreshFilePath;
     private String client_id;
@@ -89,11 +93,11 @@ public class YoukuUploader {
         try {
             HttpPost httpPost = new HttpPost(url);
             StringEntity entity = new StringEntity(paramString);
-            httpPost.setHeader("Content-Type", "application/json");
+            httpPost.setHeader("Content-Type", "application/x-www-form-urlencoded");
             httpPost.setEntity(entity);
             HttpResponse response = HttpClients.createDefault().execute(httpPost);
             String responseContent = EntityUtils.toString(response.getEntity());
-            Log.i("Youku", "Response" + responseContent);
+            Log.i("Youku", "Response " + responseContent);
             JSONObject result = new JSONObject(responseContent);
             if (result.has("error")) {
                 JSONObject error = result.getJSONObject("error");
@@ -126,10 +130,10 @@ public class YoukuUploader {
             String responseContent = EntityUtils.toString(response.getEntity());
             Log.i("Youku", "Response " + responseContent);
             JSONObject result = new JSONObject(responseContent);
-            if (result.has("error")) {
-                JSONObject error =  result.getJSONObject("error");
-                throw new UploadException(error.getString("description"), error.getInt(("code")));
-            }
+//            if (result.has("error")) {
+//                JSONObject error =  result.getJSONObject("error");
+//                throw new UploadException(error.getString("description"), error.getInt(("code")));
+//            }
             return result;
         } catch (ClientProtocolException e) {
             e.printStackTrace();
@@ -140,15 +144,6 @@ public class YoukuUploader {
         }
 
         return null;
-    }
-
-    private JSONObject getAccessToken(Map<String, String> params) throws UploadException {
-        HashMap<String, String> parameters = new HashMap<String, String>(params);
-        parameters.put("client_id", this.client_id);
-        parameters.put("client_secret", this.client_secret);
-        parameters.put("grant_type", "password");
-
-        return doPOST(ACCESS_TOKEN_URL, parameters);
     }
 
     private JSONObject getUploadToken(Map<String, String> uploadInfo) throws UploadException {
@@ -246,13 +241,33 @@ public class YoukuUploader {
         return doGET(url, null);
     }
 
-    private JSONObject refreshToken() throws UploadException {
+    private void getAccessToken() throws UploadException, JSONException {
+        HashMap<String, String> parameters = new HashMap<String, String>();
+        parameters.put("client_id", this.client_id);
+        parameters.put("client_secret", this.client_secret);
+        parameters.put("grant_type", "authorization_code");
+        parameters.put("code", this.access_token);
+        parameters.put("redirect_uri", REDIRECT_URI);
+        JSONObject acessTokenResult = doPOST(ACCESS_TOKEN_URL, parameters);
+        if (acessTokenResult != null && acessTokenResult.has("access_token") && acessTokenResult.has("refresh_token")) {
+            this.access_token = acessTokenResult.getString("access_token");
+            this.refresh_token = acessTokenResult.getString("refresh_token");
+            writeRefreshFile(refreshFilePath, acessTokenResult);
+        }
+    }
+
+    private void refreshToken() throws UploadException, JSONException {
         Map<String, String> parameters = new HashMap<String, String>();
         parameters.put("client_id", this.client_id);
         parameters.put("client_secret", this.client_secret);
         parameters.put("grant_type", "refresh_token");
         parameters.put("refresh_token", this.refresh_token);
-        return doPOST(ACCESS_TOKEN_URL, parameters);
+        JSONObject refreshResult = doPOST(ACCESS_TOKEN_URL, parameters);
+        if (refreshResult != null && refreshResult.has("access_token") && refreshResult.has("refresh_token")) {
+            this.access_token = refreshResult.getString("access_token");
+            this.refresh_token = refreshResult.getString("refresh_token");
+            writeRefreshFile(refreshFilePath, refreshResult);
+        }
     }
 
     private void readRefreshFile() {
@@ -264,9 +279,9 @@ public class YoukuUploader {
             String refreshContent = new String(bytes, 0, len);
             JSONObject refreshJSONObject = new JSONObject(refreshContent);
             this.access_token = refreshJSONObject.getString("access_token");
-            if (this.access_token == null) this.access_token = "";
+//            if (this.access_token == null) this.access_token = "";
             this.refresh_token = refreshJSONObject.getString("refresh_token");
-            if (this.refresh_token == null) this.refresh_token = "";
+//            if (this.refresh_token == null) this.refresh_token = "";
         } catch (FileNotFoundException e) {
 //            e.printStackTrace();
         } catch (IOException e) {
@@ -300,31 +315,44 @@ public class YoukuUploader {
         }
     }
 
-    private String upload(Map<String, String> params, Map<String, String> uploadInfo) throws UploadException {
+    private String upload(Map<String, String> uploadInfo) throws UploadException {
 
-        this.access_token = params.get("access_token");
-        this.refresh_token = params.get("refresh_token");
+//        this.access_token = params.get("access_token");
+//        this.refresh_token = params.get("refresh_token");
 
         if (refreshFilePath == null) {
             String dataRootDir = YTWHelper.dataRootDirectory(0);
-            refreshFilePath = dataRootDir + "youku.token.txt";
+            refreshFilePath = new File(dataRootDir, "youku.token.txt").getAbsolutePath();
         }
+
+        readRefreshFile();
 
 //        versionUpdate();
 
         try {
-            JSONObject uploadResult = getUploadToken(uploadInfo);
-            JSONObject error = uploadResult.has("error") ? uploadResult.getJSONObject("error") : null;
-
-            if (error != null && error.getInt("code") != 1009) {
-                JSONObject refreshResult = this.refreshToken();
-                this.access_token = refreshResult.getString("access_token");
-                this.refresh_token = refreshResult.getString("refresh_token");
-                writeRefreshFile(refreshFilePath, refreshResult);
-                uploadResult = getUploadToken(uploadInfo);
+            JSONObject uploadResult = null;
+            if (this.refresh_token == null) { // 缓存中没有refresh_token，就获取
+                getAccessToken();
+            }
+            if (this.refresh_token != null) {
+                uploadResult = getUploadToken(uploadInfo); // 拿到了refresh_token，就创建上传
+                JSONObject error = uploadResult.has("error") ? uploadResult.getJSONObject("error") : null;
+                if (error != null && error.getInt("code") == 1009) { // 创建失败，原因是refresh_token过期
+                    this.refresh_token = null;
+                    refreshToken();
+                    if (this.refresh_token != null) { // 重新拿到了refresh_token，再次创建上传
+                        uploadResult = getUploadToken(uploadInfo);
+                    } else {
+                        Log.d("Youku", "upload failed");
+                        return null;
+                    }
+                } else if (error != null) { // 其他原因创建失败，不可恢复
+                    Log.d("Youku", "upload failed");
+                    return null;
+                }
             }
 
-            if (!uploadResult.has("upload_token")) {
+            if (uploadResult == null || !uploadResult.has("upload_token")) {
                 Log.d("Youku", "upload failed");
                 return null;
             }
@@ -456,38 +484,64 @@ public class YoukuUploader {
     public String uploadVideoFile(String filepath, String title, String tags) throws UploadException {
         client_id = CLIENT_ID;
         client_secret = CLIENT_SECRET;
-        Map<String, String> params = new HashMap<String, String>();
-        params.put("access_token", ACCESS_TOKEN);
-        params.put("refresh_token", REFRESH_TOKEN);
+//        Map<String, String> params = new HashMap<String, String>();
+//        params.put("access_token", ACCESS_TOKEN);
+//        params.put("refresh_token", REFRESH_TOKEN);
+        this.access_token = ACCESS_TOKEN;
+        this.refresh_token = REFRESH_TOKEN;
 
         Map<String, String> uploadInfo = new HashMap<String, String>();
-        String md5 = "";
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            File file = new File(filepath);
-            if (!file.exists())
-                return null;
-            InputStream is = new FileInputStream(file);
-            new DigestInputStream(is, md);
-            byte[] digest = md.digest();
-            for (int i=0; i < digest.length; i++) {
-                md5 += Integer.toString((digest[i] & 0xff) + 0x100, 16).substring(1);
-            }
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-            return null;
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            return null;
-        }
+        String md5 = new MD5Checksum(filepath).getMD5Checksum();
         uploadInfo.put("file_md5", md5);
         uploadInfo.put("file_size", new File(filepath).length() + "");
         uploadInfo.put("file_name", filepath);
+        String tail = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.CHINA).format(new Date());
+        title = title + "_" + tail;
         uploadInfo.put("title", title);
+        Log.d("Youku", "upload with title " + title + ", md5 " + md5);
 //        uploadInfo.put("tags", tags);
         uploadInfo.put("tags", "游戏");
         uploadInfo.put("category", "游戏");
 
-        return upload(params, uploadInfo);
+        return upload(uploadInfo);
+    }
+
+    public class MD5Checksum {
+
+        private String filename;
+        public MD5Checksum(String filename) {
+            this.filename = filename;
+        }
+
+        // see this How-to for a faster way to convert
+        // a byte array to a HEX string
+        public String getMD5Checksum() {
+            try {
+                InputStream fis = new FileInputStream(filename);
+
+                byte[] buffer = new byte[1024];
+                MessageDigest complete = MessageDigest.getInstance("MD5");
+                int numRead;
+
+                do {
+                    numRead = fis.read(buffer);
+                    if (numRead > 0) {
+                        complete.update(buffer, 0, numRead);
+                    }
+                } while (numRead != -1);
+
+                fis.close();
+                byte[] b = complete.digest();
+
+                String result = "";
+
+                for (int i = 0; i < b.length; i++) {
+                    result += Integer.toString((b[i] & 0xff) + 0x100, 16).substring(1);
+                }
+                return result;
+            } catch (Exception e) {
+                return null;
+            }
+        }
     }
 }

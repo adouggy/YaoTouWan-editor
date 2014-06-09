@@ -47,9 +47,9 @@ public class SRecorderService extends Service {
     // parameters for video
     boolean videoLandscape;
 
-	private native int initRecorder(String filename, int rotation, int videoBitrate, int videoFPS, boolean recordVideo);
-	private native int encodeFrame(byte[] audioBuffer, int audioSamplesSize, float audioGain);
-	private native int stopRecording();
+	protected native int initRecorder(String filename, int rotation, int videoBitrate, int videoFPS, boolean recordVideo);
+    protected native int encodeFrame(byte[] audioBuffer, int audioSamplesSize, float audioGain);
+    protected native int stopRecording();
 
     int pid;
 

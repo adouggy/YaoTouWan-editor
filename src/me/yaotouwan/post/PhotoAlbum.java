@@ -99,6 +99,9 @@ public class PhotoAlbum extends BaseActivity {
                 dir = new File(rootDir, "我的相机");
                 loadPhotoInDir(dir, "我的相机", false);
 
+                dir = new File(YTWHelper.postsDir());
+                loadPhotoInDir(dir, "摇头玩", false);
+
                 publishProgress(1);
 
                 // 遍历上次发现过的目录
@@ -230,8 +233,8 @@ public class PhotoAlbum extends BaseActivity {
         for (File file : files) {
             if (file.isHidden()) continue;
             if (file.isDirectory()) {
-                if (file.getAbsolutePath().equals(YTWHelper.postsDir()))
-                    continue;
+//                if (file.getAbsolutePath().equals(YTWHelper.postsDir()))
+//                    continue;
                 boolean existed = false;
                 if (dataSource != null) {
                     for (Album alb : dataSource.albums) {
