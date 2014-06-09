@@ -1,35 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/white"
+    android:orientation="vertical"
+    android:paddingBottom="15dp"
+    android:paddingLeft="15dp"
+    android:paddingRight="15dp" >
 
-<LinearLayout
-		xmlns:android="http://schemas.android.com/apk/res/android"
-		android:layout_width="match_parent"
-		android:layout_height="wrap_content"
-		android:background="@color/white"
-        android:orientation="vertical"
-		>
-	<me.yaotouwan.post.PreviewImageButton
-			android:id="@+id/post_item_image"
-			android:layout_width="match_parent"
-			android:layout_height="200dp"
-			android:background="@null"
-			android:scaleType="centerCrop"
-			android:layout_marginTop="10dp"
-			android:enabled="false"
-			/>
-	<WebView
-			android:id="@+id/video_webview"
-			android:layout_width="match_parent"
-			android:layout_height="300dp"
-			/>
-	<TextView
-			android:id="@+id/post_item_text_readonly"
-			android:layout_width="match_parent"
-			android:layout_height="wrap_content"
-			android:textColor="@color/black"
-			android:gravity="top"
-			android:background="@color/white"
-			android:textSize="16sp"
-			android:inputType="textMultiLine"
-			android:isScrollContainer="true"
-			/>
+    <me.yaotouwan.post.PreviewImageButton
+        android:id="@+id/post_item_image"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:layout_marginTop="10dp"
+        android:background="@null"
+        android:enabled="false"
+        android:scaleType="centerCrop" />
+
+    <WebView
+        android:id="@+id/video_webview"
+        android:layout_width="match_parent"
+        android:layout_height="300dp" />
+
+    <TextView
+        android:id="@+id/post_item_text_readonly"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:gravity="top"
+        android:isScrollContainer="true"
+        android:textColor="@color/black"
+        android:textSize="16sp" />
+
 </LinearLayout>
