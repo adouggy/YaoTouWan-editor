@@ -23,3 +23,4 @@ int fb_size(FBInfo *fb);
 int fb_pix_fmt(FBInfo *fb);
 int fb_open(FBInfo *fb);
 void fb_close(FBInfo *fb);
+void log_fb(FBInfo *fb);

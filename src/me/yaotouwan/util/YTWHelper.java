@@ -97,6 +97,16 @@ public class YTWHelper {
         return new File(draftMediaDir, generateRandomFilename("jpg")).getAbsolutePath();
     }
 
+    public static String generateFilePathForVideoSaveWithDraftUri(Uri draftUri)  {
+        String draftPath = draftUri.getPath();
+        String draftMediaDirPath = draftPath.substring(0, draftPath.length() - 5);
+        File draftMediaDir = new File(draftMediaDirPath);
+        if (!draftMediaDir.exists()) {
+            draftMediaDir.mkdirs();
+        }
+        return new File(draftMediaDir, generateRandomFilename("mp4")).getAbsolutePath();
+    }
+
     public static String prepareFilePathForVideoSaveWithDraftUri(Uri draftUri)  {
         String draftPath = draftUri.getPath();
         String draftMediaDirPath = draftPath.substring(0, draftPath.length() - 5);
@@ -104,15 +114,12 @@ public class YTWHelper {
         if (!draftMediaDir.exists()) {
             draftMediaDir.mkdirs();
         }
-        Log.d("Yaotouwan", draftMediaDir.getAbsolutePath());
         String[] files = draftMediaDir.list(new FilenameFilter() {
             @Override
             public boolean accept(File dir, String filename) {
-                Log.d("Yaotouwan", filename);
                 return filename.endsWith(".mp4");
             }
         });
-        Log.d("Yaotouwan", "files " + files);
         if (files.length > 0) {
             for (String file : files) {
                 if (file.contains("-0.mp4")) {

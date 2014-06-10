@@ -56,41 +56,6 @@ void log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt)
          pkt->stream_index);
 }
 
-void log_fb(FBInfo fb)
-{
-    LOGE("fb->vi.xres = %u", fb.vi.xres);
-    LOGE("fb->vi.yres = %u", fb.vi.yres);
-    LOGE("fb->vi.xres_virtual = %u", fb.vi.xres_virtual);
-    LOGE("fb->vi.yres_virtual = %u", fb.vi.yres_virtual);
-    LOGE("fb->vi.xoffset = %u", fb.vi.xoffset);
-    LOGE("fb->vi.yoffset = %u", fb.vi.yoffset);
-    LOGE("fb->vi.bits_per_pixel = %u", fb.vi.bits_per_pixel);
-    LOGE("fb->vi.grayscale = %u", fb.vi.grayscale);
-
-    LOGE("fb->vi.pixclock = %u", fb.vi.pixclock);
-    LOGE("fb->vi.left_margin = %u", fb.vi.left_margin);
-    LOGE("fb->vi.right_margin = %u", fb.vi.right_margin);
-    LOGE("fb->vi.upper_margin = %u", fb.vi.upper_margin);
-    LOGE("fb->vi.lower_margin = %u", fb.vi.lower_margin);
-    LOGE("fb->vi.hsync_len = %u", fb.vi.hsync_len);
-    LOGE("fb->vi.vsync_len = %u", fb.vi.vsync_len);
-    LOGE("fb->vi.sync = %u", fb.vi.sync);
-    LOGE("fb->vi.vmode = %u", fb.vi.vmode);
-    LOGE("fb->vi.rotate = %u", fb.vi.rotate);
-
-    LOGE("fb->fi.smem_len = %u", fb.fi.smem_len);
-    LOGE("fb->fi.type = %u", fb.fi.type);
-    LOGE("fb->fi.type_aux = %u", fb.fi.type_aux);
-    LOGE("fb->fi.visual = %u", fb.fi.visual);
-    LOGE("fb->fi.xpanstep = %u", fb.fi.xpanstep);
-    LOGE("fb->fi.ypanstep = %u", fb.fi.ypanstep);
-    LOGE("fb->fi.ywrapstep = %u", fb.fi.ywrapstep);
-    LOGE("fb->fi.line_length = %u", fb.fi.line_length);
-    LOGE("fb->fi.mmio_start = %lu", fb.fi.mmio_start);
-    LOGE("fb->fi.mmio_len = %u", fb.fi.mmio_len);
-    LOGE("fb->fi.accel = %u", fb.fi.accel);
-}
-
 int write_frame(AVFormatContext *fmt_ctx, const AVRational *time_base, AVStream *st, AVPacket *pkt)
 {
     pkt->pts = av_rescale_q_rnd(pkt->pts, *time_base, st->time_base, AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX);
@@ -135,15 +100,9 @@ AVStream *add_stream(AVFormatContext *oc, AVCodec **codec, enum AVCodecID codec_
                 return NULL;
             }
             c->codec_id = codec_id;
-            // todo bit rate not set
             c->bit_rate = video_bit_rate;
-            if (rotation == 0 || rotation == 2) {
-                c->width = fb_width(&fb) / 4 * 2;
-                c->height = fb_height(&fb) / 4 * 2;
-            } else if (rotation == 1 || rotation == 3) {
-                c->width = fb_height(&fb) / 4 * 2;
-                c->height = fb_width(&fb) / 4 * 2;
-            }
+            c->width = fb_width(&fb) / 4 * 2;
+            c->height = fb_height(&fb) / 4 * 2;
             c->time_base.den = video_frame_rate;
             c->time_base.num = 1;
             c->gop_size = c->time_base.den;
@@ -152,6 +111,7 @@ AVStream *add_stream(AVFormatContext *oc, AVCodec **codec, enum AVCodecID codec_
                 av_opt_set(c->priv_data, "preset", "ultrafast", 0); // ultrafast,superfast, veryfast, faster, fast, medium, slow, slower, veryslow, placebo
                 av_opt_set(c->priv_data, "profile", "baseline", 0); // baseline, main, high, high10, high422, high444
             }
+            fb_close(&fb);
             break;
             
         default:
@@ -267,19 +227,18 @@ void write_video_frame(AVFormatContext *oc, AVStream *st, int flush)
     AVCodecContext *c = st->codec;
     
     if (!flush) {
-        LOGI("open fb");
         if (fb_open(&fb) == 0) {
             if (sws_ctx == NULL) {
                 sws_ctx = sws_getContext(fb_width(&fb), fb_height(&fb),
-                                                         fb_pix_fmt(&fb),
-                                                         c->width, c->height,
-                                                         c->pix_fmt,
-                                                         SWS_POINT, NULL, NULL, NULL);
+                                         fb_pix_fmt(&fb),
+                                         c->width, c->height,
+                                         c->pix_fmt,
+                                         SWS_POINT, NULL, NULL, NULL);
                 if (sws_ctx == NULL) {
                     LOGE("Cannot initialize the conversion context\n");
                     return;
                 }
-                log_fb(fb);
+                log_fb(&fb);
             }
 
 //            LOGE("fb->fi.line_length = %u, color_width %d", fb.fi.line_length, fb_width(&fb) * fb_bpp(&fb));
@@ -305,13 +264,15 @@ void write_video_frame(AVFormatContext *oc, AVStream *st, int flush)
             int inLinesize[1];
             inLinesize[0] = fb_bpp(&fb) * fb_width(&fb);
             int height = fb_height(&fb);
-            sws_scale(sws_ctx,
-                      inData,
-                      inLinesize,
-                      0,
-                      height,
-                      dst_picture.data,
-                      dst_picture.linesize);
+            sws_scale(
+                sws_ctx,
+                inData,
+                inLinesize,
+                0,
+                height,
+                dst_picture.data,
+                dst_picture.linesize);
+            fb_close(&fb);
         }
     }
     
@@ -353,6 +314,7 @@ int encoder_init_recorder(const char *filename, int rotation_, int video_bit_rat
     video_bit_rate = video_bit_rate_;
     video_frame_rate = video_fps;
     av_register_all();
+    frame_count = 0;
     LOGI("record_video = %d", record_video);
 
     avformat_alloc_output_context2(&oc, NULL, NULL, filename);
@@ -444,6 +406,7 @@ int encoder_encode_frame
 
 int encoder_stop_recording()
 {
+    LOGI("stop recording");
     recording = 0;
 
     if (oc == NULL) return 0;

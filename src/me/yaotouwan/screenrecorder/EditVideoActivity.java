@@ -384,7 +384,7 @@ public class EditVideoActivity extends BaseActivity {
 
         protected Boolean doInBackground(Integer... args) {
             String srcfpath = videoPath;
-            dstfpath = YTWHelper.prepareFilePathForVideoSaveWithDraftUri(draftUri);
+            dstfpath = YTWHelper.generateFilePathForVideoSaveWithDraftUri(draftUri);
             cutVideo(srcfpath, dstfpath,
                     selector.startProgress(),
                     selector.endProgress(),
