@@ -54,7 +54,6 @@ public class UploadPostMediaService extends Service {
     }
 
     void uploadMedia() {
-        if (true) return ;
         assert postJSONFileUri != null;
         mediaUpdated = true;
 
