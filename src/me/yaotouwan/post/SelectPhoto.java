@@ -228,7 +228,7 @@ public class SelectPhoto extends BaseActivity {
                 String path = photos.get(pos);
                 intent.putExtra((isVideo ? "selected_video_" : "selected_photo_") + i, path);
                 if (isVideo) {
-                    Bitmap thumbnail = CachedImageButton.loadVideoThumbnail(SelectPhoto.this,
+                    Bitmap thumbnail = MediaUtils.loadVideoThumbnail(SelectPhoto.this,
                             path, MediaStore.Video.Thumbnails.MINI_KIND);
                     if (thumbnail != null) {
                         intent.putExtra("selected_video_width_" + i, thumbnail.getWidth());

@@ -451,7 +451,7 @@ public class ReadPostActivity extends BaseActivity {
 					videoTag = videoTag.replace("{youku_client_id}", YoukuUploader.CLIENT_ID);
 					videoTag = videoTag.replace("{position}", position + "");
 					webView.loadData(videoTag, "text/html", "UTF-8");
-                    Log.d("ReadPostActivity", videoTag);
+//                    Log.d("ReadPostActivity", videoTag);
 					setViewHeight(webView, width * 3 / 4);
 				}
 			} else {

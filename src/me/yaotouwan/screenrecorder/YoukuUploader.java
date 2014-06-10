@@ -484,9 +484,6 @@ public class YoukuUploader {
     public String uploadVideoFile(String filepath, String title, String tags) throws UploadException {
         client_id = CLIENT_ID;
         client_secret = CLIENT_SECRET;
-//        Map<String, String> params = new HashMap<String, String>();
-//        params.put("access_token", ACCESS_TOKEN);
-//        params.put("refresh_token", REFRESH_TOKEN);
         this.access_token = ACCESS_TOKEN;
         this.refresh_token = REFRESH_TOKEN;
 
