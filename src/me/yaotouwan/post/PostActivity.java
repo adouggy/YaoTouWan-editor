@@ -80,12 +80,6 @@ public class PostActivity extends BaseActivity {
     boolean finishButtonClicked; // 为防止键盘显示判断错误导致的点击无效
     List<AppPackageHelper.Game> gamesInstalled;
     boolean appendedText;
-    boolean scrollingToEditor;
-    String youkuPlayerHTML;
-    boolean youkuFullscreen;
-    WebView youkuWebView;
-    ViewGroup youkuWebViewParent;
-    int youkuWebViewIndex = -1;
     Fragment headerFragment;
     Fragment footerFragment;
     boolean titleEditorIsOnFocus;
@@ -126,7 +120,6 @@ public class PostActivity extends BaseActivity {
         titleEditor.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View v, boolean hasFocus) {
-                logd("has focus title " + hasFocus);
                 if (hasFocus) {
                     titleEditorIsOnFocus = hasFocus;
                     postItemsListView.blockLayoutRequests();
@@ -177,17 +170,6 @@ public class PostActivity extends BaseActivity {
 
     @Override
     public void onBackPressed() {
-        if (youkuFullscreen) {
-            youkuFullscreen = false;
-            getRootViewGroup().removeView(youkuWebView);
-            youkuWebViewParent.addView(youkuWebView, youkuWebViewIndex);
-            youkuWebView = null;
-            youkuWebViewParent = null;
-            youkuWebViewIndex = -1;
-            exitFullscreen();
-            showActionBar();
-            return;
-        }
         if (adapter.editingTextRow >= 0) {
             adapter.editingTextRow = -1;
             adapter.notifyDataSetChanged();
@@ -199,11 +181,6 @@ public class PostActivity extends BaseActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (adapter.webViews != null) {
-            for (WebView webView : adapter.webViews) {
-                webView.loadUrl("about:blank");
-            }
-        }
     }
 
     @Override
@@ -216,11 +193,6 @@ public class PostActivity extends BaseActivity {
     protected void onDestroy() {
         super.onDestroy();
         hideSoftKeyboard();
-        if (adapter.webViews != null) {
-            for (WebView webView : adapter.webViews) {
-                webView.loadData("about:blank", "text/html", "UTF-8");
-            }
-        }
     }
 
     protected void onKeyboardHide() {
@@ -268,7 +240,6 @@ public class PostActivity extends BaseActivity {
 
         if (adapter.editingTextRow >= 0) {
             adapter.notifyDataSetChanged();
-            scrollingToEditor = false;
             postItemsListView.setSelectionFromTop(adapter.editingTextRow + 1, 100);
         }
     }
@@ -734,6 +705,18 @@ public class PostActivity extends BaseActivity {
         adapter.editingTextRow = adapter.getCount() - 1;
         adapter.notifyDataSetChanged();
         postItemsListView.setSelectionFromTop(adapter.editingTextRow + 1, 100);
+        postItemsListView.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                View rowView = postItemsListView.getItemViewAtRow(adapter.editingTextRow);
+                if (rowView != null) {
+                    logd("refocus editor for appended text");
+                    TextEditor editor = (TextEditor) rowView.findViewById(R.id.post_item_text);
+                    editor.requestFocus();
+                    editor.setSelection(0);
+                }
+            }
+        }, 1000);
     }
 
     boolean canAppend() {
@@ -800,31 +783,6 @@ public class PostActivity extends BaseActivity {
         }
     }
 
-    class JavaScriptInterface {
-        @JavascriptInterface
-        public void onVideoStart(final int position) {
-            doTaskOnMainThread(new Runnable() {
-                @Override
-                public void run() {
-                    View rowView = postItemsListView.getItemViewAtRow(position);
-                    if (rowView == null) return;
-                    youkuWebView = (WebView) rowView.findViewById(R.id.video_webview);
-                    if (youkuWebView == null) return;
-                    youkuWebViewParent = (ViewGroup) youkuWebView.getParent();
-                    if (youkuWebViewParent == null) return;
-                    youkuWebViewIndex = youkuWebViewParent.indexOfChild(youkuWebView);
-                    youkuWebViewParent.removeView(youkuWebView);
-                    setViewSize(youkuWebView, ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT);
-                    getRootViewGroup().addView(youkuWebView);
-                    hideActionBar();
-                    enterFullscreen();
-                    youkuFullscreen = true;
-                }
-            });
-        }
-    }
-
     private class PostListViewDataSource
             extends SimpleDragSortCursorAdapter
             implements AbsListView.OnScrollListener, TextWatcher {
@@ -850,7 +808,6 @@ public class PostActivity extends BaseActivity {
         int editingTextRow = -1;
         View editTargetView;
         boolean deleting;
-        List<WebView> webViews;
 
         public PostListViewDataSource() {
             super(PostActivity.this, R.layout.post_item, null,
@@ -1028,19 +985,6 @@ public class PostActivity extends BaseActivity {
             previewImageView.setEnabled(false);
 
             ViewGroup previewGroup = (ViewGroup) rowView.findViewById(R.id.post_item_preview);
-            final WebView webView = (WebView) rowView.findViewById(R.id.video_webview);
-            if (webView == null) {
-                return;
-            }
-            if (webViews == null || !webViews.contains(webView)) {
-                if (webViews == null) {
-                    webViews = new ArrayList<WebView>(3);
-                }
-                webViews.add(webView);
-                webView.getSettings().setJavaScriptEnabled(true);
-                webView.getSettings().setAppCacheEnabled(true);
-                webView.addJavascriptInterface(new JavaScriptInterface(), "Android");
-            }
             if (postItemsListView.editingPosition == position) {
                 // todo deprecated
                 textView.setBackgroundDrawable(new EditModeBGDrawable(PostActivity.this, 0));
@@ -1051,7 +995,6 @@ public class PostActivity extends BaseActivity {
             if (imagePath != null) {
                 showView(previewGroup);
                 hideView(playBtn);
-                hideView(webView);
 
                 previewImageView.setBackgroundColor(Color.WHITE);
                 previewImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -1068,34 +1011,16 @@ public class PostActivity extends BaseActivity {
                             postItemsListView.getWidth() * imgSize.y / imgSize.x);
                 }
             } else if (videoPath != null) {
-                if ("youku".equals(Uri.parse(videoPath).getScheme())) {
-                    hideView(previewGroup);
-                    showView(webView);
-                    if (youkuPlayerHTML == null) {
-                        youkuPlayerHTML = YTWHelper
-                                .readAssertsTextContent(PostActivity.this, "youku_player.html");
-                    }
-                    String videoTag = youkuPlayerHTML;
-                    String videoID = videoPath.replace("youku://", "");
-                    videoTag = videoTag.replace("{youku_video_id}", videoID);
-                    videoTag = videoTag.replace("{youku_client_id}", YoukuUploader.CLIENT_ID);
-                    videoTag = videoTag.replace("{position}", position + "");
-                    webView.loadData(videoTag, "text/html", "UTF-8");
-                    setViewHeight(webView, postItemsListView.getWidth() * 3 / 4);
-                } else {
-                    showView(previewGroup);
-                    showView(playBtn);
-                    hideView(webView);
+                showView(previewGroup);
+                showView(playBtn);
 
-                    previewImageView.setBackgroundColor(Color.BLACK);
-                    previewImageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                    previewImageView.setImageWithVideoPath(videoPath,
-                            MediaStore.Video.Thumbnails.FULL_SCREEN_KIND, scrolling, 0);
-                    setViewHeight(previewImageView, postItemsListView.getWidth() * 3 / 4);
-                }
+                previewImageView.setBackgroundColor(Color.BLACK);
+                previewImageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                previewImageView.setImageWithVideoPath(videoPath,
+                        MediaStore.Video.Thumbnails.FULL_SCREEN_KIND, scrolling, 0);
+                setViewHeight(previewImageView, postItemsListView.getWidth() * 3 / 4);
             } else {
                 hideView(previewGroup);
-                hideView(webView);
             }
 
             int minLines = 0;

@@ -43,12 +43,6 @@
 					android:enabled="false"
 					/>
 		</RelativeLayout>
-		<WebView
-				android:id="@+id/video_webview"
-				android:layout_width="match_parent"
-				android:layout_height="300dp"
-				/>
-
 		<me.yaotouwan.post.TextEditor
 				android:id="@+id/post_item_text"
 				android:layout_width="match_parent"
