@@ -3,6 +3,7 @@ package me.yaotouwan.util;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import ch.boye.httpclientandroidlib.HttpResponse;
@@ -108,13 +109,22 @@ public class AppPackageHelper {
 
                             for (PackageInfo pack : packs) {
                                 if (pack.applicationInfo == null) continue;
-                                if (pack.applicationInfo.loadLabel(packageManager) == null) continue;
-                                String appname = pack.applicationInfo.loadLabel(packageManager).toString();
+                                String appname = null;
+                                try {
+                                    if (pack.applicationInfo.loadLabel(packageManager) == null) continue;
+                                    appname = pack.applicationInfo.loadLabel(packageManager).toString();
+                                } catch (Resources.NotFoundException e) {
+                                    continue;
+                                }
                                 String localPackName = pack.applicationInfo.packageName;
                                 if (packName.equals(localPackName)) {
                                     Game game = new Game();
                                     game.appname = appname;
-                                    game.icon = pack.applicationInfo.loadIcon(packageManager);
+                                    try {
+                                        game.icon = pack.applicationInfo.loadIcon(packageManager);
+                                    } catch (Resources.NotFoundException e) {
+                                        continue;
+                                    }
                                     game.pname = localPackName;
                                     games.add(game);
                                     break;

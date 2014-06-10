@@ -79,7 +79,6 @@ public class PostActivity extends BaseActivity {
     int editVideoAtPosition = -1;
     boolean finishButtonClicked; // 为防止键盘显示判断错误导致的点击无效
     List<AppPackageHelper.Game> gamesInstalled;
-    boolean readonly;
     boolean appendedText;
     boolean scrollingToEditor;
     String youkuPlayerHTML;
@@ -101,84 +100,41 @@ public class PostActivity extends BaseActivity {
         } catch (IntentFilter.MalformedMimeTypeException e) {
             e.printStackTrace();
         }
-        registerReceiver(uploadMediaProgressReceiver, intentFilter);
 
         setContentView(R.layout.post);
         setupActionBar(R.string.post_title);
 
         Intent intent = getIntent();
-        if (intent.hasExtra("readonly")) {
-            readonly = intent.getBooleanExtra("readonly", false);
-        }
         Uri postUri = intent.getData();
-        if (postUri != null) {
-            if (postUri.getScheme().equals("http") || postUri.getScheme().equals("https")) {
-                readonly = true;
-            }
-        }
 
         toolbar = (ViewGroup) findViewById(R.id.post_toolbar);
         postItemsListView = (DragSortListView) findViewById(R.id.post_items);
         ((DragSortController)postItemsListView.mFloatViewManager).dragModeShadowImage
                 = R.drawable.post_item_drag_mode_bg;
 
-        if (readonly) {
-            hideView(toolbar);
-            postItemsListView.setDividerHeight(dpToPx(15));
+        menuResId = R.menu.post_actions;
+        View titleContent = getLayoutInflater().inflate(R.layout.post_title, null);
+        postItemsListView.addHeaderView(titleContent);
 
-            View headerView = getLayoutInflater().inflate(R.layout.read_post_header, null);
-            View footerView = getLayoutInflater().inflate(R.layout.read_post_footer, null);
-            postItemsListView.addHeaderView(headerView);
-            postItemsListView.addFooterView(footerView);
+        View footer = getLayoutInflater().inflate(R.layout.post_footer, null);
+        postItemsListView.addFooterView(footer);
+        showView(R.id.footer_sep);
+        hideView(R.id.footer_readonly);
 
-            FragmentTransaction fragmentTransaction =
-                    getSupportFragmentManager().beginTransaction();
-            String headerFragmentClassName = getIntent()
-                    .getStringExtra("read_post_header_fragment_class_name");
-            String footerFragmentClassName = getIntent()
-                    .getStringExtra("read_post_footer_fragment_class_name");
-            try {
-                headerFragment =
-                        (Fragment) Class.forName(headerFragmentClassName).newInstance();
-                footerFragment =
-                        (Fragment) Class.forName(footerFragmentClassName).newInstance();
-                fragmentTransaction.replace(R.id.read_post_header, headerFragment);
-                fragmentTransaction.replace(R.id.read_post_footer, footerFragment);
-            } catch (InstantiationException e) {
-            } catch (IllegalAccessException e) {
-            } catch (ClassNotFoundException e) {
-            }
-            fragmentTransaction.commit();
+        titleEditor = (EditText) findViewById(R.id.post_title);
 
-            loadPost(postUri);
-        } else {
-            menuResId = R.menu.post_actions;
-            View titleContent = getLayoutInflater().inflate(R.layout.post_title, null);
-            postItemsListView.addHeaderView(titleContent);
-
-            View footer = getLayoutInflater().inflate(R.layout.post_footer, null);
-            postItemsListView.addFooterView(footer);
-            showView(R.id.footer_sep);
-            showView(R.id.footer_sep);
-            hideView(R.id.footer_readonly);
-
-            titleEditor = (EditText) findViewById(R.id.post_title);
-
-            if (postUri != null) {
-                draftFile = new File(postUri.getPath());
-                String JSON = YTWHelper.readTextContent(draftFile.getAbsolutePath());
-                loadDraftFromJSON(JSON);
-            }
-            prepareDraftFile();
+        if (postUri != null) {
+            draftFile = new File(postUri.getPath());
+            String JSON = YTWHelper.readTextContent(draftFile.getAbsolutePath());
+            loadDraftFromJSON(JSON);
         }
+        prepareDraftFile();
 
         adapter = new PostListViewDataSource();
 
         postItemsListView.setAdapter(adapter);
         postItemsListView.setDragSortListener(adapter);
         postItemsListView.setOnScrollListener(adapter);
-
-        postItemsListView.readonly = readonly;
 
         listenKeyboard();
 
@@ -221,10 +177,6 @@ public class PostActivity extends BaseActivity {
             showActionBar();
             return;
         }
-        if (readonly) {
-            super.onBackPressed();
-            return;
-        }
         if (adapter.editingTextRow >= 0) {
             adapter.editingTextRow = -1;
             adapter.notifyDataSetChanged();
@@ -252,7 +204,7 @@ public class PostActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(uploadMediaProgressReceiver);
+        hideSoftKeyboard();
         if (adapter.webViews != null) {
             for (WebView webView : adapter.webViews) {
                 webView.loadData("about:blank", "text/html", "UTF-8");
@@ -260,25 +212,36 @@ public class PostActivity extends BaseActivity {
         }
     }
 
-    private BroadcastReceiver uploadMediaProgressReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            float progress = intent.getFloatExtra("progress", 0);
-            if (progress >= 1) {
-//                Toast.makeText(PostActivity.this, "Media Upload Done", Toast.LENGTH_LONG).show();
-//                logd("received progress " + progress);
-            }
-        }
-    };
-
     protected void onKeyboardHide() {
         super.onKeyboardHide();
 
         titleEditor.clearFocus();
+
         if (adapter.editingTextRow >= 0) {
             adapter.editingTextRow = -1;
-            adapter.notifyDataSetChanged();
+            //把换行符拆成多个段落
+            for (int i=0; i<adapter.getCount(); i++) {
+                String text = adapter.getText(i);
+                if (text != null && text.contains("\n")) {
+                    String[] lines = text.split("\\n");
+                    int newLine = 0;
+                    for (int j=0; j<lines.length; j++) {
+                        String line = lines[j].trim();
+                        if (line.length() > 0) {
+                            if (newLine > 0) {
+                                adapter.insertRow(i + newLine);
+                            }
+                            adapter.updateText(i + newLine, line);
+                            newLine ++;
+                        }
+                    }
+                    i += newLine;
+                }
+            }
         }
+
+        adapter.notifyDataSetChanged();
+        postItemsListView.unBlockLayoutRequests();
 
         if (finishButtonClicked) {
             onFinishClick(null);
@@ -295,14 +258,9 @@ public class PostActivity extends BaseActivity {
             adapter.notifyDataSetChanged();
         }
 
-        if (scrollingToEditor && adapter.editingTextRow >= 0) {
+        if (adapter.editingTextRow >= 0) {
             scrollingToEditor = false;
-            postItemsListView.post(new Runnable() {
-                @Override
-                public void run() {
-                    postItemsListView.setSelection(adapter.editingTextRow + 1);
-                }
-            });
+            postItemsListView.setSelectionFromTop(adapter.editingTextRow + 1, 100);
         }
     }
 
@@ -344,7 +302,7 @@ public class PostActivity extends BaseActivity {
                         @Override
                         public void run() {
                             if (adapter.getCount() - count >= 0) {
-                                postItemsListView.smoothScrollToPosition(adapter.getCount() - count + 1);
+                                postItemsListView.setSelection(adapter.getCount() - count + 1);
                             }
                         }
                     });
@@ -366,7 +324,7 @@ public class PostActivity extends BaseActivity {
                         @Override
                         public void run() {
                             if (adapter.getCount() - count >= 0) {
-                                postItemsListView.smoothScrollToPosition(adapter.getCount() - count + 1);
+                                postItemsListView.setSelection(adapter.getCount() - count + 1);
                             }
                         }
                     });
@@ -411,7 +369,6 @@ public class PostActivity extends BaseActivity {
     File draftFile;
     File draftDir;
     void saveDraft() {
-        if (readonly) return;
         if (adapter == null) return;
         try {
             if (draftFile != null) {
@@ -426,7 +383,6 @@ public class PostActivity extends BaseActivity {
             assert titleEditor != null && titleEditor.getText() != null;
             String title = titleEditor.getText().toString();
             draft.put("title", title);
-            logd("put title " + title);
 
             JSONArray sections = new JSONArray();
 
@@ -762,15 +718,13 @@ public class PostActivity extends BaseActivity {
     }
 
     public void onAppendTextClick(View view) {
-        hideSoftKeyboard();
-
         if (canAppend()) {
             adapter.appendRow();
         }
         appendedText = true;
         adapter.editingTextRow = adapter.getCount() - 1;
         adapter.notifyDataSetChanged();
-        postItemsListView.smoothScrollToPosition(adapter.editingTextRow + 1);
+        postItemsListView.setSelectionFromTop(adapter.editingTextRow + 1, 100);
     }
 
     boolean canAppend() {
@@ -862,7 +816,9 @@ public class PostActivity extends BaseActivity {
         }
     }
 
-    private class PostListViewDataSource extends SimpleDragSortCursorAdapter implements AbsListView.OnScrollListener, TextWatcher {
+    private class PostListViewDataSource
+            extends SimpleDragSortCursorAdapter
+            implements AbsListView.OnScrollListener, TextWatcher {
 
         PostCursor cursor;
         static final int id_col_idx = 0;
@@ -898,9 +854,12 @@ public class PostActivity extends BaseActivity {
         }
 
         // 如果最后一行内容为空，则添加失败并返回false
-        boolean appendRow() {
+        void appendRow() {
             cursor.addRow(0, null, null, null, 0, null, 0, 0);
-            return true;
+        }
+
+        void insertRow(int pos) {
+            cursor.insertRow(pos, 0, null, null, null, 0, null, 0, 0);
         }
 
         void updateImage(int pos, String imagePath, int width, int height) {
@@ -1074,6 +1033,7 @@ public class PostActivity extends BaseActivity {
                 webView.addJavascriptInterface(new JavaScriptInterface(), "Android");
             }
             if (postItemsListView.editingPosition == position) {
+                // todo deprecated
                 textView.setBackgroundDrawable(new EditModeBGDrawable(PostActivity.this, 0));
             } else {
                 textView.setBackgroundColor(Color.WHITE);
@@ -1089,26 +1049,14 @@ public class PostActivity extends BaseActivity {
                 previewImageView.setImageWithPath(imagePath,
                         postItemsListView.getWidth(), scrolling, 0);
                 Point imgSize = getMediaSize(position);
-                if (readonly) {
-                    if (imgSize != null) {
-                        if (imgSize.x > imgSize.y * 2) {
-                            imgSize.x = imgSize.y * 2;
-                        } else if (imgSize.y > imgSize.x * 2) {
-                            imgSize.y = imgSize.x * 2;
-                        }
-                        setViewHeight(previewImageView,
-                                postItemsListView.getWidth() * imgSize.y / imgSize.x);
+                if (imgSize != null) {
+                    if (imgSize.x > imgSize.y * 2) {
+                        imgSize.x = imgSize.y * 2;
+                    } else if (imgSize.y > imgSize.x) {
+                        imgSize.y = imgSize.x;
                     }
-                } else {
-                    if (imgSize != null) {
-                        if (imgSize.x > imgSize.y * 2) {
-                            imgSize.x = imgSize.y * 2;
-                        } else if (imgSize.y > imgSize.x) {
-                            imgSize.y = imgSize.x;
-                        }
-                        setViewHeight(previewImageView,
-                                postItemsListView.getWidth() * imgSize.y / imgSize.x);
-                    }
+                    setViewHeight(previewImageView,
+                            postItemsListView.getWidth() * imgSize.y / imgSize.x);
                 }
             } else if (videoPath != null) {
                 if ("youku".equals(Uri.parse(videoPath).getScheme())) {
@@ -1134,12 +1082,6 @@ public class PostActivity extends BaseActivity {
                     previewImageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
                     previewImageView.setImageWithVideoPath(videoPath,
                             MediaStore.Video.Thumbnails.FULL_SCREEN_KIND, scrolling, 0);
-                    if (readonly) {
-                        Point imgSize = getMediaSize(position);
-                        if (imgSize != null)
-                            setViewHeight(previewImageView,
-                                    postItemsListView.getWidth() * imgSize.y / imgSize.x);
-                    }
                     setViewHeight(previewImageView, postItemsListView.getWidth() * 3 / 4);
                 }
             } else {
@@ -1148,41 +1090,28 @@ public class PostActivity extends BaseActivity {
             }
 
             int minLines = 0;
-            if (!readonly) {
-                if (imagePath != null) {
-                    textEditor.setHint(R.string.post_image_desc_hint);
-                    textView.setHint(R.string.post_image_desc_hint);
-                } else if (videoPath != null) {
-                    textEditor.setHint(R.string.post_video_desc_hint);
-                    textView.setHint(R.string.post_video_desc_hint);
-                } else {
-                    if (getCount() == 1) {
-                        minLines = 5;
-                    }
-                    textEditor.setHint(R.string.post_section_hint);
-                    textView.setHint(R.string.post_section_hint);
+            if (imagePath != null) {
+                textEditor.setHint(R.string.post_image_desc_hint);
+                textView.setHint(R.string.post_image_desc_hint);
+            } else if (videoPath != null) {
+                textEditor.setHint(R.string.post_video_desc_hint);
+                textView.setHint(R.string.post_video_desc_hint);
+            } else {
+                if (getCount() == 1) {
+                    minLines = 5;
                 }
+                textEditor.setHint(R.string.post_section_hint);
+                textView.setHint(R.string.post_section_hint);
             }
             textEditor.setMinLines(minLines);
             textView.setMinLines(minLines);
 
             if (editingTextRow == position) {
                 hideView(dragHandle);
-                textEditor.setFocuable(true);
-                textEditor.requestFocus();
                 if (!isSoftKeyboardShown) {
-                    if (appendedText) {
-                        appendedText = false;
-                        scrollingToEditor = true;
-                        textEditor.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                doEditTextOnPosition(position);
-                            }
-                        });
-                    } else {
-                        showSoftKeyboard(true);
-                    }
+                    textEditor.setFocuable(true);
+                    textEditor.requestFocus();
+                    showSoftKeyboard(true);
                 }
             } else if (editingTextRow >= 0) {
                 showView(dragHandle);
@@ -1199,61 +1128,31 @@ public class PostActivity extends BaseActivity {
                 hideView(textEditor);
                 showView(textView);
             }
-            if (readonly && previewImageView.getVisibility() == View.GONE) {
-                hideView(dragHandle);
-            }
-
             textEditor.removeTextChangedListener(adapter);
             final Integer style = (Integer) getTextStyle(position);
             if (editingTextRow == position) {
-                textEditor.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        applyStyle(textEditor, text, style);
-                    }
-                });
+                applyStyle(textEditor, text, style);
             } else {
-                textView.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        applyStyle(textView, text, style);
-                    }
-                });
+                if (text != null && text.length() > 300) {
+                    String sum = text.substring(0, 200)
+                            + " … " + text.substring(text.length()-100, text.length());
+                    applyStyle(textView, sum, style);
+                } else {
+                    applyStyle(textView, text, style);
+                }
             }
             if (editingTextRow == position) {
                 textEditor.addTextChangedListener(adapter);
-                if (text != null && text.length() > 0)
-                    textEditor.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            textEditor.setSelection(text.length());
-                        }
-                    });
-                else
-                    textEditor.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            textEditor.setSelection(0);
-                        }
-                    });
-            }
-            if (readonly && (text == null || text.length() == 0)) {
-                hideView(textView);
-            }
-
-            if (readonly && (imagePath != null || videoPath != null)) {
-                textView.setTextSize(14);
-            } else {
-                textView.setTextSize(16);
+                textEditor.setSelection(text != null ? text.length() : 0);
             }
 
             if (editingTextRow == position) {
                 textEditor.post(new Runnable() {
                     @Override
                     public void run() {
-                        if (textEditor.getMeasuredHeight() > 0
-                                && dragHandle.getVisibility() != View.GONE) {
-                            setViewHeight(dragHandle, textEditor.getMeasuredHeight());
+                        int height = textEditor.getMeasuredHeight();
+                        if (height > 0) {
+                            setViewHeight(dragHandle, height);
                         }
                     }
                 });
@@ -1261,20 +1160,12 @@ public class PostActivity extends BaseActivity {
                 textView.post(new Runnable() {
                     @Override
                     public void run() {
-                        if (textView.getMeasuredHeight() > 0
-                                && dragHandle.getVisibility() != View.GONE) {
-                            setViewHeight(dragHandle, textView.getMeasuredHeight());
+                        int height = textView.getMeasuredHeight();
+                        if (height > 0) {
+                            setViewHeight(dragHandle, height);
                         }
                     }
                 });
-            }
-
-            if (readonly) {
-                previewGroup.setPadding(0, 0, 0, 0);
-                previewImageView.setPadding(0, 0, 0, 0);
-                webView.setPadding(0, 0, 0, 0);
-                textEditor.setPadding(0, 0, 0, 0);
-                textView.setPadding(0, 0, 0, 0);
             }
         }
 
@@ -1368,7 +1259,7 @@ public class PostActivity extends BaseActivity {
                     Intent intent = new Intent(PostActivity.this, EditVideoActivity.class);
                     intent.setData(Uri.parse(videoPath));
                     intent.putExtra("draft_path", draftFile.getAbsolutePath());
-                    intent.putExtra("readonly", readonly);
+                    intent.putExtra("readonly", false);
                     startActivityForResult(intent, INTENT_REQUEST_CODE_CUT_VIDEO);
                 }
             } else if (targetView == null) {
@@ -1384,10 +1275,6 @@ public class PostActivity extends BaseActivity {
                     wm.removeView(editPopMenu);
                 }
             } else {
-                if (readonly) {
-                    return;
-                }
-
                 if (adapter.getCount() == 1) {
                     doubleClick(position, targetView);
                     return;
@@ -1473,8 +1360,7 @@ public class PostActivity extends BaseActivity {
 
                 editTargetView = targetView;
             }
-            if (!readonly)
-                notifyDataSetChanged();
+            notifyDataSetChanged();
         }
 
 
@@ -1489,7 +1375,7 @@ public class PostActivity extends BaseActivity {
                     pushActivity(PreviewImageActivity.class, Uri.parse(imagePath));
                 } if (videoPath != null) {
                     startActivity(new Intent(PostActivity.this, EditVideoActivity.class)
-                            .setData(Uri.parse(videoPath)).putExtra("readonly", readonly));
+                            .setData(Uri.parse(videoPath)).putExtra("readonly", false));
                 }
             } else { // double click on text
                 doEditTextOnPosition(position);
@@ -1513,15 +1399,8 @@ public class PostActivity extends BaseActivity {
             View rowView = postItemsListView.getItemViewAtRow(position);
             if (rowView != null) {
                 hideView(rowView.findViewById(R.id.drag_handle));
-                TextEditor textEditor = (TextEditor) rowView.findViewById(R.id.post_item_text);
-                showView(textEditor);
-                textEditor.setEnabled(true);
-                textEditor.requestFocus();
-                if (textEditor.getText() != null) {
-                    textEditor.setSelection(textEditor.getText().toString().length());
-                }
-                hideView(rowView.findViewById(R.id.post_item_text_readonly));
-                showSoftKeyboard(true);
+                postItemsListView.blockLayoutRequests();
+                adapter.notifyDataSetChanged();
             }
         }
 
@@ -1567,7 +1446,9 @@ public class PostActivity extends BaseActivity {
                     params.y = listViewLoc;
                 }
 
-                if (params.y > wm.getDefaultDisplay().getHeight() - findViewById(R.id.post_toolbar).getHeight() - dpToPx(30)) {
+                Point size = new Point();
+                wm.getDefaultDisplay().getSize(size);
+                if (params.y > size.y - findViewById(R.id.post_toolbar).getHeight() - dpToPx(30)) {
                     return;
                 }
 
@@ -1577,17 +1458,14 @@ public class PostActivity extends BaseActivity {
 
         @Override
         public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
-
         }
 
         @Override
         public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
         }
 
         @Override
         public void onTextChanged(CharSequence s, int start, int before, int count) {
-
         }
 
         @Override

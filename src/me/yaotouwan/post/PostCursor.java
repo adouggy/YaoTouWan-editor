@@ -31,8 +31,8 @@ public class PostCursor extends AbstractCursor {
         data.add(columnValues);
     }
 
-    public void insertRow(Object... columnValues) {
-        data.add(0, columnValues);
+    public void insertRow(int pos, Object... columnValues) {
+        data.add(pos, columnValues);
     }
 
     public void updateRow(int pos, Object... columnValues) {
