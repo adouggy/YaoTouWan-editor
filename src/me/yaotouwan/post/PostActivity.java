@@ -426,6 +426,7 @@ public class PostActivity extends BaseActivity {
             assert titleEditor != null && titleEditor.getText() != null;
             String title = titleEditor.getText().toString();
             draft.put("title", title);
+            logd("put title " + title);
 
             JSONArray sections = new JSONArray();
 
@@ -661,7 +662,6 @@ public class PostActivity extends BaseActivity {
                     String imagePath = section.getString("image_src");
                     String imagePathHash = YTWHelper.md5(imagePath);
                     if (urlMap.has(imagePathHash)) {
-                        Log.d("Post", "post image not sent");
                         section.put("image_src", urlMap.get(imagePathHash));
                     } else {
                         section.put("image_src", imagePath);
@@ -671,8 +671,11 @@ public class PostActivity extends BaseActivity {
                     String videoPath = section.getString("video_src");
                     String videoPathHash = YTWHelper.md5(videoPath);
                     if (urlMap.has(videoPathHash)) {
-                        Log.d("Post", "post video not sent");
                         section.put("video_src", urlMap.get(videoPathHash));
+                        String thumbnailPathHash = videoPathHash + "_thumbnail";
+                        if (urlMap.has(thumbnailPathHash)) {
+                            section.put("video_thumbnail_src", urlMap.get(thumbnailPathHash));
+                        }
                     } else {
                         section.put("video_src", videoPath);
                     }

@@ -55,7 +55,8 @@ public class CachedImageButton extends ImageButton {
         if (newImagePath.equals(imagePath)) return false;
         imagePath = newImagePath;
         setImageBitmap(null);
-        if ("http".equals(Uri.parse(imagePath).getScheme()) || "yaotouwan".equals(Uri.parse(imagePath).getScheme())) {
+        if ("http".equals(Uri.parse(imagePath).getScheme())
+                || "yaotouwan".equals(Uri.parse(imagePath).getScheme())) {
             if (async) {
                 UniversalImageLoaderUtil.INSTANCE.load(imagePath, this);
             } else {
@@ -218,45 +219,9 @@ public class CachedImageButton extends ImageButton {
         }
     }
 
-    public static Bitmap loadVideoThumbnail(Context context, String srcPath, int sizeKind) {
-        File photoCacheDir = new File(context.getCacheDir(), "select_photo");
-        if (!photoCacheDir.exists()) {
-            if (!photoCacheDir.mkdir())
-                return ThumbnailUtils.createVideoThumbnail(srcPath, sizeKind);
-        }
-        File cacheFile = new File(photoCacheDir, YTWHelper.md5(srcPath) + "_" + sizeKind);
-        if (cacheFile.exists()) {
-            Bitmap bitmap = BitmapFactory.decodeFile(cacheFile.getAbsolutePath());
-            if (bitmap == null) {
-                cacheFile.delete();
-                return ThumbnailUtils.createVideoThumbnail(srcPath, sizeKind);
-            }
-            return bitmap;
-        } else {
-            Bitmap bitmap = ThumbnailUtils.createVideoThumbnail(srcPath, sizeKind);
-            if (bitmap == null) {
-                return null;
-            }
-            FileOutputStream cacheStream = null;
-            try {
-                cacheStream = new FileOutputStream(cacheFile);
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, cacheStream);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } finally {
-                if (cacheStream != null) {
-                    try {
-                        cacheStream.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-            return bitmap;
-        }
-    }
+
 
     Bitmap loadVideoThumbnail(String srcPath, int sizeKind) {
-        return loadVideoThumbnail(getContext(), srcPath, sizeKind);
+        return MediaUtils.loadVideoThumbnail(getContext(), srcPath, sizeKind);
     }
 }

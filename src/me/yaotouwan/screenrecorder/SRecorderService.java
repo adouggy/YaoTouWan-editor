@@ -244,11 +244,14 @@ public class SRecorderService extends Service {
                     }
                 }
                 stopRecording();
+                logd("stopRecording done");
                 synchronized (audioBuffers) {
                     audioBuffers.notify();
                 }
-                isEncoding = false;
-
+                logd("audioBuffers.notify() done");
+                synchronized (SRecorderService.this) {
+                    isEncoding = false;
+                }
                 logd("end encode frame");
             }
         }).start();
@@ -309,7 +312,11 @@ public class SRecorderService extends Service {
                 mAudioRecord.wait();
             }
             logd("waited audio thread stop");
-            if (isEncoding) {
+            boolean isNowEncoding = false;
+            synchronized (this) {
+                isNowEncoding = isEncoding;
+            }
+            if (isNowEncoding) {
                 logd("wait video thread stop");
                 synchronized (audioBuffers) { // wait video thread stop
                     audioBuffers.wait();
@@ -375,7 +382,7 @@ public class SRecorderService extends Service {
         public void onOrientationChanged(int rotate) {
 //            logd("rotate = " + rotate);
             if (rotate < 0) return;
-            if (rotate < 180) {
+            if (rotate > 0 && rotate <= 180) {
                 timeAtOrientationRight ++;
             } else {
                 timeAtOrientationLeft ++;

@@ -2,9 +2,11 @@ package me.yaotouwan.post;
 
 import android.app.Service;
 import android.content.*;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.IBinder;
+import android.provider.MediaStore;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import ch.boye.httpclientandroidlib.HttpResponse;
@@ -105,12 +107,28 @@ public class UploadPostMediaService extends Service {
                                     String videoId = uploadVideo(videoPath, gameName);
                                     if (videoId != null) {
                                         urlMap.put(videoPathHash, videoId);
+                                        String thumbnailPath = MediaUtils.cachePathForVideoThumbnail(
+                                                UploadPostMediaService.this,
+                                                videoPath,
+                                                MediaStore.Video.Thumbnails.FULL_SCREEN_KIND);
+                                        String thumbnailUrl = uploadImage(thumbnailPath);
+                                        if (thumbnailUrl != null) {
+                                            String thumbnailPathHash = videoPathHash + "_thumbnail";
+                                            urlMap.put(thumbnailPathHash, thumbnailUrl);
+                                        }
                                         didUpload = true;
+                                        uploadedMediaCount ++;
+                                    } else { // 上传失败
                                     }
+                                } else {
+                                    uploadedMediaCount ++;
                                 }
-                                uploadedMediaCount ++;
                             }
                             if (didUpload) {
+                                // reRead content
+                                JSON = YTWHelper.readTextContent(postJSONFileUri);
+                                if (JSON == null) return false;
+                                post = new JSONObject(JSON);
                                 post.put("url_map", urlMap);
                                 if (uploadedMediaCount < totalMediaCount) {
                                     publishProgress(uploadedMediaCount * 1.0f / totalMediaCount);
@@ -217,6 +235,8 @@ public class UploadPostMediaService extends Service {
     }
 
     private String uploadImage(String imageFilePath) {
+        if (imageFilePath == null)
+            return null;
         if (!HttpClientUtil.checkConnection(this))
             return null;
         HttpClient httpclient = HttpClientUtil.createInstance();

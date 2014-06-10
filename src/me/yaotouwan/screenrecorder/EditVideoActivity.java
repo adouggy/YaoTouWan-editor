@@ -297,6 +297,9 @@ public class EditVideoActivity extends BaseActivity {
                     if (progress > selector.endProgress()) {
                         pause();
                     }
+                } else {
+                    updateProgressTimer.cancel();
+                    updateProgressTimer = null;
                 }
             }
         }, 0, 200);
@@ -384,7 +387,7 @@ public class EditVideoActivity extends BaseActivity {
 
         protected Boolean doInBackground(Integer... args) {
             String srcfpath = videoPath;
-            dstfpath = YTWHelper.prepareFilePathForVideoSaveWithDraftUri(draftUri);
+            dstfpath = YTWHelper.generateFilePathForVideoSaveWithDraftUri(draftUri);
             cutVideo(srcfpath, dstfpath,
                     selector.startProgress(),
                     selector.endProgress(),
@@ -609,6 +612,7 @@ public class EditVideoActivity extends BaseActivity {
 
                                 @Override
                                 public void onStopChangingEndProgress() {
+                                    logd("onStopChangingEndProgress");
                                     showView(playButton);
                                     isShouldReplay = true;
                                     updateUIForSelectorValueChanged();
