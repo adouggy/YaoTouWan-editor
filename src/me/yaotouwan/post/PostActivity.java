@@ -79,7 +79,6 @@ public class PostActivity extends BaseActivity {
     int editVideoAtPosition = -1;
     boolean finishButtonClicked; // 为防止键盘显示判断错误导致的点击无效
     List<AppPackageHelper.Game> gamesInstalled;
-    boolean appendedText;
     Fragment headerFragment;
     Fragment footerFragment;
     boolean titleEditorIsOnFocus;
@@ -241,6 +240,9 @@ public class PostActivity extends BaseActivity {
         if (adapter.editingTextRow >= 0) {
             adapter.notifyDataSetChanged();
             postItemsListView.setSelectionFromTop(adapter.editingTextRow + 1, 100);
+        }
+        if (!titleEditorIsOnFocus) {
+            postItemsListView.unBlockLayoutRequests();
         }
     }
 
@@ -701,22 +703,9 @@ public class PostActivity extends BaseActivity {
         if (canAppend()) {
             adapter.appendRow();
         }
-        appendedText = true;
         adapter.editingTextRow = adapter.getCount() - 1;
         adapter.notifyDataSetChanged();
         postItemsListView.setSelectionFromTop(adapter.editingTextRow + 1, 100);
-        postItemsListView.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                View rowView = postItemsListView.getItemViewAtRow(adapter.editingTextRow);
-                if (rowView != null) {
-                    logd("refocus editor for appended text");
-                    TextEditor editor = (TextEditor) rowView.findViewById(R.id.post_item_text);
-                    editor.requestFocus();
-                    editor.setSelection(0);
-                }
-            }
-        }, 1000);
     }
 
     boolean canAppend() {
@@ -1042,9 +1031,9 @@ public class PostActivity extends BaseActivity {
 
             if (editingTextRow == position) {
                 hideView(dragHandle);
+                textEditor.requestFocus();
                 if (!isSoftKeyboardShown) {
                     textEditor.setFocuable(true);
-                    textEditor.requestFocus();
                     showSoftKeyboard(true);
                 }
             } else if (editingTextRow >= 0) {
@@ -1078,18 +1067,6 @@ public class PostActivity extends BaseActivity {
             if (editingTextRow == position) {
                 textEditor.addTextChangedListener(adapter);
                 textEditor.setSelection(text != null ? text.length() : 0);
-            }
-
-            if (editingTextRow == position) {
-                textEditor.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        int height = textEditor.getMeasuredHeight();
-                        if (height > 0) {
-                            setViewHeight(dragHandle, height);
-                        }
-                    }
-                });
             } else {
                 textView.post(new Runnable() {
                     @Override
@@ -1172,6 +1149,7 @@ public class PostActivity extends BaseActivity {
 
         @Override
         public void click(final int position, View targetView) {
+            logd("click " + position + ", target " + targetView);
             if (editingTextRow >= 0) {
                 hideSoftKeyboard();
                 return;

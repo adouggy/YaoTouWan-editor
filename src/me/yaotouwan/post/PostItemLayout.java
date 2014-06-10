@@ -52,17 +52,20 @@ public class PostItemLayout extends RelativeLayout implements DragSortListView.S
 
     @Override
     public View locateViewAtPosition(int x, int y) {
+        if (findViewById(R.id.drag_handle).getVisibility() != VISIBLE) {
+            return null;
+        }
         View imageView = findViewById(R.id.post_item_preview);
         if (imageView != null && imageView.getVisibility() == VISIBLE) {
             int[] loc = new int[2];
             imageView.getLocationOnScreen(loc);
             Log.d("Post", "" + loc[1] + ", " + imageView.getHeight() + ", " + y);
             if ((loc[1] + imageView.getHeight()) > y) {
-                Log.d("Post", "aaa");
+                Log.d("Post", "locate at image view");
                 return imageView;
             }
         }
-        Log.d("Post", "bbb");
+        Log.d("Post", "locate at text editor");
         return findViewById(R.id.post_item_text);
     }
 }
