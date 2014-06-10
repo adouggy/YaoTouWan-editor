@@ -88,6 +88,7 @@ public class PostActivity extends BaseActivity {
     int youkuWebViewIndex = -1;
     Fragment headerFragment;
     Fragment footerFragment;
+    boolean titleEditorIsOnFocus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -122,6 +123,16 @@ public class PostActivity extends BaseActivity {
         hideView(R.id.footer_readonly);
 
         titleEditor = (EditText) findViewById(R.id.post_title);
+        titleEditor.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                logd("has focus title " + hasFocus);
+                if (hasFocus) {
+                    titleEditorIsOnFocus = hasFocus;
+                    postItemsListView.blockLayoutRequests();
+                }
+            }
+        });
 
         if (postUri != null) {
             draftFile = new File(postUri.getPath());
@@ -242,6 +253,7 @@ public class PostActivity extends BaseActivity {
 
         adapter.notifyDataSetChanged();
         postItemsListView.unBlockLayoutRequests();
+        titleEditorIsOnFocus = false;
 
         if (finishButtonClicked) {
             onFinishClick(null);
@@ -256,9 +268,6 @@ public class PostActivity extends BaseActivity {
 
         if (adapter.editingTextRow >= 0) {
             adapter.notifyDataSetChanged();
-        }
-
-        if (adapter.editingTextRow >= 0) {
             scrollingToEditor = false;
             postItemsListView.setSelectionFromTop(adapter.editingTextRow + 1, 100);
         }
@@ -932,7 +941,6 @@ public class PostActivity extends BaseActivity {
                 ((EditText) view).setText(styledText);
                 ((TextView) view).setMovementMethod(LinkMovementMethod.getInstance());
             }
-
         }
 
         void removeRow(int pos) {
@@ -1003,6 +1011,7 @@ public class PostActivity extends BaseActivity {
             final ReadText textView = (ReadText) rowView.findViewById(R.id.post_item_text_readonly);
 
             final int position = cursor.getPosition();
+            if (titleEditorIsOnFocus) return;
 
             final String text = cursor.getString(text_col_idx);
 
