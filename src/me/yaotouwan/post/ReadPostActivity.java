@@ -300,6 +300,9 @@ public class ReadPostActivity extends BaseActivity {
 		}
 
 		public JSONObject getItem(int position) {
+			if( sections == null )
+				return null;
+			
 			try {
 				return sections.getJSONObject(position);
 			} catch (JSONException e) {
@@ -309,8 +312,12 @@ public class ReadPostActivity extends BaseActivity {
 		}
 
 		String getText(int row) {
+			JSONObject item = getItem(row);
+			
+			if( item == null )
+				return null;
 			try {
-				return getItem(row).has("text") ? getItem(row).getString("text") : null;
+				return item.has("text") ? getItem(row).getString("text") : null;
 			} catch (JSONException e) {
 				e.printStackTrace();
 			}
@@ -318,8 +325,11 @@ public class ReadPostActivity extends BaseActivity {
 		}
 
 		String getImagePath(int row) {
+			JSONObject item = getItem(row);
+			if( item == null )
+				return null;
 			try {
-				return getItem(row).has("image_src") ? getItem(row).getString("image_src") : null;
+				return item.has("image_src") ? getItem(row).getString("image_src") : null;
 			} catch (JSONException e) {
 				e.printStackTrace();
 			}
@@ -327,8 +337,12 @@ public class ReadPostActivity extends BaseActivity {
 		}
 
 		String getVideoPath(int row) {
+			JSONObject item = getItem(row);
+			if( item == null )
+				return null;
+			
 			try {
-				return getItem(row).has("video_src") ? getItem(row).getString("video_src") : null;
+				return item.has("video_src") ? getItem(row).getString("video_src") : null;
 			} catch (JSONException e) {
 				e.printStackTrace();
 			}
@@ -336,8 +350,11 @@ public class ReadPostActivity extends BaseActivity {
 		}
 
 		Integer getTextStyle(int row) {
+			JSONObject item = getItem(row);
+			if( item == null )
+				return null;
 			try {
-				return getItem(row).has("text_style") ? getItem(row).getInt("text_style") : 0;
+				return item.has("text_style") ? getItem(row).getInt("text_style") : 0;
 			} catch (JSONException e) {
 				e.printStackTrace();
 			}
@@ -345,6 +362,10 @@ public class ReadPostActivity extends BaseActivity {
 		}
 
 		Point getMediaSize(int row) {
+			JSONObject item = getItem(row);
+			if( item == null )
+				return null;
+			
 			try {
 				int width = getItem(row).has("media_width") ? getItem(row).getInt("media_width") : 0;
 				int height = getItem(row).has("media_height") ? getItem(row).getInt("media_height") : 0;
@@ -462,6 +483,7 @@ public class ReadPostActivity extends BaseActivity {
 			textView.setMinLines(0);
 
 			final Integer style = (Integer) getTextStyle(position);
+			if( style != null )
 			applyStyle(textView, text, style);
 			if (text == null || text.length() == 0) {
 				hideView(textView);
