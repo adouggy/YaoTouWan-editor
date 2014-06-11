@@ -514,12 +514,18 @@ public class EditVideoActivity extends BaseActivity {
                 for (int p=0; p<sliceCount; p++) {
                     frameBytes = decodeFrame(p * 1.0 / sliceCount, false);
                     if (frameBytes == null) {
-                        if (sliceImageLastOne != null) {
-                            sliceImages.add(sliceImageLastOne);
-                            publishProgress(p);
+//                        logd("get slice failed");
+                        if (p < CutVideoSelector.MIN_SLICE_COUNT - 1) {
+                            if (sliceImageLastOne != null) {
+                                sliceImages.add(sliceImageLastOne);
+                                publishProgress(p);
+                            }
+                        } else {
+                            break;
                         }
                         continue;
                     }
+//                    logd("get slice " + frameBytes.length + " bytes");
                     Bitmap sliceImage;
                     if (isVideoRotated) {
                         sliceImage = Bitmap.createBitmap(100, 100 * videoWidth / videoHeight, Bitmap.Config.ARGB_8888);
