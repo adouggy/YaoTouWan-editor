@@ -1009,8 +1009,10 @@ public class PostActivity extends BaseActivity {
             final String imagePath = cursor.getString(image_path_col_idx);
             final String videoPath = cursor.getString(video_path_col_idx);
             ImageButton playBtn = (ImageButton) rowView.findViewById(R.id.post_item_video_play_btn);
+            playBtn.setEnabled(false);
             final CachedImageButton previewImageView = (CachedImageButton) rowView.findViewById(R.id.post_item_image);
-            ViewGroup previewGroup = (ViewGroup) rowView.findViewById(R.id.post_item_preview);
+            previewImageView.setEnabled(false);
+            final ViewGroup previewGroup = (ViewGroup) rowView.findViewById(R.id.post_item_preview);
 
             if (imagePath != null) {
                 showView(previewGroup);
@@ -1066,6 +1068,9 @@ public class PostActivity extends BaseActivity {
                 @Override
                 public void run() {
                     int height = textView.getMeasuredHeight();
+                    if (previewGroup.getVisibility() == View.VISIBLE) {
+                        height += previewImageView.getHeight() + dpToPx(10);
+                    }
                     if (height > 0) {
                         setViewHeight(dragHandle, height);
                     }
