@@ -28,6 +28,7 @@
 	<string name="post_select_section_type_title_select_video">选取视频</string>
 	<string name="post_select_section_type_title_record_video">拍摄视频</string>
 	<string name="post_editor_giveup_change">放弃修改</string>
+	<string name="post_editor_giveup_edit">放弃编辑</string>
 	<string name="post_not_save_draft">放弃修改</string>
 	<string name="post_save_draft">保存草稿</string>
 	<string name="post_title">发文章</string>
@@ -37,6 +38,8 @@
 	<string name="post_item_edit_menu_delete">删除</string>
 	<string name="post_item_edit_menu_bold">粗体</string>
 	<string name="post_item_edit_menu_italy">斜体</string>
+	<string name="post_item_edit_menu_quote">引用</string>
+	<string name="post_item_edit_menu_head">标题</string>
 	<string name="post_item_edit_menu_edit">编辑</string>
 	<string name="post_item_delete_row">删除段落</string>
 

@@ -113,4 +113,21 @@
 			android:layout_height="match_parent"
 			android:visibility="gone"
 			/>
+	<me.yaotouwan.post.TextEditor
+			android:id="@+id/content_editor"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:textColor="@color/black"
+			android:gravity="top"
+			android:background="@color/white"
+			android:textSize="16sp"
+			android:paddingTop="10dp"
+			android:paddingBottom="20dp"
+			android:paddingLeft="10dp"
+			android:paddingRight="10dp"
+			android:enabled="true"
+			android:inputType="textMultiLine"
+			android:isScrollContainer="true"
+	        android:visibility="invisible"
+			/>
 </RelativeLayout>

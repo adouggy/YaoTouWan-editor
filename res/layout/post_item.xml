@@ -43,22 +43,6 @@
 					android:enabled="false"
 					/>
 		</RelativeLayout>
-		<me.yaotouwan.post.TextEditor
-				android:id="@+id/post_item_text"
-				android:layout_width="match_parent"
-				android:layout_height="wrap_content"
-				android:textColor="@color/black"
-				android:gravity="top"
-				android:background="@color/white"
-				android:textSize="16sp"
-				android:paddingTop="10dp"
-				android:paddingBottom="20dp"
-				android:paddingLeft="10dp"
-				android:paddingRight="10dp"
-				android:enabled="true"
-				android:inputType="textMultiLine"
-				android:isScrollContainer="true"
-				/>
 		<me.yaotouwan.post.ReadText
 				android:id="@+id/post_item_text_readonly"
 				android:layout_width="match_parent"

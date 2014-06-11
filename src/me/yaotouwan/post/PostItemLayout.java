@@ -66,6 +66,6 @@ public class PostItemLayout extends RelativeLayout implements DragSortListView.S
             }
         }
         Log.d("Post", "locate at text editor");
-        return findViewById(R.id.post_item_text);
+        return findViewById(R.id.post_item_text_readonly);
     }
 }

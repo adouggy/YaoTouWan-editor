@@ -9,44 +9,33 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.LocalBroadcastManager;
-import android.text.Editable;
 import android.text.SpannableString;
 import android.text.Spanned;
-import android.text.TextWatcher;
 import android.text.method.LinkMovementMethod;
 import android.text.style.QuoteSpan;
 import android.text.style.RelativeSizeSpan;
 import android.text.style.StyleSpan;
 import android.text.style.TypefaceSpan;
-import android.util.Log;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowManager;
-import android.webkit.JavascriptInterface;
-import android.webkit.WebView;
 import android.widget.*;
 import ch.boye.httpclientandroidlib.HttpResponse;
 import ch.boye.httpclientandroidlib.client.ClientProtocolException;
 import ch.boye.httpclientandroidlib.client.HttpClient;
 import ch.boye.httpclientandroidlib.client.methods.HttpGet;
 import ch.boye.httpclientandroidlib.util.EntityUtils;
+import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuItem;
 import com.mobeta.android.dslv.DragSortController;
 import com.mobeta.android.dslv.DragSortListView;
 import com.mobeta.android.dslv.SimpleDragSortCursorAdapter;
 import me.yaotouwan.R;
-import me.yaotouwan.android.util.MyConstants;
 import me.yaotouwan.screenrecorder.EditVideoActivity;
-import me.yaotouwan.screenrecorder.Root;
 import me.yaotouwan.screenrecorder.SelectGameActivity;
-import me.yaotouwan.screenrecorder.YoukuUploader;
 import me.yaotouwan.uicommon.ActionSheet;
 import me.yaotouwan.uicommon.ActionSheetItem;
 import me.yaotouwan.util.AppPackageHelper;
-import me.yaotouwan.util.StreamHelper;
 import me.yaotouwan.util.YTWHelper;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -74,14 +63,15 @@ public class PostActivity extends BaseActivity {
     PostListViewDataSource adapter;
     Uri croppedVideoUri;
     EditText titleEditor;
+    boolean showKeyboard4EditingTitle;
+    EditText contentEditor;
     ViewGroup toolbar;
-    View editPopMenu;
     int editVideoAtPosition = -1;
     boolean finishButtonClicked; // 为防止键盘显示判断错误导致的点击无效
     List<AppPackageHelper.Game> gamesInstalled;
     Fragment headerFragment;
     Fragment footerFragment;
-    boolean titleEditorIsOnFocus;
+    Menu menuOnActionBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,12 +109,12 @@ public class PostActivity extends BaseActivity {
         titleEditor.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View v, boolean hasFocus) {
-                if (hasFocus) {
-                    titleEditorIsOnFocus = hasFocus;
-                    postItemsListView.blockLayoutRequests();
+                if (hasFocus && !isSoftKeyboardShown) {
+                    showKeyboard4EditingTitle = true;
                 }
             }
         });
+        contentEditor = (EditText) findViewById(R.id.content_editor);
 
         if (postUri != null) {
             draftFile = new File(postUri.getPath());
@@ -144,26 +134,42 @@ public class PostActivity extends BaseActivity {
         preloadGameList();
     }
 
-    private void stopQihoo() {
-        Root.CommandResult result = Root.INSTANCE.runCMD(false, "ps");
-        if (result.success()) {
-            String out = result.stdout;
-            String[] lines = out.split("\n");
-            for (int i=0; i<lines.length; i++) {
-                String line = lines[i];
-//                logd(line);
-                if (line.contains("com.qihoo")) {
-                    String[] parts = line.split("\\s+");
-                    if (parts.length > 1) {
-                        String pidStr = parts[1];
-                        try {
-                            int aPid = Integer.parseInt(pidStr);
-                            Root.INSTANCE.runCMD(true, "kill -9 " + aPid);
-                        } catch (NumberFormatException e) {
-                        }
-                    }
-                }
-            }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menuOnActionBar = menu;
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    private void showEditMenu(boolean editMode) {
+        MenuItem boldItem = menuOnActionBar.getItem(0);
+        MenuItem italicItem = menuOnActionBar.getItem(1);
+        MenuItem quoteItem = menuOnActionBar.getItem(2);
+        MenuItem headItem = menuOnActionBar.getItem(3);
+        boldItem.setVisible(editMode);
+        italicItem.setVisible(editMode);
+        quoteItem.setVisible(editMode);
+        headItem.setVisible(editMode);
+        boldItem.setIcon(R.drawable.post_item_pop_menu_bold_btn);
+        italicItem.setIcon(R.drawable.post_item_pop_menu_italy_btn);
+        quoteItem.setIcon(R.drawable.post_item_pop_menu_quote_btn);
+        headItem.setIcon(R.drawable.post_item_pop_menu_head_btn);
+
+        int style = adapter.getTextStyle(adapter.editingTextRow);
+        switch (style) {
+            case PostListViewDataSource.TEXT_STYLE_BOLD:
+                boldItem.setIcon(R.drawable.post_item_pop_menu_bold_btn_active);
+                break;
+            case PostListViewDataSource.TEXT_STYLE_ITALIC:
+                italicItem.setIcon(R.drawable.post_item_pop_menu_italy_btn_active);
+                break;
+            case PostListViewDataSource.TEXT_STYLE_QUOTE:
+                quoteItem.setIcon(R.drawable.post_item_pop_menu_quote_btn_active);
+                break;
+            case PostListViewDataSource.TEXT_STYLE_HEAD:
+                headItem.setIcon(R.drawable.post_item_pop_menu_head_btn_active);
+                break;
+            default:
+                break;
         }
     }
 
@@ -173,7 +179,16 @@ public class PostActivity extends BaseActivity {
             adapter.editingTextRow = -1;
             adapter.notifyDataSetChanged();
         } else {
-            super.onBackPressed();
+            if (adapter.hasData()) {
+                YTWHelper.confirm(this, getString(R.string.post_editor_giveup_edit), new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        finish();
+                    }
+                });
+            } else {
+                super.onBackPressed();
+            }
         }
     }
 
@@ -198,12 +213,16 @@ public class PostActivity extends BaseActivity {
         super.onKeyboardHide();
 
         titleEditor.clearFocus();
+        hideView(contentEditor);
 
         if (adapter.editingTextRow >= 0) {
+            showEditMenu(false);
+            String text = contentEditor.getText().toString();
+            adapter.updateText(adapter.editingTextRow, text);
             adapter.editingTextRow = -1;
             //把换行符拆成多个段落
             for (int i=0; i<adapter.getCount(); i++) {
-                String text = adapter.getText(i);
+                text = adapter.getText(i);
                 if (text != null && text.contains("\n")) {
                     String[] lines = text.split("\\n");
                     int newLine = 0;
@@ -223,8 +242,6 @@ public class PostActivity extends BaseActivity {
         }
 
         adapter.notifyDataSetChanged();
-        postItemsListView.unBlockLayoutRequests();
-        titleEditorIsOnFocus = false;
 
         if (finishButtonClicked) {
             onFinishClick(null);
@@ -236,14 +253,7 @@ public class PostActivity extends BaseActivity {
     @Override
     protected void onKeyboardShow() {
         super.onKeyboardShow();
-
-        if (adapter.editingTextRow >= 0) {
-            adapter.notifyDataSetChanged();
-            postItemsListView.setSelectionFromTop(adapter.editingTextRow + 1, 100);
-        }
-        if (!titleEditorIsOnFocus) {
-            postItemsListView.unBlockLayoutRequests();
-        }
+        showKeyboard4EditingTitle = false;
     }
 
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -627,9 +637,49 @@ public class PostActivity extends BaseActivity {
         return null;
     }
 
+    public void onClickBoldMenuItem(MenuItem item) {
+        adapter.toggleTextStyle(adapter.editingTextRow,
+                PostListViewDataSource.TEXT_STYLE_BOLD);
+        adapter.applyStyle(contentEditor,
+                contentEditor.getText().toString(),
+                adapter.getTextStyle(adapter.editingTextRow));
+        showEditMenu(true);
+    }
+
+    public void onClickItalyMenuItem(MenuItem item) {
+        adapter.toggleTextStyle(adapter.editingTextRow,
+                PostListViewDataSource.TEXT_STYLE_ITALIC);
+        adapter.applyStyle(contentEditor,
+                contentEditor.getText().toString(),
+                adapter.getTextStyle(adapter.editingTextRow));
+        showEditMenu(true);
+    }
+
+    public void onClickQuoteMenuItem(MenuItem item) {
+        adapter.toggleTextStyle(adapter.editingTextRow,
+                PostListViewDataSource.TEXT_STYLE_QUOTE);
+        adapter.applyStyle(contentEditor,
+                contentEditor.getText().toString(),
+                adapter.getTextStyle(adapter.editingTextRow));
+        showEditMenu(true);
+    }
+
+    public void onClickHeadMenuItem(MenuItem item) {
+        adapter.toggleTextStyle(adapter.editingTextRow,
+                PostListViewDataSource.TEXT_STYLE_HEAD);
+        adapter.applyStyle(contentEditor,
+                contentEditor.getText().toString(),
+                adapter.getTextStyle(adapter.editingTextRow));
+        showEditMenu(true);
+    }
+
     public void onFinishClick(MenuItem menuItem) {
-        if (titleEditor.getVisibility() == View.VISIBLE
-                && titleEditor.getText() == null || titleEditor.getText().length() <= 0) {
+        if (adapter.editingTextRow >= 0) {
+            hideSoftKeyboard();
+            return;
+        }
+
+        if (titleEditor.getText() == null || titleEditor.getText().length() <= 0) {
             Toast.makeText(this, R.string.post_title_required, Toast.LENGTH_LONG).show();
             return;
         }
@@ -706,6 +756,7 @@ public class PostActivity extends BaseActivity {
         adapter.editingTextRow = adapter.getCount() - 1;
         adapter.notifyDataSetChanged();
         postItemsListView.setSelectionFromTop(adapter.editingTextRow + 1, 100);
+        adapter.click(adapter.editingTextRow, null);
     }
 
     boolean canAppend() {
@@ -729,7 +780,7 @@ public class PostActivity extends BaseActivity {
                             Toast.makeText(PostActivity.this, R.string.root_permission_needed, Toast.LENGTH_LONG).show();
                             return;
                         }
-                        stopQihoo();
+                        YTWHelper.stopQihoo();
                         SelectGameActivity.preLoadGames = gamesInstalled;
                         Intent intent = new Intent(PostActivity.this, SelectGameActivity.class);
                         intent.setData(Uri.parse(draftFile.getAbsolutePath()));
@@ -774,7 +825,7 @@ public class PostActivity extends BaseActivity {
 
     private class PostListViewDataSource
             extends SimpleDragSortCursorAdapter
-            implements AbsListView.OnScrollListener, TextWatcher {
+            implements AbsListView.OnScrollListener {
 
         PostCursor cursor;
         static final int id_col_idx = 0;
@@ -791,17 +842,15 @@ public class PostActivity extends BaseActivity {
         static final int TEXT_STYLE_ITALIC = 3;
         static final int TEXT_STYLE_QUOTE = 4;
 
-        boolean editModeLastTime;
         boolean animateToShow;
         int draggingRow;
         int editingTextRow = -1;
-        View editTargetView;
         boolean deleting;
 
         public PostListViewDataSource() {
             super(PostActivity.this, R.layout.post_item, null,
                     getColumnNames(),
-                    new int[]{R.id.post_item_text, R.id.post_item_image}, 0);
+                    new int[]{R.id.post_item_text_readonly, R.id.post_item_image}, 0);
 
             cursor = new PostCursor(getColumnNames());
             appendRow();
@@ -916,8 +965,6 @@ public class PostActivity extends BaseActivity {
 
         @Override
         public void notifyDataSetChanged() {
-            animateToShow = (postItemsListView.editMode != editModeLastTime);
-            editModeLastTime = postItemsListView.editMode;
             saveDraft();
             super.notifyDataSetChanged();
         }
@@ -952,39 +999,22 @@ public class PostActivity extends BaseActivity {
 
         @Override
         public void bindView(final View rowView, Context context, Cursor cursor) {
-            final TextEditor textEditor = (TextEditor) rowView.findViewById(R.id.post_item_text);
-
+            if (showKeyboard4EditingTitle) {
+                return;
+            }
             final ReadText textView = (ReadText) rowView.findViewById(R.id.post_item_text_readonly);
-
             final int position = cursor.getPosition();
-            if (titleEditorIsOnFocus) return;
-
             final String text = cursor.getString(text_col_idx);
-
             final View dragHandle = rowView.findViewById(R.id.drag_handle);
-            showView(dragHandle);
-
             final String imagePath = cursor.getString(image_path_col_idx);
             final String videoPath = cursor.getString(video_path_col_idx);
-
             ImageButton playBtn = (ImageButton) rowView.findViewById(R.id.post_item_video_play_btn);
-            playBtn.setEnabled(false);
-
             final CachedImageButton previewImageView = (CachedImageButton) rowView.findViewById(R.id.post_item_image);
-            previewImageView.setEnabled(false);
-
             ViewGroup previewGroup = (ViewGroup) rowView.findViewById(R.id.post_item_preview);
-            if (postItemsListView.editingPosition == position) {
-                // todo deprecated
-                textView.setBackgroundDrawable(new EditModeBGDrawable(PostActivity.this, 0));
-            } else {
-                textView.setBackgroundColor(Color.WHITE);
-            }
 
             if (imagePath != null) {
                 showView(previewGroup);
                 hideView(playBtn);
-
                 previewImageView.setBackgroundColor(Color.WHITE);
                 previewImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 previewImageView.setImageWithPath(imagePath,
@@ -1014,92 +1044,37 @@ public class PostActivity extends BaseActivity {
 
             int minLines = 0;
             if (imagePath != null) {
-                textEditor.setHint(R.string.post_image_desc_hint);
                 textView.setHint(R.string.post_image_desc_hint);
             } else if (videoPath != null) {
-                textEditor.setHint(R.string.post_video_desc_hint);
                 textView.setHint(R.string.post_video_desc_hint);
             } else {
                 if (getCount() == 1) {
                     minLines = 5;
                 }
-                textEditor.setHint(R.string.post_section_hint);
                 textView.setHint(R.string.post_section_hint);
             }
-            textEditor.setMinLines(minLines);
             textView.setMinLines(minLines);
-
-            if (editingTextRow == position) {
-                hideView(dragHandle);
-                textEditor.requestFocus();
-                if (!isSoftKeyboardShown) {
-                    textEditor.setFocuable(true);
-                    showSoftKeyboard(true);
-                }
-            } else if (editingTextRow >= 0) {
-                showView(dragHandle);
-                textEditor.removeTextChangedListener(this);
-                textEditor.setFocuable(false);
-            } else {
-                showView(dragHandle);
-                textEditor.removeTextChangedListener(this);
-            }
-            if (editingTextRow == position) {
-                showView(textEditor);
-                hideView(textView);
-            } else {
-                hideView(textEditor);
-                showView(textView);
-            }
-            textEditor.removeTextChangedListener(adapter);
             final Integer style = (Integer) getTextStyle(position);
-            if (editingTextRow == position) {
-                applyStyle(textEditor, text, style);
+            if (text != null && text.length() > 300) {
+                String sum = text.substring(0, 200)
+                        + " … " + text.substring(text.length()-100, text.length());
+                applyStyle(textView, sum, style);
             } else {
-                if (text != null && text.length() > 300) {
-                    String sum = text.substring(0, 200)
-                            + " … " + text.substring(text.length()-100, text.length());
-                    applyStyle(textView, sum, style);
-                } else {
-                    applyStyle(textView, text, style);
-                }
+                applyStyle(textView, text, style);
             }
-            if (editingTextRow == position) {
-                textEditor.addTextChangedListener(adapter);
-                textEditor.setSelection(text != null ? text.length() : 0);
-            } else {
-                textView.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        int height = textView.getMeasuredHeight();
-                        if (height > 0) {
-                            setViewHeight(dragHandle, height);
-                        }
+            textView.post(new Runnable() {
+                @Override
+                public void run() {
+                    int height = textView.getMeasuredHeight();
+                    if (height > 0) {
+                        setViewHeight(dragHandle, height);
                     }
-                });
-            }
+                }
+            });
         }
 
         @Override
         public void startDrag(int position) {
-            if (postItemsListView.editingPosition >= 0) {
-                for (int i=0; i<postItemsListView.getChildCount(); i++) {
-                    View rowView = postItemsListView.getChildAt(i);
-                    if (rowView != null) {
-                        View textView = rowView.findViewById(R.id.post_item_text_readonly);
-                        if (textView != null) {
-                            textView.setBackgroundColor(Color.WHITE);
-                        }
-                    }
-                }
-                if (editPopMenu != null && editPopMenu.getParent() != null) {
-                    WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
-                    wm.removeView(editPopMenu);
-                }
-                postItemsListView.editingPosition = -1;
-                postItemsListView.editMode = false;
-                editTargetView = null;
-            }
             draggingRow = position;
             setToolbarDeleteMode(true);
             hideSoftKeyboard();
@@ -1149,19 +1124,11 @@ public class PostActivity extends BaseActivity {
 
         @Override
         public void click(final int position, View targetView) {
+            if (position < 0) return;
             logd("click " + position + ", target " + targetView);
-            if (editingTextRow >= 0) {
-                hideSoftKeyboard();
-                return;
-            }
             if (targetView != null && targetView.getId() == R.id.post_item_preview) { // click on image
                 String imagePath = getImagePath(position);
                 String videoPath = getVideoPath(position);
-                if (imagePath != null || videoPath != null) {
-                    postItemsListView.editMode = false;
-                    postItemsListView.editingPosition = -1;
-                    editTargetView = null;
-                }
                 if (imagePath != null) {
                     ImageView imageView = (ImageView) targetView.findViewById(R.id.post_item_image);
                     PreviewImageActivity.placeHolder = imageView.getDrawable();
@@ -1171,148 +1138,17 @@ public class PostActivity extends BaseActivity {
                     Intent intent = new Intent(PostActivity.this, EditVideoActivity.class);
                     intent.setData(Uri.parse(videoPath));
                     intent.putExtra("draft_path", draftFile.getAbsolutePath());
-                    intent.putExtra("readonly", false);
                     startActivityForResult(intent, INTENT_REQUEST_CODE_CUT_VIDEO);
                 }
-            } else if (targetView == null) {
-                int pos = position + postItemsListView.getHeaderViewsCount() - postItemsListView.getFirstVisiblePosition();
-                View rowView = postItemsListView.getChildAt(pos);
-                if (rowView == null) return;
-            } else if (postItemsListView.editingPosition == position) {
-                postItemsListView.editingPosition = -1;
-                postItemsListView.editMode = false;
-                editTargetView = null;
-                if (editPopMenu != null && editPopMenu.getParent() != null) {
-                    WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
-                    wm.removeView(editPopMenu);
-                }
             } else {
-                if (adapter.getCount() == 1) {
-                    doubleClick(position, targetView);
-                    return;
-                }
-
-                postItemsListView.makeFloatViewForEditRow(position);
-
-                WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
-                WindowManager.LayoutParams wlp = new WindowManager.LayoutParams();
-                wlp.gravity = Gravity.TOP;
-                wlp.width = dpToPx(230);
-                wlp.height = dpToPx(65);
-                wlp.format = PixelFormat.RGBA_8888;
-                wlp.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-
-                int[] loc = new int[2];
-                targetView.getLocationInWindow(loc);
-                wlp.y = loc[1] - dpToPx(80);
-
-                if (editPopMenu == null) {
-                    editPopMenu = getLayoutInflater().inflate(R.layout.post_item_edit_pop_menu, null);
-                } else if (editPopMenu.getParent() != null) {
-                    wm.removeView(editPopMenu);
-                }
-                wm.addView(editPopMenu, wlp);
-
-                final View editBtn = (View) editPopMenu.findViewById(R.id.edit_btn).getParent();
-                final View headBtn = (View) editPopMenu.findViewById(R.id.head_btn).getParent();
-                final View boldBtn = (View) editPopMenu.findViewById(R.id.bold_btn).getParent();
-                final View italicBtn = (View) editPopMenu.findViewById(R.id.italic_btn).getParent();
-                final View quoteBtn = (View) editPopMenu.findViewById(R.id.quote_btn).getParent();
-                assert editBtn != null;
-                assert headBtn != null;
-                assert boldBtn != null;
-                assert italicBtn != null;
-                assert quoteBtn != null;
-
-                Integer style = (Integer) getTextStyle(position);
-                headBtn.setSelected(style == TEXT_STYLE_HEAD);
-                boldBtn.setSelected(style == TEXT_STYLE_BOLD);
-                italicBtn.setSelected(style == TEXT_STYLE_ITALIC);
-                quoteBtn.setSelected(style == TEXT_STYLE_QUOTE);
-
-                View.OnClickListener listener = new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        if (v == editBtn) {
-                            doEditTextOnPosition(position);
-                        } else {
-                            headBtn.setSelected(false);
-                            boldBtn.setSelected(false);
-                            italicBtn.setSelected(false);
-                            quoteBtn.setSelected(false);
-                            if (v == headBtn) {
-                                v.setSelected(toggleTextStyle(position, TEXT_STYLE_HEAD));
-                            } else if (v == boldBtn) {
-                                v.setSelected(toggleTextStyle(position, TEXT_STYLE_BOLD));
-                            } else if (v == italicBtn) {
-                                v.setSelected(toggleTextStyle(position, TEXT_STYLE_ITALIC));
-                            } else if (v == quoteBtn) {
-                                v.setSelected(toggleTextStyle(position, TEXT_STYLE_QUOTE));
-                            }
-                            postItemsListView.editingPosition = -1;
-                            postItemsListView.editMode = false;
-                            editTargetView = null;
-                            if (editPopMenu != null && editPopMenu.getParent() != null) {
-                                WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
-                                wm.removeView(editPopMenu);
-                            }
-                            notifyDataSetChanged();
-                        }
-                    }
-                };
-
-                editBtn.setOnClickListener(listener);
-                headBtn.setOnClickListener(listener);
-                boldBtn.setOnClickListener(listener);
-                italicBtn.setOnClickListener(listener);
-                quoteBtn.setOnClickListener(listener);
-
-                postItemsListView.editingPosition = position;
-                postItemsListView.editMode = true;
-
-                editTargetView = targetView;
-            }
-            notifyDataSetChanged();
-        }
-
-
-        @Override
-        public void doubleClick(final int position, View targetView) {
-            if (targetView != null && targetView.getId() == R.id.post_item_preview) { // double click on image
-                String imagePath = getImagePath(position);
-                String videoPath = getVideoPath(position);
-                if (imagePath != null) {
-                    ImageView imageView = (ImageView) targetView.findViewById(R.id.post_item_image);
-                    PreviewImageActivity.placeHolder = imageView.getDrawable();
-                    pushActivity(PreviewImageActivity.class, Uri.parse(imagePath));
-                } if (videoPath != null) {
-                    startActivity(new Intent(PostActivity.this, EditVideoActivity.class)
-                            .setData(Uri.parse(videoPath)).putExtra("readonly", false));
-                }
-            } else { // double click on text
-                doEditTextOnPosition(position);
-            }
-        }
-
-        void doEditTextOnPosition(int position) {
-            if (editTargetView != null) {
-                editTargetView.setBackgroundColor(Color.WHITE);
-                editTargetView = null;
-            }
-            if (postItemsListView.editMode) {
-                postItemsListView.editingPosition = -1;
-                postItemsListView.editMode = false;
-            }
-            if (editPopMenu != null && editPopMenu.getParent() != null) {
-                WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
-                wm.removeView(editPopMenu);
-            }
-            editingTextRow = position;
-            View rowView = postItemsListView.getItemViewAtRow(position);
-            if (rowView != null) {
-                hideView(rowView.findViewById(R.id.drag_handle));
-                postItemsListView.blockLayoutRequests();
-                adapter.notifyDataSetChanged();
+                showView(contentEditor);
+                String text = getText(position);
+                applyStyle(contentEditor, text, getTextStyle(position));
+                contentEditor.setSelection(text != null ? text.length() : 0);
+                contentEditor.requestFocus();
+                showSoftKeyboard(true);
+                editingTextRow = position;
+                showEditMenu(true);
             }
         }
 
@@ -1321,75 +1157,10 @@ public class PostActivity extends BaseActivity {
         @Override
         public void onScrollStateChanged(AbsListView view, int scrollState) {
             scrolling = scrollState != SCROLL_STATE_IDLE;
-
-            if (editPopMenu == null || editTargetView == null || postItemsListView.editingPosition < 0) return;
-
-            WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
-            if (editPopMenu.getParent() != null)
-                wm.removeView(editPopMenu);
-
-            if (scrollState == SCROLL_STATE_IDLE) {
-                // 不在列表中
-                if (postItemsListView.getFirstVisiblePosition() - postItemsListView.getHeaderViewsCount() > postItemsListView.editingPosition) {
-                    return;
-                }
-                if (postItemsListView.getLastVisiblePosition() - postItemsListView.getHeaderViewsCount() < postItemsListView.editingPosition) {
-                    return;
-                }
-
-                View item = postItemsListView.getChildAt(postItemsListView.editingPosition + postItemsListView.getHeaderViewsCount() - postItemsListView.getFirstVisiblePosition());
-                if (item == null) return;
-                editTargetView = item.findViewById(R.id.post_item_text);
-
-                WindowManager.LayoutParams params = (WindowManager.LayoutParams) editPopMenu.getLayoutParams();
-                assert params != null;
-                int[] loc = new int[2];
-                editTargetView.getLocationInWindow(loc);
-
-                int listViewLoc = getActionBar() == null ? 0 : getActionBar().getHeight();
-
-                if (loc[1] + editTargetView.getHeight() < listViewLoc + dpToPx(80) + dpToPx(30)) {
-                    return;
-                }
-
-                params.y = loc[1] - dpToPx(80);
-
-                if (params.y < listViewLoc) {
-                    params.y = listViewLoc;
-                }
-
-                Point size = new Point();
-                wm.getDefaultDisplay().getSize(size);
-                if (params.y > size.y - findViewById(R.id.post_toolbar).getHeight() - dpToPx(30)) {
-                    return;
-                }
-
-                wm.addView(editPopMenu, params);
-            }
         }
 
         @Override
         public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
-        }
-
-        @Override
-        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-        }
-
-        @Override
-        public void onTextChanged(CharSequence s, int start, int before, int count) {
-        }
-
-        @Override
-        public void afterTextChanged(Editable s) {
-            if (editingTextRow >= 0) {
-                String text = s.toString();
-                if (text != null && text.length() > 0) {
-                    updateText(editingTextRow, s.toString());
-                } else {
-                    updateText(editingTextRow, null);
-                }
-            }
         }
     }
 

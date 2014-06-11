@@ -484,4 +484,27 @@ public class YTWHelper {
     public static String postsDir() {
         return new File(dataRootDirectory(0), "Posts").getAbsolutePath();
     }
+
+    public static void stopQihoo() {
+        Root.CommandResult result = Root.INSTANCE.runCMD(false, "ps");
+        if (result.success()) {
+            String out = result.stdout;
+            String[] lines = out.split("\n");
+            for (int i=0; i<lines.length; i++) {
+                String line = lines[i];
+//                logd(line);
+                if (line.contains("com.qihoo")) {
+                    String[] parts = line.split("\\s+");
+                    if (parts.length > 1) {
+                        String pidStr = parts[1];
+                        try {
+                            int aPid = Integer.parseInt(pidStr);
+                            Root.INSTANCE.runCMD(true, "kill -9 " + aPid);
+                        } catch (NumberFormatException e) {
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

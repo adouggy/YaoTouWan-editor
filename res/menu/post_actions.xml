@@ -1,6 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+	<item android:id="@+id/post_action_bold"
+	      android:title="@string/post_item_edit_menu_bold"
+	      android:showAsAction="always"
+	      android:icon="@drawable/post_item_pop_menu_bold_btn"
+	      android:onClick="onClickBoldMenuItem"
+	      android:visible="false"
+	      />
+	<item android:id="@+id/post_action_italy"
+	      android:title="@string/post_item_edit_menu_italy"
+	      android:showAsAction="always"
+	      android:icon="@drawable/post_item_pop_menu_italy_btn"
+	      android:onClick="onClickItalyMenuItem"
+	      android:visible="false"
+			/>
+	<item android:id="@+id/post_action_quote"
+	      android:title="@string/post_item_edit_menu_quote"
+	      android:showAsAction="always"
+	      android:icon="@drawable/post_item_pop_menu_quote_btn"
+	      android:onClick="onClickQuoteMenuItem"
+	      android:visible="false"
+			/>
+	<item android:id="@+id/post_action_head"
+	      android:title="@string/post_item_edit_menu_head"
+	      android:showAsAction="always"
+	      android:icon="@drawable/post_item_pop_menu_head_btn"
+	      android:onClick="onClickHeadMenuItem"
+	      android:visible="false"
+			/>
 	<item android:id="@+id/post_action_next"
 	      android:title="@string/post_action_next"
 	      android:showAsAction="always"
