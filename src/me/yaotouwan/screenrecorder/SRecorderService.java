@@ -92,43 +92,45 @@ public class SRecorderService extends Service {
 
     private void stopBuildinRecorder() {
         rmIndicatorFile();
-        BufferedReader pbr = null;
-        try {
-            Process p = Runtime.getRuntime().exec("ps | grep screenrecord");
-            pbr = StreamHelper.reader(p.getInputStream());
-            while (true) {
-                String line = pbr.readLine();
-                if (line == null) return;
-                if (line.trim().startsWith("USER")) continue;
-                logd(line);
-                String[] parts = line.split("\\s+");
-                if (parts.length > 1) {
-                    String pidStr = parts[1];
-                    try {
-                        int aPid = Integer.parseInt(pidStr);
-                        if (aPid > pid) {
-                            pid = aPid;
-                            break;
+        if (pid > 0) {
+            BufferedReader pbr = null;
+            try {
+                Process p = Runtime.getRuntime().exec("ps | grep screenrecord");
+                pbr = StreamHelper.reader(p.getInputStream());
+                while (true) {
+                    String line = pbr.readLine();
+                    if (line == null) return;
+                    if (line.trim().startsWith("USER")) continue;
+                    logd(line);
+                    String[] parts = line.split("\\s+");
+                    if (parts.length > 1) {
+                        String pidStr = parts[1];
+                        try {
+                            int aPid = Integer.parseInt(pidStr);
+                            if (aPid > pid) {
+                                pid = aPid;
+                                break;
+                            }
+                        } catch (NumberFormatException e) {
                         }
-                    } catch (NumberFormatException e) {
+                    }
+                }
+                p.waitFor();
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                if (pbr != null) {
+                    try {
+                        pbr.close();
+                    } catch (IOException e) {
                     }
                 }
             }
-            p.waitFor();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (pbr != null) {
-                try {
-                    pbr.close();
-                } catch (IOException e) {
-                }
-            }
-        }
 
-        stopBuildinRecorder("su -c kill -2 " + pid);
-        logd("kill ss with pid " + pid);
-        pid = 0;
+            stopBuildinRecorder("su -c kill -2 " + pid);
+            logd("kill ss with pid " + pid);
+            pid = 0;
+        }
     }
     
 	public void startRecordingScreen() {
@@ -294,7 +296,7 @@ public class SRecorderService extends Service {
     }
 
     private void stopRecordingScreen() {
-        if (pid > 0) {
+        if (YTWHelper.hasBuildinScreenRecorder()) {
             stopBuildinRecorder();
         } else {
             unregisterReceiver(mOrientationListener);
@@ -344,6 +346,7 @@ public class SRecorderService extends Service {
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
+        logd("onStartCommand");
         if (intent != null && intent.getData() != null) {
             videoPath = intent.getData().getPath();
             logd("start recording screen " + videoPath);
@@ -359,6 +362,7 @@ public class SRecorderService extends Service {
 
 	@Override
 	public void onDestroy() {
+        logd("onDestroy");
         stopRecordingScreen();
         
 		super.onDestroy();
@@ -475,7 +479,7 @@ public class SRecorderService extends Service {
             out = new FileOutputStream(sp);
             BufferedWriter writer = StreamHelper.writer(out);
             String content =
-//                    "sleep 3\n" +
+                    "sleep 3\n" +
                     "c=0\n" +
                     "while [ $c -lt 20 ]\n" +
                     "do\n" +

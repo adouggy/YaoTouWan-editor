@@ -136,11 +136,7 @@ public class YTWHelper {
     }
 
     public static String correctFilePath(String path) {
-        if (!new File(path).exists()) {
-            // todo 目錄矯正需要更通用一些
-            return path.replace("/storage/emulated/0/", "/sdcard/");
-        }
-        return path;
+        return path.replace("/storage/emulated/0/", "/sdcard/");
     }
 
     public static void alert(Context context, String message) {

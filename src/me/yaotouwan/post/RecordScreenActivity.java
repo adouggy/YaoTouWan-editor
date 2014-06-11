@@ -186,6 +186,7 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
     }
 
     public void onStoppedScreenRecorder() {
+        hideProgressDialog();
         startActivityForResult(new Intent(this, EditVideoActivity.class)
                         .setData(Uri.parse(screenRecorder.videoPath))
                         .putExtra("draft_path", draftUri.getPath()),

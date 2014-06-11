@@ -386,7 +386,7 @@ public class EditVideoActivity extends BaseActivity {
         String dstfpath;
 
         protected Boolean doInBackground(Integer... args) {
-            String srcfpath = videoPath;
+            String srcfpath = YTWHelper.correctFilePath(videoPath);
             dstfpath = YTWHelper.generateFilePathForVideoSaveWithDraftUri(draftUri);
             cutVideo(srcfpath, dstfpath,
                     selector.startProgress(),
@@ -425,7 +425,9 @@ public class EditVideoActivity extends BaseActivity {
             String srcfpath = videoPath.substring(0, videoPath.length()-4);
             String srcAfPath = videoPath.substring(0, videoPath.length()-4)+"-a.mp4";
             if (new File(srcAfPath).exists())
-                mergeVideo(srcfpath, srcAfPath, videoPath, rotate);
+                mergeVideo(YTWHelper.correctFilePath(srcfpath),
+                        YTWHelper.correctFilePath(srcAfPath),
+                        YTWHelper.correctFilePath(videoPath), rotate);
             else
                 return false;
             // remove old fragment files
@@ -462,7 +464,7 @@ public class EditVideoActivity extends BaseActivity {
             String videoPath = params[0];
             // start to read video infomation
 //            logd("start to read video infomation");
-            int[] info = prepareDecoder(videoPath);
+            int[] info = prepareDecoder(YTWHelper.correctFilePath(videoPath));
             if (info == null) {
                 return false;
             }

@@ -343,17 +343,17 @@ public class YoukuUploader {
                     if (this.refresh_token != null) { // 重新拿到了refresh_token，再次创建上传
                         uploadResult = getUploadToken(uploadInfo);
                     } else {
-                        Log.d("Youku", "upload failed");
+                        Log.d("Youku", "upload failed 1");
                         return null;
                     }
                 } else if (error != null) { // 其他原因创建失败，不可恢复
-                    Log.d("Youku", "upload failed");
+                    Log.d("Youku", "upload failed 2");
                     return null;
                 }
             }
 
             if (uploadResult == null || !uploadResult.has("upload_token")) {
-                Log.d("Youku", "upload failed");
+                Log.d("Youku", "upload failed 3");
                 return null;
             }
             this.upload_token = uploadResult.getString("upload_token");
