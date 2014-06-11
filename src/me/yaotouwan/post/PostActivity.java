@@ -209,6 +209,17 @@ public class PostActivity extends BaseActivity {
         hideSoftKeyboard();
     }
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            if (isSoftKeyboardShown) {
+                hideSoftKeyboard();
+                return true;
+            }
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     protected void onKeyboardHide() {
         super.onKeyboardHide();
 
