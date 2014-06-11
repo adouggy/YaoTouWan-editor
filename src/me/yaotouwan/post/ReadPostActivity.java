@@ -482,12 +482,13 @@ public class ReadPostActivity extends BaseActivity {
 
 			textView.setMinLines(0);
 
-			final Integer style = (Integer) getTextStyle(position);
-			if( style != null )
+			int style = getTextStyle(position);
 			applyStyle(textView, text, style);
 			if (text == null || text.length() == 0) {
 				hideView(textView);
-			}
+			} else {
+                showView(textView);
+            }
 
 			if (imagePath != null || videoPath != null) {
 				textView.setTextSize(14);
