@@ -60,27 +60,63 @@ public class SRecorderService extends Service {
     }
 
     String buildCommandLine() {
-        String size = videoWidth + "x" + videoHeight;
-        if (videoLandscape) {
-            size = videoHeight + "x" + videoWidth;
-        }
-        String bitrate = "";
-        if (videoBitrate > 0) {
-            bitrate += videoBitrate;
-        }
-        String firstVideoPath = YTWHelper
-                .correctFilePath(videoPath.substring(0, videoPath.length() - 4));
+        // build script
         String recordScriptPath = YTWHelper.screenrecordScriptPath();
-        String cmd = "su -c sh " + recordScriptPath + " " +
-                indicatorFilePath() + " " + size + " " +
-                bitrate + " " + firstVideoPath;
-        return cmd;
+        OutputStream out = null;
+        try {
+            out = new FileOutputStream(recordScriptPath);
+            BufferedWriter writer = StreamHelper.writer(out);
+            String size = videoWidth + "x" + videoHeight;
+            if (videoLandscape) {
+                size = videoHeight + "x" + videoWidth;
+            }
+            String bitrate = "";
+            if (videoBitrate > 0) {
+                bitrate += videoBitrate;
+            }
+            String firstVideoPath = videoPath.substring(0, videoPath.length() - 4);
+            firstVideoPath = YTWHelper.correctFilePath(firstVideoPath);
+            String content =
+                "sleep 3\n" +
+                "c=0\n" +
+                "while [ $c -lt 20 ]\n" +
+                "do\n" +
+                    "if [ -e {indicatorFilePath} ]; then\n" +
+                        "/system/bin/screenrecord  " +
+                            "--size {size} " +
+                            "--bit-rate {bitrate} " +
+                            "{firstVideoPath}-${c}.mp4\n" +
+                    "fi\n" +
+                    "let c=c+1\n" +
+                "done\n";
+            content = content.replace("{indicatorFilePath}", indicatorFilePath())
+                    .replace("{size}", size)
+                    .replace("{bitrate}", bitrate)
+                    .replace("{firstVideoPath}", firstVideoPath);
+            writer.write(content);
+            writer.flush();
+
+            new File(indicatorFilePath()).createNewFile();
+
+            return "su -c sh " + recordScriptPath;
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return null;
     }
 
     boolean startBuildinRecorder() {
         stopBuildinRecorder();
-        prepareRecordScript();
-        touchIndicatorFile();
         String cmd = buildCommandLine();
         pid = startBuildinRecorder(cmd);
         logd("started build in ss " + pid);
@@ -132,8 +168,6 @@ public class SRecorderService extends Service {
     }
     
 	public void startRecordingScreen() {
-        logd("start recording screen");
-
         if (YTWHelper.hasBuildinScreenRecorder()) {
             startBuildinRecorder();
             startAudioRecorder(false);
@@ -309,7 +343,7 @@ public class SRecorderService extends Service {
         try {
             logd("wait audio thread stop");
             synchronized (mAudioRecord) { // wait audio thread stop
-                mAudioRecord.wait();
+                mAudioRecord.wait(3000);
             }
             logd("waited audio thread stop");
             boolean isNowEncoding = false;
@@ -319,7 +353,7 @@ public class SRecorderService extends Service {
             if (isNowEncoding) {
                 logd("wait video thread stop");
                 synchronized (audioBuffers) { // wait video thread stop
-                    audioBuffers.wait();
+                    audioBuffers.wait(3000);
                 }
                 logd("waited video thread stop");
             } else {
@@ -456,50 +490,10 @@ public class SRecorderService extends Service {
     }
 
     String indicatorFilePath() {
-        return new File(new File(videoPath).getParent(), ".record").getAbsolutePath();
+        return new File(YTWHelper.postsDir(), ".record").getAbsolutePath();
     }
 
-    void touchIndicatorFile() {
-        try {
-            new File(indicatorFilePath()).createNewFile();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
     void rmIndicatorFile() {
         new File(indicatorFilePath()).delete();
-    }
-
-    void prepareRecordScript() {
-        String sp = YTWHelper.screenrecordScriptPath();
-        OutputStream out = null;
-        try {
-            out = new FileOutputStream(sp);
-            BufferedWriter writer = StreamHelper.writer(out);
-            String content =
-                    "sleep 3\n" +
-                    "c=0\n" +
-                    "while [ $c -lt 20 ]\n" +
-                    "do\n" +
-                    "    if [ -e $1 ]; then\n" +
-                    "        /system/bin/screenrecord  --size $2  --bit-rate $3 $4-${c}.mp4\n" +
-                    "    fi\n" +
-                    "    let c=c+1\n" +
-                    "done\n";
-            writer.write(content);
-            writer.flush();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
     }
 }

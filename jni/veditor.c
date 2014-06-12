@@ -629,8 +629,6 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
             }
         }
 
-        frame = av_frame_alloc();
-        av_init_packet(&pkt);
 
         while (1) {
             while (videoTime <= audioTime || audioEnd > 0) {
@@ -657,7 +655,7 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
                         LOGE("write video packet Error muxing packet, %s", av_err2str(ret));
                         break;
                     }
-                    av_free_packet(&pkt);
+//                    av_free_packet(&pkt);
                 }
             }
 
@@ -682,19 +680,19 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
                         LOGE("write audio packet Error muxing packet, %s", av_err2str(ret));
                         goto end_split;
                     }
-                    av_free_packet(&pkt);
+//                    av_free_packet(&pkt);
                 }
             }
         }
 end_split:
         LOGI("end split file");
+        avformat_close_input(&vifmt_ctx);
         c ++;
     }
 
 end:
     av_write_trailer(ofmt_ctx);
 
-    avformat_close_input(&vifmt_ctx);
     avformat_close_input(&aifmt_ctx);
 
     if (ofmt_ctx && !(ofmt->flags & AVFMT_NOFILE))
