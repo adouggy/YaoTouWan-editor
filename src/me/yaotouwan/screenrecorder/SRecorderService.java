@@ -11,7 +11,6 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
-import android.os.AsyncTask;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.OrientationEventListener;
@@ -80,10 +79,9 @@ public class SRecorderService extends Service {
 
     boolean startBuildinRecorder() {
         stopBuildinRecorder();
-        String cmd = buildCommandLine();
-        logd(cmd);
         prepareRecordScript();
         touchIndicatorFile();
+        String cmd = buildCommandLine();
         pid = startBuildinRecorder(cmd);
         logd("started build in ss " + pid);
 
@@ -483,10 +481,10 @@ public class SRecorderService extends Service {
                     "c=0\n" +
                     "while [ $c -lt 20 ]\n" +
                     "do\n" +
-                    "\tif [ -e $1 ]; then\n" +
-                    "\t\t/system/bin/screenrecord  --size $2  --bit-rate $3 $4-${c}.mp4\n" +
-                    "\tfi\n" +
-                    "\tlet c=c+1\n" +
+                    "    if [ -e $1 ]; then\n" +
+                    "        /system/bin/screenrecord  --size $2  --bit-rate $3 $4-${c}.mp4\n" +
+                    "    fi\n" +
+                    "    let c=c+1\n" +
                     "done\n";
             writer.write(content);
             writer.flush();

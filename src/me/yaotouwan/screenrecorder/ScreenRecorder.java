@@ -8,6 +8,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.provider.Settings;
 import android.util.Log;
 import me.yaotouwan.R;
@@ -26,6 +27,13 @@ public class ScreenRecorder {
     public boolean moveToBackAlert;
     public ScreenRecorderListener listener;
     private boolean recordedVideoLandscape;
+
+    public static Class getScreenServiceClassBasedOnSystem() {
+        if (Build.MANUFACTURER.equals("Xiaomi")) {
+            return SRecorderServiceIndependent.class;
+        }
+        return SRecorderService.class;
+    }
 
     public interface ScreenRecorderListener {
         public void onStartedScreenRecorder();
@@ -99,7 +107,7 @@ public class ScreenRecorder {
     }
 
     void startRecordingService() {
-        Intent recordIntent = new Intent(context, SRecorderService.class);
+        Intent recordIntent = new Intent(context, getScreenServiceClassBasedOnSystem());
         recordIntent.setData(Uri.parse(videoPath));
         recordIntent.putExtra("video_landscape", videoLandscape);
         recordIntent.putExtra("video_width", getVideoWidthByQuality(videoQuality));
@@ -113,7 +121,7 @@ public class ScreenRecorder {
         Log.d("Recorder", "recorder stop");
         if (isRecordingServiceRunning()) {
             Log.d("Recorder", "stop service");
-            Intent recordIntent = new Intent(context, SRecorderService.class);
+            Intent recordIntent = new Intent(context, getScreenServiceClassBasedOnSystem());
             context.stopService(recordIntent);
             return true;
         }
@@ -174,7 +182,7 @@ public class ScreenRecorder {
     private boolean isRecordingServiceRunning() {
         ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (SRecorderService.class.getName().equals(service.service.getClassName())) {
+            if (getScreenServiceClassBasedOnSystem().getName().equals(service.service.getClassName())) {
                 return true;
             }
         }

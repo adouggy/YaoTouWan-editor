@@ -7,5 +7,5 @@ import android.os.IBinder;
 /**
  * Created by jason on 14-6-9.
  */
-public class RecordScreenService4MIUI extends SRecorderService {
+public class SRecorderServiceIndependent extends SRecorderService {
 }

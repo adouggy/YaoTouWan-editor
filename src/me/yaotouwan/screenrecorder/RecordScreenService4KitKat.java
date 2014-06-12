@@ -27,7 +27,7 @@ import java.util.List;
  */
 public class RecordScreenService4KitKat extends SRecorderService {
 
-    public static final String TAG = "SRecorderService";
+    public static final String TAG = "RecordScreenService4KitKat";
 
     private int mAudioBufferSize;
     AudioRecord mAudioRecord;
@@ -39,6 +39,7 @@ public class RecordScreenService4KitKat extends SRecorderService {
     int videoWidth, videoHeight, videoBitrate;
     boolean isRecording;
     boolean isEncoding;
+    private int videoFPS = 7;
 
     public static final String ACTION_SCREEN_RECORDER_STARTED
             = "me.yaotouwan.screenrecorder.action.started";
@@ -89,58 +90,65 @@ public class RecordScreenService4KitKat extends SRecorderService {
 
     private void stopBuildinRecorder() {
         rmIndicatorFile();
-        BufferedReader pbr = null;
-        try {
-            Process p = Runtime.getRuntime().exec("ps | grep screenrecord");
-            pbr = StreamHelper.reader(p.getInputStream());
-            while (true) {
-                String line = pbr.readLine();
-                if (line == null) return;
-                if (line.trim().startsWith("USER")) continue;
-                logd(line);
-                String[] parts = line.split("\\s+");
-                if (parts.length > 1) {
-                    String pidStr = parts[1];
-                    try {
-                        int aPid = Integer.parseInt(pidStr);
-                        if (aPid > pid) {
-                            pid = aPid;
-                            break;
+        if (pid > 0) {
+            BufferedReader pbr = null;
+            try {
+                Process p = Runtime.getRuntime().exec("ps | grep screenrecord");
+                pbr = StreamHelper.reader(p.getInputStream());
+                while (true) {
+                    String line = pbr.readLine();
+                    if (line == null) return;
+                    if (line.trim().startsWith("USER")) continue;
+                    logd(line);
+                    String[] parts = line.split("\\s+");
+                    if (parts.length > 1) {
+                        String pidStr = parts[1];
+                        try {
+                            int aPid = Integer.parseInt(pidStr);
+                            if (aPid > pid) {
+                                pid = aPid;
+                                break;
+                            }
+                        } catch (NumberFormatException e) {
                         }
-                    } catch (NumberFormatException e) {
+                    }
+                }
+                p.waitFor();
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                if (pbr != null) {
+                    try {
+                        pbr.close();
+                    } catch (IOException e) {
                     }
                 }
             }
-            p.waitFor();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (pbr != null) {
-                try {
-                    pbr.close();
-                } catch (IOException e) {
-                }
-            }
-        }
 
-        stopBuildinRecorder("su -c kill -2 " + pid);
-        logd("kill ss with pid " + pid);
-        pid = 0;
+            stopBuildinRecorder("su -c kill -2 " + pid);
+            logd("kill ss with pid " + pid);
+            pid = 0;
+        }
     }
 
     public void startRecordingScreen() {
+        logd("start recording screen");
         startBuildinRecorder();
-        startAudioRecorder();
+        startAudioRecorder(false);
     }
 
     boolean doInitAudioRecorder() {
         int sampleRate = 44100 / 2;
         int channelConfig = AudioFormat.CHANNEL_IN_MONO;
         int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-        mAudioBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat) * 4;
+        mAudioBufferSize = sampleRate / videoFPS * 2;
+        int bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat) * 4;
+        if (bufferSize <= mAudioBufferSize) {
+            bufferSize = mAudioBufferSize;
+        }
         if (mAudioRecord == null)
             mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
-                    sampleRate, channelConfig, audioFormat, mAudioBufferSize);
+                    sampleRate, channelConfig, audioFormat, bufferSize);
 
         audioBuffers = new ArrayList<byte[]>(5);
         for (int i=0; i<5; i++) {
@@ -211,6 +219,9 @@ public class RecordScreenService4KitKat extends SRecorderService {
 
                     // use loop to consume all missed audio samples
                     while (audioBufferReadOffset < audioBufferWriteOffset && isRecording) {
+                        if (audioBufferReadOffset < audioBufferWriteOffset - videoFPS) { // give up too many missed
+                            audioBufferReadOffset = audioBufferWriteOffset - videoFPS;
+                        }
 //                        logd("encode frame");
                         encodeFrame(audioBuffers.get(audioBufferReadOffset % audioBuffers.size()), audioSamplesRead, audioGain);
                         audioBufferReadOffset ++;
@@ -218,11 +229,14 @@ public class RecordScreenService4KitKat extends SRecorderService {
                     }
                 }
                 stopRecording();
+                logd("stopRecording done");
                 synchronized (audioBuffers) {
                     audioBuffers.notify();
                 }
-                isEncoding = false;
-
+                logd("audioBuffers.notify() done");
+                synchronized (RecordScreenService4KitKat.this) {
+                    isEncoding = false;
+                }
                 logd("end encode frame");
             }
         }).start();
@@ -257,16 +271,7 @@ public class RecordScreenService4KitKat extends SRecorderService {
     }
 
     private void stopRecordingScreen() {
-        if (pid > 0) {
-            stopBuildinRecorder();
-        } else {
-            unregisterReceiver(mOrientationListener);
-            mOrientationListener.onUpdateOrientation();
-            if (mRotateListener.canDetectOrientation()) {
-                mRotateListener.disable();
-            }
-        }
-
+        stopBuildinRecorder();
         isRecording = false;
         logd("stopRecording " + mAudioRecord);
         try {
@@ -275,7 +280,11 @@ public class RecordScreenService4KitKat extends SRecorderService {
                 mAudioRecord.wait();
             }
             logd("waited audio thread stop");
-            if (isEncoding) {
+            boolean isNowEncoding = false;
+            synchronized (this) {
+                isNowEncoding = isEncoding;
+            }
+            if (isNowEncoding) {
                 logd("wait video thread stop");
                 synchronized (audioBuffers) { // wait video thread stop
                     audioBuffers.wait();
@@ -303,6 +312,7 @@ public class RecordScreenService4KitKat extends SRecorderService {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        logd("onStartCommand");
         if (intent != null && intent.getData() != null) {
             videoPath = intent.getData().getPath();
             logd("start recording screen " + videoPath);
@@ -318,6 +328,7 @@ public class RecordScreenService4KitKat extends SRecorderService {
 
     @Override
     public void onDestroy() {
+        logd("onDestroy");
         stopRecordingScreen();
 
         super.onDestroy();
@@ -341,7 +352,7 @@ public class RecordScreenService4KitKat extends SRecorderService {
         public void onOrientationChanged(int rotate) {
 //            logd("rotate = " + rotate);
             if (rotate < 0) return;
-            if (rotate < 180) {
+            if (rotate > 0 && rotate <= 180) {
                 timeAtOrientationRight ++;
             } else {
                 timeAtOrientationLeft ++;
@@ -434,8 +445,8 @@ public class RecordScreenService4KitKat extends SRecorderService {
             out = new FileOutputStream(sp);
             BufferedWriter writer = StreamHelper.writer(out);
             String content =
-//                    "sleep 3\n" +
-                    "c=0\n" +
+                    "sleep 3\n" +
+                            "c=0\n" +
                             "while [ $c -lt 20 ]\n" +
                             "do\n" +
                             "\tif [ -e $1 ]; then\n" +

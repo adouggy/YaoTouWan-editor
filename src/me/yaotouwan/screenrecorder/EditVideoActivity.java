@@ -297,7 +297,7 @@ public class EditVideoActivity extends BaseActivity {
                     if (progress > selector.endProgress()) {
                         pause();
                     }
-                } else {
+                } else if (updateProgressTimer != null) {
                     updateProgressTimer.cancel();
                     updateProgressTimer = null;
                 }
@@ -596,6 +596,7 @@ public class EditVideoActivity extends BaseActivity {
                             new CutVideoSelector.OnValueChangedListener() {
                                 @Override
                                 public void onChangePreviewProgress(final double previewProgress) {
+                                    logd("proview progress " + previewProgress);
                                     if (mPlayer.isPlaying()) {
                                         pause();
                                     }
