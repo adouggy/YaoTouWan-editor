@@ -243,32 +243,32 @@ public class RecordScreenService4KitKat extends SRecorderService {
         return true;
     }
 
-    void startAudioRecorder() {
-        try {
-            if (doInitAudioRecorder()) {
-                for (int i=0; i<100; i++) {
-                    if (YTWHelper.isBuildinScreenRecorderRunning()) {
-                        String audioFilePath = videoPath.substring(0, videoPath.length() - 4) + "-a.mp4";
-                        initRecorder(YTWHelper.correctFilePath(audioFilePath), 0, 0, 0, false);
-                        if (doStartAudioRecorder()) {
-                            sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
-                        } else {
-                            stopBuildinRecorder();
-                            Toast.makeText(this, "无法启动录音机\n请重启手机重新录制", Toast.LENGTH_LONG).show();
-                        }
-                        return;
-                    } else {
-                        Thread.sleep(100);
-                    }
-                }
-                // todo wait 10s, but buildin recorder not started
-            }
-        } catch (IllegalArgumentException e) {
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+//    void startAudioRecorder() {
+//        try {
+//            if (doInitAudioRecorder()) {
+//                for (int i=0; i<100; i++) {
+//                    if (YTWHelper.isBuildinScreenRecorderRunning()) {
+//                        String audioFilePath = videoPath.substring(0, videoPath.length() - 4) + "-a.mp4";
+//                        initRecorder(YTWHelper.correctFilePath(audioFilePath), 0, 0, 0, false);
+//                        if (doStartAudioRecorder()) {
+//                            sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
+//                        } else {
+//                            stopBuildinRecorder();
+//                            Toast.makeText(this, "无法启动录音机\n请重启手机重新录制", Toast.LENGTH_LONG).show();
+//                        }
+//                        return;
+//                    } else {
+//                        Thread.sleep(100);
+//                    }
+//                }
+//                // todo wait 10s, but buildin recorder not started
+//            }
+//        } catch (IllegalArgumentException e) {
+//            e.printStackTrace();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 
     private void stopRecordingScreen() {
         stopBuildinRecorder();
@@ -423,9 +423,9 @@ public class RecordScreenService4KitKat extends SRecorderService {
         Log.d("Yaotouwan_" + getClass().getSimpleName().toString(), msg);
     }
 
-    String indicatorFilePath() {
-        return new File(new File(videoPath).getParent(), ".record").getAbsolutePath();
-    }
+//    String indicatorFilePath() {
+//        return new File(new File(videoPath).getParent(), ".record").getAbsolutePath();
+//    }
 
     void touchIndicatorFile() {
         try {
@@ -434,9 +434,9 @@ public class RecordScreenService4KitKat extends SRecorderService {
             e.printStackTrace();
         }
     }
-    void rmIndicatorFile() {
-        new File(indicatorFilePath()).delete();
-    }
+//    void rmIndicatorFile() {
+//        new File(indicatorFilePath()).delete();
+//    }
 
     void prepareRecordScript() {
         String sp = YTWHelper.screenrecordScriptPath();
