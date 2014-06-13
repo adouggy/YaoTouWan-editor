@@ -25,6 +25,7 @@ import java.util.List;
 public class SRecorderService extends Service {
 
 	public static final String TAG = "SRecorderService";
+    public static final String BUILDIN_RECORDER_NAME = "screenrecord";
 
     private int mAudioBufferSize;
     AudioRecord mAudioRecord;
@@ -50,14 +51,13 @@ public class SRecorderService extends Service {
     protected native int encodeFrame(byte[] audioBuffer, int audioSamplesSize, float audioGain);
     protected native int stopRecording();
 
-    private native int startBuildinRecorder(String command);
-    private native int stopBuildinRecorder(String command);
+    protected native int executeAsyncShellTask(String command);
 
     static {
         System.loadLibrary("srecorder");
     }
 
-    String buildCommandLine() {
+    boolean startBuildinRecorder() {
         // build script
         String recordScriptPath = YTWHelper.screenrecordScriptPath();
         OutputStream out = null;
@@ -96,7 +96,9 @@ public class SRecorderService extends Service {
 
             new File(indicatorFilePath()).createNewFile();
 
-            return "su -c sh " + YTWHelper.correctFilePath(recordScriptPath);
+            String cmd = "su -c sh " + YTWHelper.correctFilePath(recordScriptPath);
+            logd(cmd);
+            return executeAsyncShellTask(cmd) > 0;
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -110,73 +112,15 @@ public class SRecorderService extends Service {
                 }
             }
         }
-        return null;
-    }
-
-    boolean startBuildinRecorder() {
-        stopBuildinRecorder();
-        String cmd = buildCommandLine();
-        startBuildinRecorder(cmd);
-        logd("started build in ss");
-
-        return true;
+        return false;
     }
 
     private void stopBuildinRecorder() {
         rmIndicatorFile();
-        BufferedReader pbr = null;
-        try {
-            Process p = Runtime.getRuntime().exec("ps | grep screenrecord");
-            pbr = StreamHelper.reader(p.getInputStream());
-            while (true) {
-                String line = pbr.readLine();
-                if (line == null) break;
-                if (line.trim().startsWith("USER")) continue;
-                logd(line);
-                String[] parts = line.split("\\s+");
-                if (parts.length > 1) {
-                    String pidStr = parts[1];
-                    try {
-                        int pid = Integer.parseInt(pidStr);
-                        stopBuildinRecorder("su -c kill -2 " + pid);
-                        logd("kill ss with pid " + pid);
-                    } catch (NumberFormatException e) {
-                    }
-                }
-            }
-            p.waitFor();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (pbr != null) {
-                try {
-                    pbr.close();
-                } catch (IOException e) {
-                }
-            }
-        }
+        YTWHelper.killAll(BUILDIN_RECORDER_NAME, false);
     }
-    
-	public void startRecordingScreen() {
-        if (YTWHelper.hasBuildinScreenRecorder()) {
-            startBuildinRecorder();
-            startAudioRecorder(false);
-        } else {
-            IntentFilter filter = new IntentFilter();
-            filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
-            mOrientationListener = new OrientationListener();
-            registerReceiver(mOrientationListener, filter);
 
-            mRotateListener = new MyOrientationEventListener(this,
-                    SensorManager.SENSOR_DELAY_NORMAL);
-            if (mRotateListener.canDetectOrientation()) {
-                mRotateListener.enable();
-            }
-            startAudioRecorder(true);
-        }
-	}
-
-    boolean doInitAudioRecorder(final boolean recordVideo) {
+    boolean doInitAudioRecorder() {
         int sampleRate = 44100 / 2;
         int channelConfig = AudioFormat.CHANNEL_IN_MONO;
         int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
@@ -282,38 +226,74 @@ public class SRecorderService extends Service {
         return true;
     }
 
+    boolean waitForBuildinRecorderStarted() {
+        for (int i=0; i<100; i++) {
+            if (YTWHelper.getPid(BUILDIN_RECORDER_NAME) > 0) {
+                return true;
+            } else {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return false;
+    }
+
     void startAudioRecorder(boolean recordVideo) {
         try {
-            if (doInitAudioRecorder(recordVideo)) {
+            if (doInitAudioRecorder()) {
                 if (recordVideo) {
-                    logd("bitrate = " + videoBitrate);
                     initRecorder(YTWHelper.correctFilePath(videoPath), 0, videoBitrate, videoFPS, recordVideo);
                     if (doStartAudioRecorder()) {
                         sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
+                    } else {
+                        Toast.makeText(this, "无法启动录音机\n请重启手机重新录制", Toast.LENGTH_LONG).show();
+                        stopSelf();
                     }
                 } else {
-                    for (int i=0; i<100; i++) {
-                        if (YTWHelper.isBuildinScreenRecorderRunning()) {
-                            String audioFilePath = videoPath.substring(0, videoPath.length() - 4) + "-a.mp4";
-                            initRecorder(YTWHelper.correctFilePath(audioFilePath), 0, 0, 0, recordVideo);
-                            if (doStartAudioRecorder()) {
-                                sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
-                            } else {
-                                stopBuildinRecorder();
-                                Toast.makeText(this, "无法启动录音机\n请重启手机重新录制", Toast.LENGTH_LONG).show();
-                            }
-                            return;
+                    if (waitForBuildinRecorderStarted()) {
+                        String audioFilePath = videoPath.substring(0, videoPath.length() - 4) + "-a.mp4";
+                        initRecorder(YTWHelper.correctFilePath(audioFilePath), 0, 0, 0, recordVideo);
+                        if (doStartAudioRecorder()) {
+                            sendBroadcast(new Intent().setAction(ACTION_SCREEN_RECORDER_STARTED));
                         } else {
-                            Thread.sleep(100);
+                            stopBuildinRecorder();
+                            Toast.makeText(this, "无法启动录音机\n请重启手机重新录制", Toast.LENGTH_LONG).show();
+                            stopSelf();
                         }
+                    } else {
+                        Toast.makeText(this, "无法录制屏幕", Toast.LENGTH_LONG).show();
+                        stopSelf();
                     }
-                    // todo wait 10s, but buildin recorder not started
                 }
+            } else {
+                Toast.makeText(this, "无法启动录音机\n请重启手机重新录制", Toast.LENGTH_LONG).show();
+                stopSelf();
             }
-        } catch (IllegalArgumentException e) {
-            e.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void startRecordingScreen() {
+        if (YTWHelper.hasBuildinScreenRecorder()) {
+            stopBuildinRecorder();
+            if (startBuildinRecorder())
+                startAudioRecorder(false);
+        } else {
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
+            mOrientationListener = new OrientationListener();
+            registerReceiver(mOrientationListener, filter);
+
+            mRotateListener = new MyOrientationEventListener(this,
+                    SensorManager.SENSOR_DELAY_NORMAL);
+            if (mRotateListener.canDetectOrientation()) {
+                mRotateListener.enable();
+            }
+            startAudioRecorder(true);
         }
     }
 
@@ -479,11 +459,11 @@ public class SRecorderService extends Service {
         Log.d("Yaotouwan_" + getClass().getSimpleName().toString(), msg);
     }
 
-    String indicatorFilePath() {
+    public static String indicatorFilePath() {
         return new File(YTWHelper.postsDir(), ".record").getAbsolutePath();
     }
 
-    void rmIndicatorFile() {
+    public static void rmIndicatorFile() {
         new File(indicatorFilePath()).delete();
     }
 }

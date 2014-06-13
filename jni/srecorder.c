@@ -32,7 +32,7 @@
 
 int pid = 0;
 
-jint Java_me_yaotouwan_screenrecorder_SRecorderService_startBuildinRecorder
+jint Java_me_yaotouwan_screenrecorder_SRecorderService_executeAsyncShellTask
 (
  JNIEnv *env,
   jobject this,
@@ -46,18 +46,6 @@ jint Java_me_yaotouwan_screenrecorder_SRecorderService_startBuildinRecorder
     } else {
         return system(command);
     }
-}
-
-jint Java_me_yaotouwan_screenrecorder_SRecorderService_stopBuildinRecorder
-(
- JNIEnv *env,
- jobject this,
- jstring command_jni
-)
-{
-    const jbyte *command = (*env)->GetStringUTFChars(env, command_jni, NULL);
-
-    return system(command);
 }
 
 jint Java_me_yaotouwan_screenrecorder_SRecorderService_initRecorder

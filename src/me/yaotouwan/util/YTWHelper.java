@@ -4,6 +4,7 @@ import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -191,52 +192,6 @@ public class YTWHelper {
         ActivityManager activityManager = (ActivityManager) context.getSystemService(context.ACTIVITY_SERVICE);
         activityManager.getMemoryInfo(memoryInfo);
         return memoryInfo.lowMemory;
-    }
-
-    public static int findRecorderPid(String pname) {
-        BufferedReader pbr = null;
-        int pid = 0;
-        try {
-            Process p = Runtime.getRuntime().exec("ps | grep " + pname);
-            pbr = StreamHelper.reader(p.getInputStream());
-            while (true) {
-                String line = pbr.readLine();
-                if (line == null) return 0;
-                if (line.startsWith("USER")) continue;
-                Log.d(YTWHelper.class.getSimpleName(), line);
-                String[] parts = line.split("\\s+");
-                if (parts.length > 1) {
-                    String pidStr = parts[1];
-                    try {
-                        pid = Integer.parseInt(pidStr);
-                        if (pid > 0) {
-                            Log.d(YTWHelper.class.getSimpleName(), "found ss pid " + pid);
-                            break;
-                        }
-                    } catch (NumberFormatException e) {
-                        continue;
-                    }
-                }
-            }
-            p.waitFor();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } finally {
-            if (pbr != null) {
-                try {
-                    pbr.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        return pid;
-    }
-
-    public static boolean isBuildinScreenRecorderRunning() {
-        return findRecorderPid("screenrecord") > 0;
     }
 
     public static void saveProperty(final Context context,
@@ -488,7 +443,6 @@ public class YTWHelper {
             String[] lines = out.split("\n");
             for (int i=0; i<lines.length; i++) {
                 String line = lines[i];
-//                logd(line);
                 if (line.contains("com.qihoo")) {
                     String[] parts = line.split("\\s+");
                     if (parts.length > 1) {
@@ -502,5 +456,55 @@ public class YTWHelper {
                 }
             }
         }
+    }
+
+    public static void killAll(String processName, boolean force) {
+        Root.CommandResult result = Root.INSTANCE.runCMD(false, "ps");
+        if (result.success()) {
+            String out = result.stdout;
+            String[] lines = out.split("\n");
+            for (int i=0; i<lines.length; i++) {
+                String line = lines[i].trim();
+                if (line.endsWith(processName)) {
+                    String[] parts = line.split("\\s+");
+                    if (parts.length > 1) {
+                        String pidStr = parts[1];
+                        try {
+                            int aPid = Integer.parseInt(pidStr);
+                            if (aPid > 0)
+                                if (force)
+                                    Root.INSTANCE.runCMD(true, "kill -9 " + aPid);
+                                else
+                                    Root.INSTANCE.runCMD(true, "kill -2 " + aPid);
+                        } catch (NumberFormatException e) {
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public static int getPid(String processName) {
+        Root.CommandResult result = Root.INSTANCE.runCMD(false, "ps");
+        if (result.success()) {
+            String out = result.stdout;
+            String[] lines = out.split("\n");
+            for (int i=0; i<lines.length; i++) {
+                String line = lines[i].trim();
+                if (line.endsWith(processName)) {
+                    String[] parts = line.split("\\s+");
+                    if (parts.length > 1) {
+                        String pidStr = parts[1];
+                        try {
+                            int aPid = Integer.parseInt(pidStr);
+                            if (aPid > 0)
+                                return aPid;
+                        } catch (NumberFormatException e) {
+                        }
+                    }
+                }
+            }
+        }
+        return 0;
     }
 }

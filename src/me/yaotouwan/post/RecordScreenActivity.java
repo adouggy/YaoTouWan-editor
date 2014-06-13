@@ -270,6 +270,7 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
     protected void onStart() {
         super.onStart();
 
+        logd("onStart");
         if (screenRecorder.stop()) {
             showProgressDialog(R.string.stopping_screen_recorder);
             new Handler(getMainLooper()).postDelayed(new Runnable() {

@@ -32,6 +32,7 @@ import com.mobeta.android.dslv.DragSortListView;
 import com.mobeta.android.dslv.SimpleDragSortCursorAdapter;
 import me.yaotouwan.R;
 import me.yaotouwan.screenrecorder.EditVideoActivity;
+import me.yaotouwan.screenrecorder.SRecorderService;
 import me.yaotouwan.screenrecorder.SelectGameActivity;
 import me.yaotouwan.uicommon.ActionSheet;
 import me.yaotouwan.uicommon.ActionSheetItem;
@@ -132,6 +133,9 @@ public class PostActivity extends BaseActivity {
         listenKeyboard();
 
         preloadGameList();
+
+        SRecorderService.rmIndicatorFile();
+        YTWHelper.killAll(SRecorderService.BUILDIN_RECORDER_NAME, false);
     }
 
     @Override

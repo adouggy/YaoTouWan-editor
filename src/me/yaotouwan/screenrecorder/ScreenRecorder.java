@@ -152,7 +152,7 @@ public class ScreenRecorder {
                         e.printStackTrace();
                     }
                     if (YTWHelper.hasBuildinScreenRecorder()) {
-                        if (!YTWHelper.isBuildinScreenRecorderRunning()) {
+                        if (YTWHelper.getPid(SRecorderService.BUILDIN_RECORDER_NAME) <= 0) {
                             return true;
                         }
                     } else {
