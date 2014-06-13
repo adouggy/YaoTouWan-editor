@@ -50,8 +50,6 @@ public class SRecorderService extends Service {
     protected native int encodeFrame(byte[] audioBuffer, int audioSamplesSize, float audioGain);
     protected native int stopRecording();
 
-    int pid;
-
     private native int startBuildinRecorder(String command);
     private native int stopBuildinRecorder(String command);
 
@@ -98,7 +96,7 @@ public class SRecorderService extends Service {
 
             new File(indicatorFilePath()).createNewFile();
 
-            return "su -c sh " + recordScriptPath;
+            return "su -c sh " + YTWHelper.correctFilePath(recordScriptPath);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -118,52 +116,44 @@ public class SRecorderService extends Service {
     boolean startBuildinRecorder() {
         stopBuildinRecorder();
         String cmd = buildCommandLine();
-        pid = startBuildinRecorder(cmd);
-        logd("started build in ss " + pid);
+        startBuildinRecorder(cmd);
+        logd("started build in ss");
 
         return true;
     }
 
     private void stopBuildinRecorder() {
         rmIndicatorFile();
-        if (pid > 0) {
-            BufferedReader pbr = null;
-            try {
-                Process p = Runtime.getRuntime().exec("ps | grep screenrecord");
-                pbr = StreamHelper.reader(p.getInputStream());
-                while (true) {
-                    String line = pbr.readLine();
-                    if (line == null) return;
-                    if (line.trim().startsWith("USER")) continue;
-                    logd(line);
-                    String[] parts = line.split("\\s+");
-                    if (parts.length > 1) {
-                        String pidStr = parts[1];
-                        try {
-                            int aPid = Integer.parseInt(pidStr);
-                            if (aPid > pid) {
-                                pid = aPid;
-                                break;
-                            }
-                        } catch (NumberFormatException e) {
-                        }
-                    }
-                }
-                p.waitFor();
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                if (pbr != null) {
+        BufferedReader pbr = null;
+        try {
+            Process p = Runtime.getRuntime().exec("ps | grep screenrecord");
+            pbr = StreamHelper.reader(p.getInputStream());
+            while (true) {
+                String line = pbr.readLine();
+                if (line == null) break;
+                if (line.trim().startsWith("USER")) continue;
+                logd(line);
+                String[] parts = line.split("\\s+");
+                if (parts.length > 1) {
+                    String pidStr = parts[1];
                     try {
-                        pbr.close();
-                    } catch (IOException e) {
+                        int pid = Integer.parseInt(pidStr);
+                        stopBuildinRecorder("su -c kill -2 " + pid);
+                        logd("kill ss with pid " + pid);
+                    } catch (NumberFormatException e) {
                     }
                 }
             }
-
-            stopBuildinRecorder("su -c kill -2 " + pid);
-            logd("kill ss with pid " + pid);
-            pid = 0;
+            p.waitFor();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (pbr != null) {
+                try {
+                    pbr.close();
+                } catch (IOException e) {
+                }
+            }
         }
     }
     
@@ -376,7 +366,7 @@ public class SRecorderService extends Service {
         }
     }
 
-	@Override
+    @Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
         logd("onStartCommand");
         if (intent != null && intent.getData() != null) {
@@ -389,7 +379,7 @@ public class SRecorderService extends Service {
 
             startRecordingScreen();
         }
-		return super.onStartCommand(intent, flags, startId);
+		return START_NOT_STICKY;
     }
 
 	@Override

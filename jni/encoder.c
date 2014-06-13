@@ -56,7 +56,13 @@ void log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt)
          pkt->stream_index);
 }
 
-int write_frame(AVFormatContext *fmt_ctx, const AVRational *time_base, AVStream *st, AVPacket *pkt)
+int write_frame
+(
+    AVFormatContext *fmt_ctx,
+    const AVRational *time_base,
+    AVStream *st,
+    AVPacket *pkt
+)
 {
     pkt->pts = av_rescale_q_rnd(pkt->pts, *time_base, st->time_base, AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX);
     pkt->dts = av_rescale_q_rnd(pkt->dts, *time_base, st->time_base, AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX);
@@ -66,7 +72,12 @@ int write_frame(AVFormatContext *fmt_ctx, const AVRational *time_base, AVStream 
     return av_interleaved_write_frame(fmt_ctx, pkt);
 }
 
-AVStream *add_stream(AVFormatContext *oc, AVCodec **codec, enum AVCodecID codec_id)
+AVStream *add_stream
+(
+    AVFormatContext *oc,
+    AVCodec **codec,
+    enum AVCodecID codec_id
+)
 {
     AVCodecContext *c;
     AVStream *st;
@@ -124,7 +135,12 @@ AVStream *add_stream(AVFormatContext *oc, AVCodec **codec, enum AVCodecID codec_
     return st;
 }
 
-void open_audio(AVFormatContext *oc, AVCodec *codec, AVStream *st)
+void open_audio
+(
+    AVFormatContext *oc,
+    AVCodec *codec,
+    AVStream *st
+)
 {
     AVCodecContext *c;
     int ret;
@@ -144,7 +160,15 @@ void open_audio(AVFormatContext *oc, AVCodec *codec, AVStream *st)
     }
 }
 
-void write_audio_frame(AVFormatContext *oc, AVStream *st, int flush, uint8_t *audio_samples, int audio_samples_count, float audio_gain)
+void write_audio_frame
+(
+    AVFormatContext *oc,
+    AVStream *st,
+    int flush,
+    uint8_t *audio_samples,
+    int audio_samples_count,
+    float audio_gain
+)
 {
     AVCodecContext *c;
     AVPacket pkt = { 0 };
@@ -159,6 +183,7 @@ void write_audio_frame(AVFormatContext *oc, AVStream *st, int flush, uint8_t *au
     for (i=0; i<audio_samples_count; i++) {
         audio_samples_16[i] *= audio_gain;
     }
+//    LOGI("write audio frame, audio_samples_16 %d", audio_samples_count);
 
     if (!flush) {
         audio_frame->nb_samples = audio_samples_count;
@@ -180,7 +205,7 @@ void write_audio_frame(AVFormatContext *oc, AVStream *st, int flush, uint8_t *au
     
     ret = write_frame(oc, &c->time_base, st, &pkt);
     if (ret < 0) {
-        LOGE("Error while writing audio frame: %s\n",
+        LOGE("Error while writing audio frame: %s",
              av_err2str(ret));
         return;
     }

@@ -114,6 +114,7 @@ public class ScreenRecorder {
         recordIntent.putExtra("video_height", getVideoHeightByQuality(videoQuality));
         recordIntent.putExtra("video_bitrate", getVideoBitrateByQuality(videoQuality));
         recordedVideoLandscape = videoLandscape;
+        Log.d("Recorder", "start service");
         context.startService(recordIntent);
     }
 

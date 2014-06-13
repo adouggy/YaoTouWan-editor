@@ -425,13 +425,12 @@ public class EditVideoActivity extends BaseActivity {
             String srcfpath = videoPath.substring(0, videoPath.length()-4);
             String srcAfPath = videoPath.substring(0, videoPath.length()-4)+"-a.mp4";
             if (new File(srcAfPath).exists())
-                mergeVideo(YTWHelper.correctFilePath(srcfpath),
+                return mergeVideo(
+                        YTWHelper.correctFilePath(srcfpath),
                         YTWHelper.correctFilePath(srcAfPath),
-                        YTWHelper.correctFilePath(videoPath), rotate);
+                        YTWHelper.correctFilePath(videoPath), rotate) >= 0;
             else
                 return false;
-            // remove old fragment files
-            return true;
         }
 
         protected void onPostExecute(Boolean result) {

@@ -177,6 +177,7 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
     protected void onStop() {
         super.onStop();
 
+        logd("onStop");
         if (isWaitingForStartingRecorder) {
             screenRecorder.videoLandscape =
                     getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
@@ -186,6 +187,11 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
     }
 
     public void onStoppedScreenRecorder() {
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         hideProgressDialog();
         startActivityForResult(new Intent(this, EditVideoActivity.class)
                         .setData(Uri.parse(screenRecorder.videoPath))

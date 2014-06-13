@@ -506,7 +506,8 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
  jstring src_video_filename_jni,
  jstring src_audio_filename_jni,
  jstring dst_filename_jni,
- jint rotate_jni)
+ jint rotate_jni
+ )
 {
     AVOutputFormat *ofmt = NULL;
     AVFormatContext *vifmt_ctx = NULL, *aifmt_ctx = NULL, *ofmt_ctx = NULL;
@@ -637,7 +638,8 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
 
                 ret = av_read_frame(vifmt_ctx, &pkt);
                 if (ret < 0) {
-                    LOGE("av_read_frame video failed %s", av_err2str(ret));
+                    if (ret != AVERROR_EOF)
+                        LOGE("av_read_frame video failed %s", av_err2str(ret));
                     lastVideoPTS += video_in_stream->duration;
                     lastVideoDTS += video_in_stream->duration;
                     goto end_split;
@@ -665,7 +667,8 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
 
                 ret = av_read_frame(aifmt_ctx, &pkt);
                 if (ret < 0) {
-                    LOGE("av_read_frame audio failed %s", av_err2str(ret));
+                    if (ret != AVERROR_EOF)
+                        LOGE("av_read_frame audio failed %s", av_err2str(ret));
                     audioEnd = 1;
                     break;
                 } else {
@@ -690,11 +693,10 @@ end_split:
         c ++;
     }
 
-end:
     av_write_trailer(ofmt_ctx);
-
     avformat_close_input(&aifmt_ctx);
 
+end:
     if (ofmt_ctx && !(ofmt->flags & AVFMT_NOFILE))
         avio_close(ofmt_ctx->pb);
     avformat_free_context(ofmt_ctx);
