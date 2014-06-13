@@ -6,3 +6,9 @@ bin/
 libs/armeabi/
 obj/
 *.scpt
+
+.classpath
+
+.project
+
+libs/android-support-v4.jar
