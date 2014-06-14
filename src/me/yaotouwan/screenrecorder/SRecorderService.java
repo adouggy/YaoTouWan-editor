@@ -24,7 +24,7 @@ import java.util.List;
 
 public class SRecorderService extends Service {
 
-	public static final String TAG = "SRecorderService";
+	public static final String TAG = "Yaotouwan_SRecorderService";
     public static final String BUILDIN_RECORDER_NAME = "screenrecord";
 
     private int mAudioBufferSize;
@@ -36,7 +36,6 @@ public class SRecorderService extends Service {
     String videoPath;
     int videoWidth, videoHeight, videoBitrate;
     boolean isRecording;
-    boolean isEncoding;
     private int videoFPS = 7;
 
     public static final String ACTION_SCREEN_RECORDER_STARTED
@@ -115,7 +114,7 @@ public class SRecorderService extends Service {
         return false;
     }
 
-    private void stopBuildinRecorder() {
+    public static void stopBuildinRecorder() {
         rmIndicatorFile();
         YTWHelper.killAll(BUILDIN_RECORDER_NAME, false);
     }
@@ -172,9 +171,6 @@ public class SRecorderService extends Service {
                     }
                 }
                 mAudioRecord.stop();
-                synchronized (mAudioRecord) {
-                    mAudioRecord.notify();
-                }
                 logd("end reading audio samples");
             }
         }).start();
@@ -183,7 +179,6 @@ public class SRecorderService extends Service {
             AudioManager audio;
             @Override
             public void run() {
-                isEncoding = true;
                 logd("start to encode frames");
                 while (isRecording) {
                     synchronized (audioBuffers) {
@@ -212,15 +207,13 @@ public class SRecorderService extends Service {
                     }
                 }
                 stopRecording();
-                logd("stopRecording done");
-                synchronized (audioBuffers) {
-                    audioBuffers.notify();
+                logd("send broad cast");
+                Intent intent = new Intent().setAction(ACTION_SCREEN_RECORDER_STOPPED);
+                if (!YTWHelper.hasBuildinScreenRecorder()) {
+                    intent.putExtra("orientation", estimateOrientation());
                 }
-                logd("audioBuffers.notify() done");
-                synchronized (SRecorderService.this) {
-                    isEncoding = false;
-                }
-                logd("end encode frame");
+                sendBroadcast(intent);
+                logd("screen recoder done.");
             }
         }).start();
         return true;
@@ -298,57 +291,30 @@ public class SRecorderService extends Service {
     }
 
     private void stopRecordingScreen() {
-        if (YTWHelper.hasBuildinScreenRecorder()) {
-            stopBuildinRecorder();
-        } else {
+        if (!YTWHelper.hasBuildinScreenRecorder()) {
             unregisterReceiver(mOrientationListener);
             mOrientationListener.onUpdateOrientation();
             if (mRotateListener.canDetectOrientation()) {
                 mRotateListener.disable();
             }
         }
-
         isRecording = false;
-        logd("stopRecording " + mAudioRecord);
-        try {
-            logd("wait audio thread stop");
-            synchronized (mAudioRecord) { // wait audio thread stop
-                mAudioRecord.wait(3000);
-            }
-            logd("waited audio thread stop");
-            boolean isNowEncoding = false;
-            synchronized (this) {
-                isNowEncoding = isEncoding;
-            }
-            if (isNowEncoding) {
-                logd("wait video thread stop");
-                synchronized (audioBuffers) { // wait video thread stop
-                    audioBuffers.wait(3000);
-                }
-                logd("waited video thread stop");
-            } else {
-                logd("video recorder has stopped");
-            }
-        } catch (IllegalStateException e) {
-            logd(e.toString());
-            e.printStackTrace();
-        } catch (Exception e) {
-            logd(e.toString());
-            e.printStackTrace();
-        } finally {
-            logd("send broad cast");
-            Intent intent = new Intent().setAction(ACTION_SCREEN_RECORDER_STOPPED);
-            if (!YTWHelper.hasBuildinScreenRecorder()) {
-                intent.putExtra("orientation", estimateOrientation());
-            }
-            sendBroadcast(intent);
-            logd("screen recoder done.");
-        }
     }
 
     @Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
         logd("onStartCommand");
+		return START_NOT_STICKY;
+    }
+
+	@Override
+	public void onDestroy() {
+        logd("onDestroy");
+		super.onDestroy();
+	}
+
+    @Override
+    public IBinder onBind(Intent intent) {
         if (intent != null && intent.getData() != null) {
             videoPath = intent.getData().getPath();
             logd("start recording screen " + videoPath);
@@ -359,16 +325,15 @@ public class SRecorderService extends Service {
 
             startRecordingScreen();
         }
-		return START_NOT_STICKY;
+        return null;
     }
 
-	@Override
-	public void onDestroy() {
-        logd("onDestroy");
+    @Override
+    public boolean onUnbind(Intent intent) {
+        logd("unbind " + intent);
         stopRecordingScreen();
-        
-		super.onDestroy();
-	}
+        return super.onUnbind(intent);
+    }
 
     MyOrientationEventListener mRotateListener;
     class MyOrientationEventListener extends OrientationEventListener {
@@ -449,11 +414,6 @@ public class SRecorderService extends Service {
             return 0; // portrait
         }
     }
-
-	@Override
-	public IBinder onBind(Intent intent) {
-		return null;
-	}
 
     public void logd(String msg) {
         Log.d("Yaotouwan_" + getClass().getSimpleName().toString(), msg);

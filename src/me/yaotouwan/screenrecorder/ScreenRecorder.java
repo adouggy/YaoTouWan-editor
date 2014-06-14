@@ -3,16 +3,17 @@ package me.yaotouwan.screenrecorder;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ProgressDialog;
-import android.content.Context;
-import android.content.DialogInterface;
-import android.content.Intent;
+import android.content.*;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
+import android.os.IBinder;
 import android.provider.Settings;
 import android.util.Log;
 import me.yaotouwan.R;
 import me.yaotouwan.util.YTWHelper;
+
+import java.io.File;
 
 /**
  * Created by jason on 14-5-21.
@@ -29,10 +30,10 @@ public class ScreenRecorder {
     private boolean recordedVideoLandscape;
 
     public static Class getScreenServiceClassBasedOnSystem() {
-        if (Build.MANUFACTURER.equals("Xiaomi")) {
-            return SRecorderServiceIndependent.class;
+        if (Build.MANUFACTURER.equals("Meizu")) {
+            return SRecorderService.class;
         }
-        return SRecorderService.class;
+        return SRecorderServiceIndependent.class;
     }
 
     public interface ScreenRecorderListener {
@@ -115,19 +116,41 @@ public class ScreenRecorder {
         recordIntent.putExtra("video_bitrate", getVideoBitrateByQuality(videoQuality));
         recordedVideoLandscape = videoLandscape;
         Log.d("Recorder", "start service");
-        context.startService(recordIntent);
+//        context.startService(recordIntent);
+        context.bindService(recordIntent, recorderSerivceConnection, Context.BIND_AUTO_CREATE);
     }
 
     public boolean stop() {
         Log.d("Recorder", "recorder stop");
-        if (isRecordingServiceRunning()) {
-            Log.d("Recorder", "stop service");
-            Intent recordIntent = new Intent(context, getScreenServiceClassBasedOnSystem());
-            context.stopService(recordIntent);
-            return true;
+        boolean stopped = false;
+        if (YTWHelper.hasBuildinScreenRecorder()) {
+            if (new File(SRecorderService.indicatorFilePath()).exists()) {
+                if (YTWHelper.getPid(SRecorderService.BUILDIN_RECORDER_NAME) > 0) {
+                    stopped = true;
+                }
+            }
         }
-        return false;
+        SRecorderService.stopBuildinRecorder();
+        try {
+            context.unbindService(recorderSerivceConnection);
+            stopped = true;
+        } catch (Exception e) {
+        }
+        return stopped;
     }
+
+    ServiceConnection recorderSerivceConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+
+        }
+    };
 
     private void waitForRecordingServiceStop() {
         new AsyncTask<Integer, Integer, Boolean>() {

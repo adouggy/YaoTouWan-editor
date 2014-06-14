@@ -454,6 +454,7 @@ public class EditVideoActivity extends BaseActivity {
 
             logd("merge file completed");
             if (result && new File(videoPath).exists()) {
+                // todo remove split files
                 prepareVideoPlayer();
             } else {
                 Toast.makeText(EditVideoActivity.this, "合并文件失败", Toast.LENGTH_LONG).show();
@@ -481,7 +482,7 @@ public class EditVideoActivity extends BaseActivity {
         while (true) {
             String splitVideoPath = videoPath.substring(0, videoPath.length()-4) + "-" + i + ".mp4";
             if (!new File(splitVideoPath).exists()) {
-                return i + 1;
+                return i;
             }
             i ++;
         }
