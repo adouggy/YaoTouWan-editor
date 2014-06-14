@@ -5,6 +5,7 @@ import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.provider.Settings;
 import android.view.*;
 import android.widget.Button;
@@ -45,7 +46,6 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
         packetName = getIntent().getStringExtra("package_name");
         screenRecorder.moveToBackAlert = packetName == null;
         draftUri = getIntent().getData();
-        screenRecorder.videoPath = YTWHelper.prepareFilePathForVideoSaveWithDraftUri(draftUri);
 
         gameName = getIntent().getStringExtra("game_name");
 
@@ -53,6 +53,7 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
         filter.addAction(SRecorderService.ACTION_SCREEN_RECORDER_STARTED);
         filter.addAction(SRecorderService.ACTION_SCREEN_RECORDER_STOPPED);
         registerReceiver(recorderStartedReceiver, filter);
+
     }
 
     @Override
@@ -179,25 +180,25 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
 
         logd("onStop");
         if (isWaitingForStartingRecorder) {
+            isWaitingForStartingRecorder = false;
             screenRecorder.videoLandscape =
                     getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+            screenRecorder.videoPath = YTWHelper.generateFilePathForVideoSaveWithDraftUri(draftUri);
             screenRecorder.start();
-            isWaitingForStartingRecorder = false;
         }
     }
 
     public void onStoppedScreenRecorder() {
-        try {
-            Thread.sleep(3000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        if (isWaitingForCompletingRecorder) {
+            YTWHelper.killAll(SRecorderService.BUILDIN_RECORDER_NAME, false);
+            isWaitingForCompletingRecorder = false;
+            hideProgressDialog();
+            startActivityForResult(new Intent(this, EditVideoActivity.class)
+                            .setData(Uri.parse(screenRecorder.videoPath))
+                            .putExtra("draft_path", draftUri.getPath()),
+                    INTENT_REQUEST_CODE_CUT_VIDEO
+            );
         }
-        hideProgressDialog();
-        startActivityForResult(new Intent(this, EditVideoActivity.class)
-                        .setData(Uri.parse(screenRecorder.videoPath))
-                        .putExtra("draft_path", draftUri.getPath()),
-                INTENT_REQUEST_CODE_CUT_VIDEO
-        );
     }
 
     BroadcastReceiver recorderStartedReceiver = new BroadcastReceiver() {
@@ -266,12 +267,15 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
                 getString(R.string.video_encoder_show_touches_option_title_off));
     }
 
+    private boolean isWaitingForCompletingRecorder;
     @Override
     protected void onStart() {
         super.onStart();
 
         logd("onStart");
+        screenRecorder.videoPath = YTWHelper.prepareFilePathForVideoSaveWithDraftUri(draftUri);
         if (screenRecorder.stop()) {
+            isWaitingForCompletingRecorder = true;
             showProgressDialog(R.string.stopping_screen_recorder);
             new Handler(getMainLooper()).postDelayed(new Runnable() {
                 @Override

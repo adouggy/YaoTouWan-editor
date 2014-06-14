@@ -247,7 +247,7 @@ public class RecordScreenService4KitKat extends SRecorderService {
         try {
             if (doInitAudioRecorder()) {
                 for (int i=0; i<100; i++) {
-                    if (YTWHelper.isBuildinScreenRecorderRunning()) {
+                    if (YTWHelper.getPid(BUILDIN_RECORDER_NAME) > 0) {
                         String audioFilePath = videoPath.substring(0, videoPath.length() - 4) + "-a.mp4";
                         initRecorder(YTWHelper.correctFilePath(audioFilePath), 0, 0, 0, false);
                         if (doStartAudioRecorder()) {
@@ -423,19 +423,12 @@ public class RecordScreenService4KitKat extends SRecorderService {
         Log.d("Yaotouwan_" + getClass().getSimpleName().toString(), msg);
     }
 
-    String indicatorFilePath() {
-        return new File(new File(videoPath).getParent(), ".record").getAbsolutePath();
-    }
-
     void touchIndicatorFile() {
         try {
             new File(indicatorFilePath()).createNewFile();
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-    void rmIndicatorFile() {
-        new File(indicatorFilePath()).delete();
     }
 
     void prepareRecordScript() {

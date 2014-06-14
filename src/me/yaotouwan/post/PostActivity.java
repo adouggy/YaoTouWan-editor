@@ -135,7 +135,13 @@ public class PostActivity extends BaseActivity {
         preloadGameList();
 
         SRecorderService.rmIndicatorFile();
-        YTWHelper.killAll(SRecorderService.BUILDIN_RECORDER_NAME, false);
+        new AsyncTask() {
+            @Override
+            protected Object doInBackground(Object[] params) {
+                YTWHelper.killAll(SRecorderService.BUILDIN_RECORDER_NAME, false);
+                return null;
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     @Override
@@ -718,7 +724,7 @@ public class PostActivity extends BaseActivity {
             if (isUploadingMedia()) {
                 Intent intent = new Intent("post_media_updated");
                 intent.setData(Uri.parse(draftFile.getAbsolutePath()));
-                LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+                sendBroadcast(intent);
             } else {
                 Intent intent = new Intent(this, UploadPostMediaService.class);
                 intent.setData(Uri.parse(draftFile.getAbsolutePath()));
@@ -796,6 +802,8 @@ public class PostActivity extends BaseActivity {
                             return;
                         }
                         YTWHelper.stopQihoo();
+                        // todo move method to better place
+                        SRecorderService.rmIndicatorFile();
                         SelectGameActivity.preLoadGames = gamesInstalled;
                         Intent intent = new Intent(PostActivity.this, SelectGameActivity.class);
                         intent.setData(Uri.parse(draftFile.getAbsolutePath()));

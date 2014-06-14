@@ -174,7 +174,7 @@ void write_audio_frame
     AVPacket pkt = { 0 };
     int got_packet, ret;
     
-    av_init_packet(&pkt);
+//    av_init_packet(&pkt);
     c = st->codec;
 
     // gain volume
@@ -303,7 +303,7 @@ void write_video_frame(AVFormatContext *oc, AVStream *st, int flush)
     
     AVPacket pkt = { 0 };
     int got_packet;
-    av_init_packet(&pkt);
+//    av_init_packet(&pkt);
 
     video_frame->pts = frame_count;
     ret = avcodec_encode_video2(c, &pkt, flush ? NULL : video_frame, &got_packet);

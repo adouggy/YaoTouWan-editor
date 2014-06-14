@@ -54,7 +54,6 @@ public class EditVideoActivity extends BaseActivity {
     private boolean isVideoRotated;
     private ImageView previewImageView;
     private ImageButton playButton;
-    private ProgressDialog mDialog;
     String videoPath;
     Uri draftUri;
     boolean isShouldReplay;
@@ -204,13 +203,32 @@ public class EditVideoActivity extends BaseActivity {
         }
     }
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            pause();
+            List<ActionSheetItem> items = new ArrayList<ActionSheetItem>();
+            items.add(new ActionSheetItem(getString(R.string.cut_video_giveup),
+                    new ActionSheetItem.ActionSheetItemOnClickListener() {
+                        @Override
+                        public void onClick() {
+                            finish();
+                        }
+                    }));
+            items.add(new ActionSheetItem(getString(R.string.cancel), null));
+            ActionSheet.showWithItems(this, items);
+            return false;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     void prepareVideoPlayer() {
         assert videoPath != null;
         if (videoPath.endsWith(".mp4")) {
-            mDialog = new ProgressDialog(this);
-            mDialog.setMessage(getString(R.string.please_wait));
-            mDialog.setCancelable(false);
-            mDialog.show();
+            mProgressDialog = new ProgressDialog(this);
+            mProgressDialog.setMessage(getString(R.string.please_wait));
+            mProgressDialog.setCancelable(false);
+            mProgressDialog.show();
             new ReadVideoInfoTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, videoPath);
         } else {
             loge("failed to get video size");
@@ -218,10 +236,10 @@ public class EditVideoActivity extends BaseActivity {
     }
 
     private void cutVideo() {
-        mDialog = new ProgressDialog(this);
-        mDialog.setMessage(getString(R.string.please_wait));
-        mDialog.setCancelable(false);
-        mDialog.show();
+        mProgressDialog = new ProgressDialog(this);
+        mProgressDialog.setMessage(getString(R.string.please_wait));
+        mProgressDialog.setCancelable(false);
+        mProgressDialog.show();
 
         if (mPlayer != null && mPlayer.isPlaying()) {
             mPlayer.stop();
@@ -232,10 +250,10 @@ public class EditVideoActivity extends BaseActivity {
     }
 
     void mergeVideo() {
-        mDialog = new ProgressDialog(this);
-        mDialog.setMessage(getString(R.string.please_wait));
-        mDialog.setCancelable(false);
-        mDialog.show();
+        mProgressDialog = new ProgressDialog(this);
+        mProgressDialog.setMessage(getString(R.string.please_wait));
+        mProgressDialog.setCancelable(false);
+        mProgressDialog.show();
 
         new MergeVideoTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
@@ -382,7 +400,6 @@ public class EditVideoActivity extends BaseActivity {
     }
 
     public class CutVideoTask extends AsyncTask<Integer, Integer, Boolean> {
-        public static final String TAG	= "recorder";
         String dstfpath;
 
         protected Boolean doInBackground(Integer... args) {
@@ -396,7 +413,7 @@ public class EditVideoActivity extends BaseActivity {
         }
 
         protected void onPostExecute(Boolean result) {
-            mDialog.dismiss();
+            mProgressDialog.dismiss();
             if (result) {
                 if (rotate > 0) {
                     rotate = 0;
@@ -419,9 +436,8 @@ public class EditVideoActivity extends BaseActivity {
     }
 
     class MergeVideoTask extends AsyncTask<Integer, Integer, Boolean> {
-        public static final String TAG	= "recorder";
-
         protected Boolean doInBackground(Integer... args) {
+            logd("start to merge files");
             String srcfpath = videoPath.substring(0, videoPath.length()-4);
             String srcAfPath = videoPath.substring(0, videoPath.length()-4)+"-a.mp4";
             if (new File(srcAfPath).exists())
@@ -434,13 +450,40 @@ public class EditVideoActivity extends BaseActivity {
         }
 
         protected void onPostExecute(Boolean result) {
-            mDialog.dismiss();
+            mProgressDialog.dismiss();
 
+            logd("merge file completed");
             if (result && new File(videoPath).exists()) {
                 prepareVideoPlayer();
             } else {
                 Toast.makeText(EditVideoActivity.this, "合并文件失败", Toast.LENGTH_LONG).show();
             }
+        }
+    }
+
+    private void mergeProgressUpdated(final int mergedCount) {
+        if (splitFilesCount <= 0) {
+            splitFilesCount = countVideoSplits();
+        }
+        logd("merge file progress updated " + mergedCount + "/" + splitFilesCount);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (mProgressDialog.isShowing())
+                    mProgressDialog.setProgress(mergedCount * 100 / splitFilesCount);
+            }
+        });
+    }
+
+    private int splitFilesCount;
+    private int countVideoSplits() {
+        int i = 0;
+        while (true) {
+            String splitVideoPath = videoPath.substring(0, videoPath.length()-4) + "-" + i + ".mp4";
+            if (!new File(splitVideoPath).exists()) {
+                return i + 1;
+            }
+            i ++;
         }
     }
 
@@ -643,7 +686,7 @@ public class EditVideoActivity extends BaseActivity {
                     e.printStackTrace();
                 }
             }
-            mDialog.dismiss();
+            mProgressDialog.dismiss();
         }
     }
 

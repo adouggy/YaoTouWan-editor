@@ -546,7 +546,11 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
         }
 
         if ((ret = avformat_open_input(&vifmt_ctx, split_video_fn, 0, 0)) < 0) {
-            LOGE("Could not open input file '%s', %s", split_video_fn, av_err2str(ret));
+            LOGE("Could not open video input file '%s', %s", split_video_fn, av_err2str(ret));
+            if (c > 0) {
+                ret = 100;
+                goto end_write;
+            }
             goto end;
         }
 
@@ -559,11 +563,11 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
 
             if ((ret = avformat_open_input(&aifmt_ctx, in_audio_fn, 0, 0)) < 0) {
                 LOGE("Could not open input audio file '%s', %s", in_audio_fn, av_err2str(ret));
-                goto end;
+//                goto end;
             }
-            if ((ret = avformat_find_stream_info(aifmt_ctx, 0)) < 0) {
+            if (aifmt_ctx && (ret = avformat_find_stream_info(aifmt_ctx, 0)) < 0) {
                 LOGE("Failed to retrieve input audio stream information %s", av_err2str(ret));
-                goto end;
+//                goto end;
             }
 
             avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, out_fn);
@@ -598,23 +602,25 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
             rotate %= 360;
             set_rotate_to_video_stream(video_out_stream, rotate);
 
-            // assume only contains audio stream
-            AVStream *audio_in_stream = aifmt_ctx->streams[0];
-            AVStream *audio_out_stream = avformat_new_stream(ofmt_ctx, audio_in_stream->codec->codec);
-            if (!audio_out_stream) {
-                LOGE("Failed allocating audio output stream\n");
-                ret = AVERROR_UNKNOWN;
-                goto end;
-            }
+            if (aifmt_ctx) {
+                // assume only contains audio stream
+                AVStream *audio_in_stream = aifmt_ctx->streams[0];
+                AVStream *audio_out_stream = avformat_new_stream(ofmt_ctx, audio_in_stream->codec->codec);
+                if (!audio_out_stream) {
+                    LOGE("Failed allocating audio output stream\n");
+                    ret = AVERROR_UNKNOWN;
+                    goto end;
+                }
 
-            ret = avcodec_copy_context(audio_out_stream->codec, audio_in_stream->codec);
-            if (ret < 0) {
-                LOGE("Failed to copy context from input to output stream codec context\n");
-                goto end;
+                ret = avcodec_copy_context(audio_out_stream->codec, audio_in_stream->codec);
+                if (ret < 0) {
+                    LOGE("Failed to copy context from input to output stream codec context\n");
+                    goto end;
+                }
+                audio_out_stream->codec->codec_tag = 0;
+                if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+                    audio_out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
             }
-            audio_out_stream->codec->codec_tag = 0;
-            if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-                audio_out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
             if (!(ofmt->flags & AVFMT_NOFILE)) {
                 ret = avio_open(&ofmt_ctx->pb, out_fn, AVIO_FLAG_WRITE);
@@ -632,7 +638,7 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
 
 
         while (1) {
-            while (videoTime <= audioTime || audioEnd > 0) {
+            while (videoTime <= audioTime || audioEnd > 0 || !aifmt_ctx) {
                 AVStream *video_in_stream = vifmt_ctx->streams[0];
                 AVStream *video_out_stream = ofmt_ctx->streams[0];
 
@@ -661,7 +667,7 @@ jint Java_me_yaotouwan_screenrecorder_EditVideoActivity_mergeVideo
                 }
             }
 
-            while (!audioEnd && audioTime <= videoTime) {
+            while (aifmt_ctx && !audioEnd && audioTime <= videoTime) {
                 AVStream *audio_in_stream = aifmt_ctx->streams[0];
                 AVStream *audio_out_stream = ofmt_ctx->streams[1];
 
@@ -691,10 +697,16 @@ end_split:
         LOGI("end split file");
         avformat_close_input(&vifmt_ctx);
         c ++;
+
+        jclass java_class = (*env)->GetObjectClass(env, this);
+        jmethodID java_method_id = (*env)->GetMethodID(env, java_class, "mergeProgressUpdated", "(I)V");
+        (*env)->CallVoidMethod(env, this, java_method_id, c);
     }
 
+end_write:
     av_write_trailer(ofmt_ctx);
-    avformat_close_input(&aifmt_ctx);
+    if (aifmt_ctx)
+        avformat_close_input(&aifmt_ctx);
 
 end:
     if (ofmt_ctx && !(ofmt->flags & AVFMT_NOFILE))
