@@ -187,6 +187,7 @@ public class SRecorderService extends Service {
                     }
                 }
                 mAudioRecord.stop();
+                mAudioRecord = null;
                 logd("end reading audio samples");
             }
         }).start();
@@ -209,7 +210,7 @@ public class SRecorderService extends Service {
                         audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
                     int currentVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC);
                     int maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-                    float audioGain = maxVolume * 0.95f / currentVolume;
+                    float audioGain = maxVolume * 0.95f / currentVolume * 2;
 
                     // use loop to consume all missed audio samples
                     while (audioBufferReadOffset < audioBufferWriteOffset && isRecording) {
@@ -327,6 +328,13 @@ public class SRecorderService extends Service {
 	public void onDestroy() {
         logd("onDestroy");
 		super.onDestroy();
+        if (mAudioRecord != null) {
+            if (mAudioRecord.getState() == AudioRecord.STATE_INITIALIZED &&
+                    mAudioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+                mAudioRecord.stop();
+                mAudioRecord = null;
+            }
+        }
 	}
 
     @Override

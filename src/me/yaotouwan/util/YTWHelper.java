@@ -20,7 +20,7 @@ import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.*;
 
 /**
  * Created by jason on 14-3-24.
@@ -118,20 +118,20 @@ public class YTWHelper {
         String[] files = draftMediaDir.list(new FilenameFilter() {
             @Override
             public boolean accept(File dir, String filename) {
-                return filename.endsWith(".mp4");
+                return filename.endsWith("-0.mp4") || filename.endsWith("-a.mp4");
             }
         });
-        if (files.length > 0) {
-            for (String file : files) {
-                if (file.contains("-0.mp4")) {
-                    return new File(draftMediaDir, file.replace("-0", "")).getAbsolutePath();
-                } else if (file.contains("-a.mp4")) {
-                    return new File(draftMediaDir, file.replace("-a", "")).getAbsolutePath();
-                }
+        List<String> filePaths = Arrays.asList(files);
+        Collections.sort(filePaths, new Comparator<String>() {
+            @Override
+            public int compare(String lhs, String rhs) {
+                return rhs.compareTo(lhs);
             }
-        }
-        if (files.length > 0) {
-            return new File(draftMediaDir, files[0]).getAbsolutePath();
+        });
+        if (filePaths.size() > 0) {
+            for (String file : filePaths) {
+                return new File(draftMediaDir, file.substring(0, file.length()-6) + ".mp4").getAbsolutePath();
+            }
         }
         return new File(draftMediaDir, generateRandomFilename("mp4")).getAbsolutePath();
     }
