@@ -183,15 +183,16 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
             isWaitingForStartingRecorder = false;
             screenRecorder.videoLandscape =
                     getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
-            screenRecorder.videoPath = YTWHelper.generateFilePathForVideoSaveWithDraftUri(draftUri);
+            screenRecorder.videoPath = YTWHelper
+                    .generateFilePathForVideoSaveWithDraftUri(draftUri);
             screenRecorder.start();
         }
     }
 
     public void onStoppedScreenRecorder() {
         if (isWaitingForCompletingRecorder) {
-            YTWHelper.killAll(SRecorderService.BUILDIN_RECORDER_NAME, false);
             isWaitingForCompletingRecorder = false;
+            YTWHelper.killAll(SRecorderService.BUILDIN_RECORDER_NAME, false);
             hideProgressDialog();
             startActivityForResult(new Intent(this, EditVideoActivity.class)
                             .setData(Uri.parse(screenRecorder.videoPath))

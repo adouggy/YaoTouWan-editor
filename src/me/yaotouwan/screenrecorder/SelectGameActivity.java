@@ -67,8 +67,6 @@ public class SelectGameActivity extends BaseActivity
 
         draftUri = getIntent().getData();
         screenRecorder = new ScreenRecorder(this, this);
-        screenRecorder.videoPath = YTWHelper
-                .prepareFilePathForVideoSaveWithDraftUri(draftUri);
     }
 
     @Override
@@ -78,7 +76,10 @@ public class SelectGameActivity extends BaseActivity
         logd("onStart");
         // try to stop recorder
         if (!YTWHelper.hasBuildinScreenRecorder()) {
+            screenRecorder.videoPath = YTWHelper
+                    .prepareFilePathForVideoSaveWithDraftUri(draftUri);
             if (screenRecorder.stop()) {
+                isWaitingForCompletingRecorder = true;
                 showProgressDialog(R.string.stopping_screen_recorder);
                 if (preLoadGames != null) {
                     gamesInstalled = preLoadGames;
@@ -391,18 +392,24 @@ public class SelectGameActivity extends BaseActivity
     protected void onStop() {
         super.onStop();
         if (isWaitingForStartRecorder) {
-            screenRecorder.start();
             isWaitingForStartRecorder = false;
+            screenRecorder.videoPath = YTWHelper
+                    .generateFilePathForVideoSaveWithDraftUri(draftUri);
+            screenRecorder.start();
         }
     }
 
+    boolean isWaitingForCompletingRecorder;
     public void onStoppedScreenRecorder() {
-        hideProgressDialog();
-        startActivityForResult(new Intent(this, EditVideoActivity.class)
-                        .setData(Uri.parse(screenRecorder.videoPath))
-                        .putExtra("draft_path", draftUri.getPath())
-                        .putExtra("rotate", estimatedRotateInGame),
-                INTENT_REQUEST_CODE_CUT_VIDEO);
+        if (isWaitingForCompletingRecorder) {
+            isWaitingForCompletingRecorder = false;
+            hideProgressDialog();
+            startActivityForResult(new Intent(this, EditVideoActivity.class)
+                            .setData(Uri.parse(screenRecorder.videoPath))
+                            .putExtra("draft_path", draftUri.getPath())
+                            .putExtra("rotate", estimatedRotateInGame),
+                    INTENT_REQUEST_CODE_CUT_VIDEO);
+        }
     }
 
     int estimatedRotateInGame;

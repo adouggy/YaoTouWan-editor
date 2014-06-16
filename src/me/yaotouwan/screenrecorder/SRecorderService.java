@@ -200,7 +200,7 @@ public class SRecorderService extends Service {
                         if (audioBufferReadOffset < audioBufferWriteOffset - videoFPS) { // give up too many missed
                             audioBufferReadOffset = audioBufferWriteOffset - videoFPS;
                         }
-//                        logd("encode frame");
+//                        logd(".");
                         encodeFrame(audioBuffers.get(audioBufferReadOffset % audioBuffers.size()), audioSamplesRead, audioGain);
                         audioBufferReadOffset ++;
 //                        logd("encode frame " + audioBufferReadOffset);
@@ -331,7 +331,7 @@ public class SRecorderService extends Service {
     @Override
     public boolean onUnbind(Intent intent) {
         logd("unbind " + intent);
-        if (!YTWHelper.hasBuildinScreenRecorder() && !new File(indicatorFilePath()).exists()) {
+        if (!YTWHelper.hasBuildinScreenRecorder() && new File(indicatorFilePath()).exists()) {
             Toast.makeText(this, "内存不足，录屏已被终止", Toast.LENGTH_LONG).show();
         }
         stopRecordingScreen();

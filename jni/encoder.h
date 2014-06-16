@@ -15,10 +15,10 @@
 #include <libswresample/swresample.h>
 
 void close_video(AVFormatContext *oc, AVStream *st);
-void write_video_frame(AVFormatContext *oc, AVStream *st, int flush);
+int write_video_frame(AVFormatContext *oc, AVStream *st);
 void open_video(AVFormatContext *oc, AVCodec *codec, AVStream *st);
 void close_audio(AVFormatContext *oc, AVStream *st);
-void write_audio_frame(AVFormatContext *oc, AVStream *st, int flush, uint8_t *audio_samples, int audio_samples_count, float audio_gain);
+void write_audio_frame(AVFormatContext *oc, AVStream *st, uint8_t *audio_samples, int audio_samples_count, float audio_gain);
 void open_audio(AVFormatContext *oc, AVCodec *codec, AVStream *st);
 AVStream *add_stream(AVFormatContext *oc, AVCodec **codec, enum AVCodecID codec_id);
 int write_frame(AVFormatContext *fmt_ctx, const AVRational *time_base, AVStream *st, AVPacket *pkt);
