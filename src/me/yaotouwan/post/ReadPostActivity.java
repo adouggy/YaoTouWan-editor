@@ -482,7 +482,10 @@ public class ReadPostActivity extends BaseActivity {
 
 			textView.setMinLines(0);
 
-			int style = getTextStyle(position);
+			Integer style = getTextStyle(position);
+			if( style == null )
+				style = 0;
+			
 			applyStyle(textView, text, style);
 			if (text == null || text.length() == 0) {
 				hideView(textView);

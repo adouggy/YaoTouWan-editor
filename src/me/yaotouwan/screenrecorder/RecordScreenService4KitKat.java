@@ -88,49 +88,6 @@ public class RecordScreenService4KitKat extends SRecorderService {
         return true;
     }
 
-    private void stopBuildinRecorder() {
-        rmIndicatorFile();
-        if (pid > 0) {
-            BufferedReader pbr = null;
-            try {
-                Process p = Runtime.getRuntime().exec("ps | grep screenrecord");
-                pbr = StreamHelper.reader(p.getInputStream());
-                while (true) {
-                    String line = pbr.readLine();
-                    if (line == null) return;
-                    if (line.trim().startsWith("USER")) continue;
-                    logd(line);
-                    String[] parts = line.split("\\s+");
-                    if (parts.length > 1) {
-                        String pidStr = parts[1];
-                        try {
-                            int aPid = Integer.parseInt(pidStr);
-                            if (aPid > pid) {
-                                pid = aPid;
-                                break;
-                            }
-                        } catch (NumberFormatException e) {
-                        }
-                    }
-                }
-                p.waitFor();
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                if (pbr != null) {
-                    try {
-                        pbr.close();
-                    } catch (IOException e) {
-                    }
-                }
-            }
-
-            stopBuildinRecorder("su -c kill -2 " + pid);
-            logd("kill ss with pid " + pid);
-            pid = 0;
-        }
-    }
-
     public void startRecordingScreen() {
         logd("start recording screen");
         startBuildinRecorder();
