@@ -331,6 +331,9 @@ public class SRecorderService extends Service {
     @Override
     public boolean onUnbind(Intent intent) {
         logd("unbind " + intent);
+        if (!YTWHelper.hasBuildinScreenRecorder() && !new File(indicatorFilePath()).exists()) {
+            Toast.makeText(this, "内存不足，录屏已被终止", Toast.LENGTH_LONG).show();
+        }
         stopRecordingScreen();
         return super.onUnbind(intent);
     }
