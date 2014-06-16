@@ -274,9 +274,10 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
         super.onStart();
 
         logd("onStart");
-        screenRecorder.videoPath = YTWHelper.prepareFilePathForVideoSaveWithDraftUri(draftUri);
+        screenRecorder.videoPath = YTWHelper
+                .prepareFilePathForVideoSaveWithDraftUri(draftUri);
+        isWaitingForCompletingRecorder = true;
         if (screenRecorder.stop()) {
-            isWaitingForCompletingRecorder = true;
             showProgressDialog(R.string.stopping_screen_recorder);
             new Handler(getMainLooper()).postDelayed(new Runnable() {
                 @Override

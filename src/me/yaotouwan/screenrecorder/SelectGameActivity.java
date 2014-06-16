@@ -75,28 +75,26 @@ public class SelectGameActivity extends BaseActivity
 
         logd("onStart");
         // try to stop recorder
-        if (!YTWHelper.hasBuildinScreenRecorder()) {
-            screenRecorder.videoPath = YTWHelper
-                    .prepareFilePathForVideoSaveWithDraftUri(draftUri);
-            if (screenRecorder.stop()) {
-                isWaitingForCompletingRecorder = true;
-                showProgressDialog(R.string.stopping_screen_recorder);
-                if (preLoadGames != null) {
-                    gamesInstalled = preLoadGames;
-                    reloadData();
-                    preLoadGames = null;
-                }
-                new Handler(getMainLooper()).postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (mProgressDialog != null && mProgressDialog.isShowing()) {
-                            logd("force stop recorder");
-                            onStoppedScreenRecorder();
-                        }
-                    }
-                }, 3000);
-                return;
+        screenRecorder.videoPath = YTWHelper
+                .prepareFilePathForVideoSaveWithDraftUri(draftUri);
+        isWaitingForCompletingRecorder = true;
+        if (screenRecorder.stop()) {
+            showProgressDialog(R.string.stopping_screen_recorder);
+            if (preLoadGames != null) {
+                gamesInstalled = preLoadGames;
+                reloadData();
+                preLoadGames = null;
             }
+            new Handler(getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (mProgressDialog != null && mProgressDialog.isShowing()) {
+                        logd("force stop recorder");
+                        onStoppedScreenRecorder();
+                    }
+                }
+            }, 3000);
+            return;
         }
 
         if (preLoadGames != null) {
@@ -316,7 +314,7 @@ public class SelectGameActivity extends BaseActivity
                 public void onClick(View v) {
                     packetName = getItem(position).pname;
                     gameName = getItem(position).appname;
-                    if (YTWHelper.hasBuildinScreenRecorder()) {
+                    if (YTWHelper.hasBuildinScreenRecorder() && packetName == null) {
                         Intent intent = new Intent(SelectGameActivity.this, RecordScreenActivity.class);
                         intent.setData(draftUri);
                         if (gameName != null) {
@@ -403,6 +401,9 @@ public class SelectGameActivity extends BaseActivity
     public void onStoppedScreenRecorder() {
         if (isWaitingForCompletingRecorder) {
             isWaitingForCompletingRecorder = false;
+            if (YTWHelper.hasBuildinScreenRecorder()) {
+                YTWHelper.killAll(SRecorderService.BUILDIN_RECORDER_NAME, false);
+            }
             hideProgressDialog();
             startActivityForResult(new Intent(this, EditVideoActivity.class)
                             .setData(Uri.parse(screenRecorder.videoPath))
