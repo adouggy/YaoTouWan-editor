@@ -625,6 +625,7 @@ public class EditVideoActivity extends BaseActivity {
                         @Override
                         public void onPrepared(MediaPlayer mp) {
                             isPlayerPrepared = true;
+                            mPlayer.seekTo((int) (.5 * videoDuration));
                         }
                     });
                     mPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
@@ -639,7 +640,6 @@ public class EditVideoActivity extends BaseActivity {
                             new CutVideoSelector.OnValueChangedListener() {
                                 @Override
                                 public void onChangePreviewProgress(final double previewProgress) {
-                                    logd("proview progress " + previewProgress);
                                     if (mPlayer.isPlaying()) {
                                         pause();
                                     }
