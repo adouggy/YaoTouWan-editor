@@ -11,6 +11,8 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.os.AsyncTask;
+import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.OrientationEventListener;
@@ -44,6 +46,7 @@ public class SRecorderService extends Service {
             = "me.yaotouwan.screenrecorder.action.stopped";
 
     // parameters for video
+    boolean videoPortrait;
     boolean videoLandscape;
 
 	protected native int initRecorder(String filename, int rotation, int videoBitrate, int videoFPS, boolean recordVideo);
@@ -63,33 +66,46 @@ public class SRecorderService extends Service {
         try {
             out = new FileOutputStream(recordScriptPath);
             BufferedWriter writer = StreamHelper.writer(out);
-            String size = videoWidth + "x" + videoHeight;
+            String size;
             if (videoLandscape) {
                 size = videoHeight + "x" + videoWidth;
+            } else if (videoPortrait) {
+                size = videoWidth + "x" + videoHeight;
+            } else {
+                size = "`cat " + sizeFilePath() + "`";
             }
+            // write the default
+            writeSizeWithOrientation(getResources().getConfiguration().orientation);
+            new Handler(getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    writeSizeWithOrientation(getResources().getConfiguration().orientation);
+                }
+            }, 1000);
             String bitrate = "";
             if (videoBitrate > 0) {
                 bitrate += videoBitrate;
             }
-            String firstVideoPath = videoPath.substring(0, videoPath.length() - 4);
-            firstVideoPath = YTWHelper.correctFilePath(firstVideoPath);
+            String distVideoPath = videoPath.substring(0, videoPath.length() - 4);
+            distVideoPath = YTWHelper.correctFilePath(distVideoPath);
             String content =
-                "sleep 3\n" +
-                "c=0\n" +
-                "while [ $c -lt 20 ]\n" +
-                "do\n" +
-                    "if [ -e {indicatorFilePath} ]; then\n" +
-                        "/system/bin/screenrecord  " +
-                            "--size {size} " +
-                            "--bit-rate {bitrate} " +
-                            "{firstVideoPath}-${c}.mp4\n" +
-                    "fi\n" +
-                    "let c=c+1\n" +
-                "done\n";
-            content = content.replace("{indicatorFilePath}", indicatorFilePath())
+                    "sleep 3\n" +
+                    "size={size}\n" +
+                    "c=0\n" +
+                    "while [ $c -lt 20 ]\n" +
+                    "do\n" +
+                        "if [ -e {indicator_file_path} ]; then\n" +
+                            "/system/bin/screenrecord  " +
+                                "--size $size " +
+                                "--bit-rate {bitrate} " +
+                                "{dist_video_path}-${c}.mp4\n" +
+                        "fi\n" +
+                        "let c=c+1\n" +
+                    "done\n";
+            content = content.replace("{indicator_file_path}", indicatorFilePath())
                     .replace("{size}", size)
                     .replace("{bitrate}", bitrate)
-                    .replace("{firstVideoPath}", firstVideoPath);
+                    .replace("{dist_video_path}", distVideoPath);
             writer.write(content);
             writer.flush();
 
@@ -319,6 +335,7 @@ public class SRecorderService extends Service {
             videoPath = intent.getData().getPath();
             logd("start recording screen " + videoPath);
             videoLandscape = intent.getBooleanExtra("video_landscape", false);
+            videoPortrait = intent.getBooleanExtra("video_portrait", false);
             videoWidth = intent.getIntExtra("video_width", 0);
             videoHeight = intent.getIntExtra("video_height", 0);
             videoBitrate = intent.getIntExtra("video_bitrate", 0);
@@ -386,15 +403,17 @@ public class SRecorderService extends Service {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(Intent.ACTION_CONFIGURATION_CHANGED)) {
+                logd("update orientation");
                 onUpdateOrientation();
             }
         }
 
         public void onUpdateOrientation() {
-            if (orientation != getResources().getConfiguration().orientation) {
-                logd("update orientation");
+            int curOrientation = getResources().getConfiguration().orientation;
+            writeSizeWithOrientation(curOrientation);
+            if (orientation != curOrientation) {
                 long currentTime = System.currentTimeMillis();
-                orientation = getResources().getConfiguration().orientation;
+                orientation = curOrientation;
                 if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
                     timeAtOrientationPortrait += currentTime - updateTime;
                 } else {
@@ -404,6 +423,15 @@ public class SRecorderService extends Service {
                 updateTime = currentTime;
             }
         }
+    }
+
+    public void writeSizeWithOrientation(int orientation) {
+        String size = videoWidth + "x" + videoHeight;
+        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            size = videoHeight + "x" + videoWidth;
+        }
+        logd("size = " + size);
+        YTWHelper.writeTextContentToFile(size, sizeFilePath());
     }
 
     public int estimateOrientation() {
@@ -428,5 +456,9 @@ public class SRecorderService extends Service {
 
     public static void rmIndicatorFile() {
         new File(indicatorFilePath()).delete();
+    }
+
+    public String sizeFilePath() {
+        return new File(YTWHelper.postsDir(), ".size").getAbsolutePath();
     }
 }

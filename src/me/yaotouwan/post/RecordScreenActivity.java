@@ -181,8 +181,10 @@ public class RecordScreenActivity extends BaseActivity implements ScreenRecorder
         logd("onStop");
         if (isWaitingForStartingRecorder) {
             isWaitingForStartingRecorder = false;
+
             screenRecorder.videoLandscape =
                     getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+            screenRecorder.videoPortrait = !screenRecorder.videoLandscape;
             screenRecorder.videoPath = YTWHelper
                     .generateFilePathForVideoSaveWithDraftUri(draftUri);
             screenRecorder.start();

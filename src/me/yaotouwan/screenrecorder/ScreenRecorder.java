@@ -23,11 +23,11 @@ public class ScreenRecorder {
     public Activity context;
     public int showTouches;
     public String videoPath;
+    public boolean videoPortrait;
     public boolean videoLandscape;
     public int videoQuality;
     public boolean moveToBackAlert;
     public ScreenRecorderListener listener;
-    private boolean recordedVideoLandscape;
 
     public static Class getScreenServiceClassBasedOnSystem() {
         if (Build.MANUFACTURER.equals("Meizu")) {
@@ -111,10 +111,10 @@ public class ScreenRecorder {
         Intent recordIntent = new Intent(context, getScreenServiceClassBasedOnSystem());
         recordIntent.setData(Uri.parse(videoPath));
         recordIntent.putExtra("video_landscape", videoLandscape);
+        recordIntent.putExtra("video_portrait", videoPortrait);
         recordIntent.putExtra("video_width", getVideoWidthByQuality(videoQuality));
         recordIntent.putExtra("video_height", getVideoHeightByQuality(videoQuality));
         recordIntent.putExtra("video_bitrate", getVideoBitrateByQuality(videoQuality));
-        recordedVideoLandscape = videoLandscape;
         Log.d("Recorder", "start service");
 //        context.startService(recordIntent);
         context.bindService(recordIntent, recorderSerivceConnection, Context.BIND_AUTO_CREATE);
