@@ -13,7 +13,7 @@
 	              android:layout_alignParentBottom="true"
 			>
 		<View android:layout_width="match_parent"
-		      android:layout_height="2dp"
+		      android:layout_height="1dp"
 		      android:background="@color/post_seperator_default"
 				/>
 		<LinearLayout android:layout_width="match_parent"
@@ -84,7 +84,7 @@
 			             android:layout_marginRight="30dp"
 			             android:scaleType="fitCenter"
 			             android:background="@drawable/post_toolbar_button_bg"
-			             android:src="@drawable/post_item_pop_menu_head_btn_src"
+			             android:src="@drawable/post_item_pop_menu_head_btn"
 			             android:onClick="onClickHeadButton"
 			             android:visibility="gone"
 					/>
@@ -98,7 +98,7 @@
 			             android:layout_marginRight="30dp"
 			             android:scaleType="fitCenter"
 			             android:background="@drawable/post_toolbar_button_bg"
-			             android:src="@drawable/post_item_pop_menu_bold_btn_src"
+			             android:src="@drawable/post_item_pop_menu_bold_btn"
 			             android:onClick="onClickBoldButton"
 			             android:visibility="gone"
 					/>
@@ -112,7 +112,7 @@
 			             android:layout_marginRight="30dp"
 			             android:scaleType="fitCenter"
 			             android:background="@drawable/post_toolbar_button_bg"
-			             android:src="@drawable/post_item_pop_menu_italy_btn_src"
+			             android:src="@drawable/post_item_pop_menu_italy_btn"
 			             android:onClick="onClickItalyButton"
 			             android:visibility="gone"
 					/>
@@ -125,7 +125,7 @@
 			             android:paddingRight="20dp"
 			             android:scaleType="fitCenter"
 			             android:background="@drawable/post_toolbar_button_bg"
-			             android:src="@drawable/post_item_pop_menu_quote_btn_src"
+			             android:src="@drawable/post_item_pop_menu_quote_btn"
 			             android:onClick="onClickQuoteButton"
 			             android:visibility="gone"
 					/>
