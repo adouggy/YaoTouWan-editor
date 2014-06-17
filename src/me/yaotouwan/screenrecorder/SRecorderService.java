@@ -56,7 +56,10 @@ public class SRecorderService extends Service {
     protected native int executeAsyncShellTask(String command);
 
     static {
-        System.loadLibrary("srecorder");
+        try {
+            System.loadLibrary("srecorder");
+        } catch (UnsatisfiedLinkError e) {
+        }
     }
 
     boolean startBuildinRecorder() {

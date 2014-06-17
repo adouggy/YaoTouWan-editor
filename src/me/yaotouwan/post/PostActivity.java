@@ -2,6 +2,7 @@ package me.yaotouwan.post;
 
 import android.app.ActivityManager;
 import android.content.*;
+import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.*;
 import android.net.Uri;
@@ -150,39 +151,6 @@ public class PostActivity extends BaseActivity {
         return super.onCreateOptionsMenu(menu);
     }
 
-    private void showEditMenu(boolean editMode) {
-        MenuItem boldItem = menuOnActionBar.getItem(0);
-        MenuItem italicItem = menuOnActionBar.getItem(1);
-        MenuItem quoteItem = menuOnActionBar.getItem(2);
-        MenuItem headItem = menuOnActionBar.getItem(3);
-        boldItem.setVisible(editMode);
-        italicItem.setVisible(editMode);
-        quoteItem.setVisible(editMode);
-        headItem.setVisible(editMode);
-        boldItem.setIcon(R.drawable.post_item_pop_menu_bold_btn);
-        italicItem.setIcon(R.drawable.post_item_pop_menu_italy_btn);
-        quoteItem.setIcon(R.drawable.post_item_pop_menu_quote_btn);
-        headItem.setIcon(R.drawable.post_item_pop_menu_head_btn);
-
-        int style = adapter.getTextStyle(adapter.editingTextRow);
-        switch (style) {
-            case PostListViewDataSource.TEXT_STYLE_BOLD:
-                boldItem.setIcon(R.drawable.post_item_pop_menu_bold_btn_active);
-                break;
-            case PostListViewDataSource.TEXT_STYLE_ITALIC:
-                italicItem.setIcon(R.drawable.post_item_pop_menu_italy_btn_active);
-                break;
-            case PostListViewDataSource.TEXT_STYLE_QUOTE:
-                quoteItem.setIcon(R.drawable.post_item_pop_menu_quote_btn_active);
-                break;
-            case PostListViewDataSource.TEXT_STYLE_HEAD:
-                headItem.setIcon(R.drawable.post_item_pop_menu_head_btn_active);
-                break;
-            default:
-                break;
-        }
-    }
-
     @Override
     public void onBackPressed() {
         if (adapter.editingTextRow >= 0) {
@@ -237,7 +205,7 @@ public class PostActivity extends BaseActivity {
         hideView(contentEditor);
 
         if (adapter.editingTextRow >= 0) {
-            showEditMenu(false);
+            setToolbarMode(ToolbarMode_Normal);
             String text = contentEditor.getText().toString();
             adapter.updateText(adapter.editingTextRow, text);
             adapter.editingTextRow = -1;
@@ -275,6 +243,7 @@ public class PostActivity extends BaseActivity {
     protected void onKeyboardShow() {
         super.onKeyboardShow();
         showKeyboard4EditingTitle = false;
+        setViewHeight(contentEditor, (int) toolbar.getY());
     }
 
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -658,40 +627,40 @@ public class PostActivity extends BaseActivity {
         return null;
     }
 
-    public void onClickBoldMenuItem(MenuItem item) {
+    public void onClickBoldButton(View v) {
         adapter.toggleTextStyle(adapter.editingTextRow,
                 PostListViewDataSource.TEXT_STYLE_BOLD);
         adapter.applyStyle(contentEditor,
                 contentEditor.getText().toString(),
                 adapter.getTextStyle(adapter.editingTextRow));
-        showEditMenu(true);
+        setToolbarMode(ToolbarMode_Edit);
     }
 
-    public void onClickItalyMenuItem(MenuItem item) {
+    public void onClickItalyButton(View v) {
         adapter.toggleTextStyle(adapter.editingTextRow,
                 PostListViewDataSource.TEXT_STYLE_ITALIC);
         adapter.applyStyle(contentEditor,
                 contentEditor.getText().toString(),
                 adapter.getTextStyle(adapter.editingTextRow));
-        showEditMenu(true);
+        setToolbarMode(ToolbarMode_Edit);
     }
 
-    public void onClickQuoteMenuItem(MenuItem item) {
+    public void onClickQuoteButton(View v) {
         adapter.toggleTextStyle(adapter.editingTextRow,
                 PostListViewDataSource.TEXT_STYLE_QUOTE);
         adapter.applyStyle(contentEditor,
                 contentEditor.getText().toString(),
                 adapter.getTextStyle(adapter.editingTextRow));
-        showEditMenu(true);
+        setToolbarMode(ToolbarMode_Edit);
     }
 
-    public void onClickHeadMenuItem(MenuItem item) {
+    public void onClickHeadButton(View v) {
         adapter.toggleTextStyle(adapter.editingTextRow,
                 PostListViewDataSource.TEXT_STYLE_HEAD);
         adapter.applyStyle(contentEditor,
                 contentEditor.getText().toString(),
                 adapter.getTextStyle(adapter.editingTextRow));
-        showEditMenu(true);
+        setToolbarMode(ToolbarMode_Edit);
     }
 
     public void onFinishClick(MenuItem menuItem) {
@@ -770,7 +739,7 @@ public class PostActivity extends BaseActivity {
         return new String[]{"_id", "text", "image_src", "video_src", "text_style"};
     }
 
-    public void onAppendTextClick(View view) {
+    public void onClickAppendTextButton(View view) {
         if (canAppend()) {
             adapter.appendRow();
         }
@@ -786,12 +755,12 @@ public class PostActivity extends BaseActivity {
         return adapter.hasDataAtRow(adapter.getCount() - 1);
     }
 
-    public void onAppendPhotoClick(View view) {
+    public void onClickAppendPhotoButton(View view) {
         Intent intent = new Intent(this, PhotoAlbum.class);
         startActivityForResult(intent, INTENT_REQUEST_CODE_SELECT_PHOTO);
     }
 
-    public void onAppendVideoClick(View view) {
+    public void onClickAppendVideoButton(View view) {
         List<ActionSheetItem> items = new ArrayList<ActionSheetItem>();
         items.add(new ActionSheetItem(getString(R.string.post_select_section_type_title_record_game),
                 new ActionSheetItem.ActionSheetItemOnClickListener() {
@@ -832,17 +801,70 @@ public class PostActivity extends BaseActivity {
         });
     }
 
-    void setToolbarDeleteMode(boolean deleteMode) {
-        if (deleteMode) {
+    private static final int ToolbarMode_Normal = 1;
+    private static final int ToolbarMode_Delete = 2;
+    private static final int ToolbarMode_Edit = 3;
+    void setToolbarMode(int toolbarMode) {
+        if (toolbarMode == ToolbarMode_Delete) {
             hideView(R.id.post_toolbar_button_append_text);
             hideView(R.id.post_toolbar_button_append_image);
             hideView(R.id.post_toolbar_button_append_video);
+
             showView(R.id.post_toolbar_button_delete);
-        } else {
+
+            hideView(R.id.post_toolbar_button_style_head);
+            hideView(R.id.post_toolbar_button_style_bold);
+            hideView(R.id.post_toolbar_button_style_italy);
+            hideView(R.id.post_toolbar_button_style_quote);
+        } else
+        if (toolbarMode == ToolbarMode_Normal) {
             showView(R.id.post_toolbar_button_append_text);
             showView(R.id.post_toolbar_button_append_image);
             showView(R.id.post_toolbar_button_append_video);
+
             hideView(R.id.post_toolbar_button_delete);
+
+            hideView(R.id.post_toolbar_button_style_head);
+            hideView(R.id.post_toolbar_button_style_bold);
+            hideView(R.id.post_toolbar_button_style_italy);
+            hideView(R.id.post_toolbar_button_style_quote);
+        } else
+        if (toolbarMode == ToolbarMode_Edit) {
+            hideView(R.id.post_toolbar_button_append_text);
+            hideView(R.id.post_toolbar_button_append_image);
+            hideView(R.id.post_toolbar_button_append_video);
+
+            hideView(R.id.post_toolbar_button_delete);
+
+            showView(R.id.post_toolbar_button_style_head);
+            showView(R.id.post_toolbar_button_style_bold);
+            showView(R.id.post_toolbar_button_style_italy);
+            showView(R.id.post_toolbar_button_style_quote);
+
+            findViewById(R.id.post_toolbar_button_style_head).setSelected(false);
+            findViewById(R.id.post_toolbar_button_style_bold).setSelected(false);
+            findViewById(R.id.post_toolbar_button_style_italy).setSelected(false);
+            findViewById(R.id.post_toolbar_button_style_quote).setSelected(false);
+
+            if (adapter.editingTextRow >= 0) {
+                int style = adapter.getTextStyle(adapter.editingTextRow);
+                switch (style) {
+                    case PostListViewDataSource.TEXT_STYLE_HEAD:
+                        findViewById(R.id.post_toolbar_button_style_head).setSelected(true);
+                        break;
+                    case PostListViewDataSource.TEXT_STYLE_BOLD:
+                        findViewById(R.id.post_toolbar_button_style_bold).setSelected(true);
+                        break;
+                    case PostListViewDataSource.TEXT_STYLE_ITALIC:
+                        findViewById(R.id.post_toolbar_button_style_italy).setSelected(true);
+                        break;
+                    case PostListViewDataSource.TEXT_STYLE_QUOTE:
+                        findViewById(R.id.post_toolbar_button_style_quote).setSelected(true);
+                        break;
+                    default:
+                        break;
+                }
+            }
         }
     }
 
@@ -1104,7 +1126,7 @@ public class PostActivity extends BaseActivity {
         @Override
         public void startDrag(int position) {
             draggingRow = position;
-            setToolbarDeleteMode(true);
+            setToolbarMode(ToolbarMode_Delete);
             hideSoftKeyboard();
         }
 
@@ -1128,7 +1150,7 @@ public class PostActivity extends BaseActivity {
 
         @Override
         public void drop(int from, int to) {
-            setToolbarDeleteMode(false);
+            setToolbarMode(ToolbarMode_Normal);
             if (deleting) {
                 YTWHelper.confirm(PostActivity.this, getString(R.string.post_item_delete_row), new DialogInterface.OnClickListener() {
                     @Override
@@ -1176,7 +1198,7 @@ public class PostActivity extends BaseActivity {
                 contentEditor.requestFocus();
                 showSoftKeyboard(true);
                 editingTextRow = position;
-                showEditMenu(true);
+                setToolbarMode(ToolbarMode_Edit);
             }
         }
 
