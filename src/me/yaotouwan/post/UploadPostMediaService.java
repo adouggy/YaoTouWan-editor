@@ -32,6 +32,9 @@ public class UploadPostMediaService extends Service {
     Uri postJSONFileUri;
     boolean mediaUpdated;
 
+    public static final String ACTION_POST_MEDIA_UPDATED = "post_media_updated";
+    public static final String ACTION_POST_MEDIA_PROGRESS = "upload_post_media_progress";
+
     public IBinder onBind(Intent intent) {
         return null;
     }
@@ -45,7 +48,7 @@ public class UploadPostMediaService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         registerReceiver(mMessageReceiver,
-                new IntentFilter("post_media_updated"));
+                new IntentFilter(ACTION_POST_MEDIA_UPDATED));
 
         if (intent != null) {
             postJSONFileUri = intent.getData();
@@ -160,7 +163,7 @@ public class UploadPostMediaService extends Service {
 
     void broadcastProgress(float progress) {
         sendBroadcast(new Intent()
-                .setAction("upload_post_media_progress")
+                .setAction(ACTION_POST_MEDIA_PROGRESS)
                 .setDataAndType(postJSONFileUri, "application/json")
                 .addCategory(Intent.CATEGORY_DEFAULT)
                 .putExtra("progress", progress));

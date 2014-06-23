@@ -45,7 +45,7 @@ public class BaseActivity extends SherlockFragmentActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        setTheme(R.style.Theme_Styled);
+        setTheme(me.yaotouwan.R.style.Theme_Styled);
         super.onCreate(savedInstanceState);
 
         setTitleColor(Color.WHITE);
@@ -54,7 +54,7 @@ public class BaseActivity extends SherlockFragmentActivity {
     }
 
     protected void setupActionBar(int title) {
-        ActionBar bar = getActionBar();
+        com.actionbarsherlock.app.ActionBar bar = getSupportActionBar();
         if (bar != null) {
             bar.setDisplayHomeAsUpEnabled(true);
             bar.setDisplayShowHomeEnabled(false);
@@ -83,7 +83,7 @@ public class BaseActivity extends SherlockFragmentActivity {
     }
 
     protected ViewGroup getRootViewGroup() {
-        return (ViewGroup) findViewById(R.id.root_layout);
+        return (ViewGroup) findViewById(me.yaotouwan.R.id.root_layout);
     }
 
     @Override
@@ -110,12 +110,16 @@ public class BaseActivity extends SherlockFragmentActivity {
         Log.w("Yaotouwan_" + this.getLocalClassName().toString(), msg);
     }
 
-    public void pushActivity(Class<? extends Activity> activityClass) {
+    public void log(String msg) {
+        logd(msg);
+    }
+
+    public void pushActivity(Class<? extends SherlockFragmentActivity> activityClass) {
         Intent intent = new Intent(this, activityClass);
         startActivity(intent);
     }
 
-    public void pushActivity(Class<? extends  Activity> activityClass, Uri data) {
+    public void pushActivity(Class<? extends  SherlockFragmentActivity> activityClass, Uri data) {
         Intent intent = new Intent(this, activityClass);
         intent.setData(data);
         startActivity(intent);
@@ -142,7 +146,7 @@ public class BaseActivity extends SherlockFragmentActivity {
 
     public void hideActionBar() {
         if (getSupportActionBar() != null) {
-        	getSupportActionBar().hide();
+            getSupportActionBar().hide();
         }
     }
 
@@ -165,7 +169,7 @@ public class BaseActivity extends SherlockFragmentActivity {
 
     public void showActionBar() {
         if (getSupportActionBar() != null) {
-        	getSupportActionBar().show();
+            getSupportActionBar().show();
         }
     }
 
@@ -193,9 +197,9 @@ public class BaseActivity extends SherlockFragmentActivity {
 
     protected void hideSystemBar() {
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH)
-            findViewById(R.id.root_layout).setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+            findViewById(me.yaotouwan.R.id.root_layout).setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB)
-            findViewById(R.id.root_layout).setSystemUiVisibility(View.STATUS_BAR_HIDDEN);
+            findViewById(me.yaotouwan.R.id.root_layout).setSystemUiVisibility(View.STATUS_BAR_HIDDEN);
     }
 
     public int dpToPx(int dp) {
@@ -373,7 +377,7 @@ public class BaseActivity extends SherlockFragmentActivity {
     }
 
     protected void listenKeyboard() {
-        final View activityRootView = findViewById(R.id.root_layout);
+        final View activityRootView = findViewById(me.yaotouwan.R.id.root_layout);
         if (activityRootView != null) {
             ViewTreeObserver observer = activityRootView.getViewTreeObserver();
             if (observer != null) {
@@ -411,14 +415,14 @@ public class BaseActivity extends SherlockFragmentActivity {
     }
 
     protected void setRootBackground(int colorID) {
-        View rootLayout = findViewById(R.id.root_layout);
+        View rootLayout = findViewById(me.yaotouwan.R.id.root_layout);
         if (rootLayout != null) {
             View rootView = rootLayout.getRootView();
             if (rootView != null) {
                 rootView.setBackgroundColor(colorID);
             }
         }
-    } 
+    }
     protected int marginLeft(View view) {
         ViewGroup.LayoutParams params = view.getLayoutParams();
         if (params != null) {
@@ -547,7 +551,7 @@ public class BaseActivity extends SherlockFragmentActivity {
                 || orientation == ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE;
     }
 
-    public static Point getWindowSize(Activity activity) {
+    public static Point getWindowSize(SherlockFragmentActivity activity) {
         int width = activity.getWindowManager().getDefaultDisplay().getWidth();
         int height = activity.getWindowManager().getDefaultDisplay().getHeight();
         if (width > height)

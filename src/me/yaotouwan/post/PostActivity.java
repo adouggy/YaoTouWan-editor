@@ -74,12 +74,13 @@ public class PostActivity extends BaseActivity {
     Fragment headerFragment;
     Fragment footerFragment;
     Menu menuOnActionBar;
+    boolean hasTitle;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        IntentFilter intentFilter = new IntentFilter("upload_post_media_progress");
+        IntentFilter intentFilter = new IntentFilter(UploadPostMediaService.ACTION_POST_MEDIA_PROGRESS);
         intentFilter.addCategory(Intent.CATEGORY_DEFAULT);
         try {
             intentFilter.addDataType("application/json");
@@ -116,6 +117,13 @@ public class PostActivity extends BaseActivity {
                 }
             }
         });
+        hasTitle = intent.getBooleanExtra("has_title", true);
+        if (!hasTitle) {
+            hideView(R.id.title_seperator5);
+            hideView(R.id.title_seperator6);
+            hideView(R.id.post_title_group);
+        }
+
         contentEditor = (EditText) findViewById(R.id.content_editor);
 
         if (postUri != null) {
@@ -362,9 +370,11 @@ public class PostActivity extends BaseActivity {
                 draft = new JSONObject();
             }
 
-            assert titleEditor != null && titleEditor.getText() != null;
-            String title = titleEditor.getText().toString();
-            draft.put("title", title);
+            if (hasTitle) {
+                assert titleEditor != null && titleEditor.getText() != null;
+                String title = titleEditor.getText().toString();
+                draft.put("title", title);
+            }
 
             JSONArray sections = new JSONArray();
 
@@ -582,6 +592,25 @@ public class PostActivity extends BaseActivity {
         YTWHelper.delete(draftFie);
     }
 
+    public static boolean isPostContentContainMedia(Uri postJSONFileUri) {
+        try {
+            String JSON = YTWHelper.readTextContent(postJSONFileUri);
+            JSONObject post = new JSONObject(JSON);
+            JSONArray sections = post.getJSONArray("sections");
+            for (int i=0; i<sections.length(); i++) {
+                JSONObject section = (JSONObject) sections.get(i);
+                if (section.has("image_src")) {
+                    return true;
+                }
+                if (section.has("video_src")) {
+                    return true;
+                }
+            }
+        } catch (JSONException e) {
+        }
+        return false;
+    }
+
     // read file as json string, used for sending to api, stored in db.
     // image url will be online image url, like yaotouwan://<image_id>
     // video url will be youku video id, like youku://<video_id>
@@ -669,7 +698,7 @@ public class PostActivity extends BaseActivity {
             return;
         }
 
-        if (titleEditor.getText() == null || titleEditor.getText().length() <= 0) {
+        if (hasTitle && (titleEditor.getText() == null || titleEditor.getText().length() <= 0)) {
             Toast.makeText(this, R.string.post_title_required, Toast.LENGTH_LONG).show();
             return;
         }
@@ -691,7 +720,7 @@ public class PostActivity extends BaseActivity {
 //        if (true) return;
         if (adapter.hasData()) {
             if (isUploadingMedia()) {
-                Intent intent = new Intent("post_media_updated");
+                Intent intent = new Intent(UploadPostMediaService.ACTION_POST_MEDIA_UPDATED);
                 intent.setData(Uri.parse(draftFile.getAbsolutePath()));
                 sendBroadcast(intent);
             } else {
