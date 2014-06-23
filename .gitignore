@@ -12,3 +12,5 @@ obj/
 .project
 
 libs/android-support-v4.jar
+
+.settings/org.eclipse.jdt.core.prefs
